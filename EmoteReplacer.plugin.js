@@ -10,7 +10,7 @@ const {clipboard, nativeImage} = require("electron");
 class EmoteReplacer {
     getName() {return "Emote Replacer";}
     getDescription() {return "Replace text with embedded images";}
-    getVersion() {return "0.1.0";}
+    getVersion() {return "0.2.0";}
     getAuthor() {return "Yentis";}
 
     start() {
