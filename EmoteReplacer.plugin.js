@@ -10,14 +10,44 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.3.0",
+            "version": "0.4.0",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
             "title": "What's New?",
-            "items": ["General improvements."]
+            "items": ["Gifs no longer have links!", "You can choose between 3 emote sizes."]
+        }],
+        "defaultConfig": [{
+            "type": "category",
+            "id": "sizeSettings",
+            "name": "Size settings",
+            "collapsible": false,
+            "shown": true,
+            "settings": [{
+                "type": "dropdown",
+                "id": "size",
+                "name": "Size",
+                "note": "What size the emotes should be.",
+                "value": 32,
+                "options": [{
+                    "label": "32px",
+                    "value": 32
+                }, {
+                    "label": "64px",
+                    "value": 64
+                }, {
+                    "label": "128px",
+                    "value": 128
+                }]
+            }, {
+                "type": "textbox",
+                "id": "sampleText",
+                "name": "Sample Text",
+                "note": "Sample Text",
+                "value": "Sample Text",
+            }]
         }],
         "main": "index.js"
     };
@@ -33,15 +63,97 @@ let EmoteReplacer = (() => {
     } : (([Plugin, Api]) => {
         const plugin = (Plugin, Api) => {
             const {DiscordSelectors, PluginUtilities} = Api;
-            const {clipboard, nativeImage} = require("electron");
+
+            // If samogot's DiscordInternals lib exists, use it. Otherwise, fall back on bundled code below.
+            // See: https://github.com/samogot/betterdiscord-plugins/tree/master/v2/1Lib%20Discord%20Internals
+            const DI = window.DiscordInternals;
+            const hasLib = !!(DI && DI.versionCompare && DI.versionCompare(DI.version || "", "1.9") >= 0);
+            const WebpackModules = hasLib && DI.WebpackModules || (() => {
+
+                const req = typeof(webpackJsonp) == "function" ? webpackJsonp([], {
+                    '__extra_id__': (module, exports, req) => exports.default = req
+                }, ['__extra_id__']).default : webpackJsonp.push([[], {
+                    '__extra_id__': (module, exports, req) => module.exports = req
+                }, [['__extra_id__']]]);
+                delete req.m['__extra_id__'];
+                delete req.c['__extra_id__'];
+
+                /**
+                 * Predicate for searching module
+                 * @callback modulePredicate
+                 * @param {*} module Module to test
+                 * @return {boolean} Returns `true` if `module` matches predicate.
+                 */
+
+                /**
+                 * Look through all modules of internal Discord's Webpack and return first one that matches filter predicate.
+                 * At first this function will look through already loaded modules cache. If no loaded modules match, then this function tries to load all modules and match for them. Loading any module may have unexpected side effects, like changing current locale of moment.js, so in that case there will be a warning the console. If no module matches, this function returns `null`. You should always try to provide a predicate that will match something, but your code should be ready to receive `null` in case of changes in Discord's codebase.
+                 * If module is ES6 module and has default property, consider default first; otherwise, consider the full module object.
+                 * @param {modulePredicate} filter Predicate to match module
+                 * @param {object} [options] Options object.
+                 * @param {boolean} [options.cacheOnly=false] Set to `true` if you want to search only the cache for modules.
+                 * @return {*} First module that matches `filter` or `null` if none match.
+                 */
+                const find = (filter, options = {}) => {
+                    const {cacheOnly = false} = options;
+                    for (let i in req.c) {
+                        if (req.c.hasOwnProperty(i)) {
+                            let m = req.c[i].exports;
+                            if (m && m.__esModule && m.default && filter(m.default))
+                                return m.default;
+                            if (m && filter(m))
+                                return m;
+                        }
+                    }
+                    if (cacheOnly) {
+                        console.warn('Cannot find loaded module in cache');
+                        return null;
+                    }
+                    console.warn('Cannot find loaded module in cache. Loading all modules may have unexpected side effects');
+                    for (let i = 0; i < req.m.length; ++i) {
+                        let m = req(i);
+                        if (m && m.__esModule && m.default && filter(m.default))
+                            return m.default;
+                        if (m && filter(m))
+                            return m;
+                    }
+                    console.warn('Cannot find module');
+                    return null;
+                };
+
+                /**
+                 * Look through all modules of internal Discord's Webpack and return first object that has all of following properties. You should be ready that in any moment, after Discord update, this function may start returning `null` (if no such object exists anymore) or even some different object with the same properties. So you should provide all property names that you use, and often even some extra properties to make sure you'll get exactly what you want.
+                 * @see Read {@link find} documentation for more details how search works
+                 * @param {string[]} propNames Array of property names to look for
+                 * @param {object} [options] Options object to pass to {@link find}.
+                 * @return {object} First module that matches `propNames` or `null` if none match.
+                 */
+                const findByUniqueProperties = (propNames, options) => find(module => propNames.every(prop => module[prop] !== undefined), options);
+
+                /**
+                 * Look through all modules of internal Discord's Webpack and return first object that has `displayName` property with following value. This is useful for searching for React components by name. Take into account that not all components are exported as modules. Also, there might be several components with the same name.
+                 * @see Use {@link ReactComponents} as another way to get react components
+                 * @see Read {@link find} documentation for more details how search works
+                 * @param {string} displayName Display name property value to look for
+                 * @param {object} [options] Options object to pass to {@link find}.
+                 * @return {object} First module that matches `displayName` or `null` if none match.
+                 */
+                const findByDisplayName = (displayName, options) => find(module => module.displayName === displayName, options);
+
+                return {find, findByUniqueProperties, findByDisplayName};
+            })();
+
+            const Uploader = WebpackModules.findByUniqueProperties(['upload']);
+            const SelectedChannelStore = WebpackModules.findByUniqueProperties(['getChannelId']);
+            const request = window.require("request");
+
             return class EmoteReplacer extends Plugin {
                 constructor() {
                     super();
                     this.oldVal = "";
-                    this.enabled = true;
+                    this.enablePlugin = true;
                     this.button = null;
                     this.emoteNames = null;
-                    this.awaitingTextArea = false;
                     this.mainCSS = `
                     #toggleEmoteReplacer button {
                         transition: transform .1s;
@@ -56,8 +168,9 @@ let EmoteReplacer = (() => {
                     }`;
                 }
 
-                onStart() {
+                async onStart() {
                     ZLibrary.PluginUpdater.checkForUpdate(this.getName(), this.getVersion(), "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js");
+                    await PluginUtilities.addScript("gifsicle-stream", "//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@f577a9fbbfa807e82de52b37b5f6df7310ad0c16/gifsicle.js");
                     PluginUtilities.addStyle(this.getName()  + "-style", this.mainCSS);
                     this.getEmoteNames().then((names) => {
                         this.emoteNames = names;
@@ -72,6 +185,7 @@ let EmoteReplacer = (() => {
                 onStop() {
                     $("*").off("." + this.getName());
                     if(this.button) $(this.button).remove();
+                    PluginUtilities.removeScript("gifsicle-stream");
                     PluginUtilities.removeStyle(this.getName() + "-style");
                 }
 
@@ -80,16 +194,20 @@ let EmoteReplacer = (() => {
 
                     let elem = e.addedNodes[0];
                     let textarea = elem.querySelector(DiscordSelectors.Textarea.textArea);
-                    let uploadModal = $(elem).is(DiscordSelectors.Modals.modal.value);
 
-                    if(this.awaitingTextArea && uploadModal){
-                        this.sendKey($(elem).find("textarea")[0], "Enter", 13);
-                        this.awaitingTextArea = false;
-                    } else if(textarea && $(textarea).parents(DiscordSelectors.Modals.modal.value).length === 0) {
+                    if(textarea && $(textarea).parents(DiscordSelectors.Modals.modal.value).length === 0) {
                         this.addToggle();
                         this.addListener();
                     }
                 }
+
+                getSettingsPanel() {
+                    const panel = this.buildSettingsPanel();
+                    panel.addListener(this.updateSettings.bind(this));
+                    return panel.getElement();
+                }
+
+                updateSettings(group, id, value) {}
 
                 addToggle() {
                     if(document.getElementById("toggleEmoteReplacer")) return;
@@ -103,7 +221,7 @@ let EmoteReplacer = (() => {
                     this.setToggleChar();
 
                     $(this.button).on("click." + this.getName(), () => {
-                        this.enabled = !this.enabled;
+                        this.enablePlugin = !this.enablePlugin;
                         this.setToggleChar();
                     });
                 }
@@ -118,7 +236,7 @@ let EmoteReplacer = (() => {
                     if(this.button) {
                         let toggle = $("#toggleEmoteReplacer button")[0];
 
-                        if(this.enabled) {
+                        if(this.enablePlugin) {
                             toggle.innerHTML = "✓";
                         } else {
                             toggle.innerHTML = "X";
@@ -153,7 +271,7 @@ let EmoteReplacer = (() => {
                 }
 
                 replaceEmote(e) {
-                    if(!this.enabled) return;
+                    if(!this.enablePlugin) return;
 
                     let textArea = e.target;
                     let newVal = textArea.innerHTML;
@@ -172,10 +290,23 @@ let EmoteReplacer = (() => {
                                     pos = pos-1;
                                 }
 
+                                if(textArea.innerHTML.endsWith(" ")){
+                                    emoteLength += 1;
+                                }
+
                                 this.setSelectionRange(textArea, pos, emoteLength);
                                 document.execCommand("delete");
                                 this.sendKey(textArea, "Enter", 13);
-                                this.sendEmote(textArea, foundEmote.url, foundEmote.name);
+
+                                if(foundEmote.url.endsWith("gif")) {
+                                    this.getGifUrl(foundEmote.url).then((newUrl) => {
+                                        this.fetchBlobAndUpload(newUrl, foundEmote.name);
+                                    }).catch((error) => {
+                                        console.warn("EmoteReplacer: " + error);
+                                    });
+                                } else {
+                                    this.fetchBlobAndUpload(foundEmote.url, foundEmote.name);
+                                }
                             }
                         }
                     }
@@ -219,31 +350,51 @@ let EmoteReplacer = (() => {
                     target.dispatchEvent(press);
                 }
 
-                sendEmote(textArea, url, name) {
-                    if(url.endsWith("gif")) {
+                getGifUrl(url) {
+                    return new Promise((resolve, reject) => {
                         let split = url.split(".");
-                        url = url.substring(0, url.length -4) + "-s." + split[split.length-1];
-                        setTimeout(() => {
-                            document.execCommand("insertText", false, url);
-                            this.sendKey(textArea, "Enter", 13);
-                        }, 100);
-                    } else {
-                        fetch(url)
-                            .then(res => res.blob())
-                            .then(blob => {
-                                this.compress(name, blob, (dataURL) => {
-                                    if(dataURL) {
-                                        clipboard.write({image: nativeImage.createFromDataURL(dataURL)});
-                                        document.execCommand("paste");
-                                        this.awaitingTextArea = true;
-                                    }
+                        let smallUrl = url.substring(0, url.length -4) + "-" + this.settings.sizeSettings.size + "." + split[split.length-1];
+
+                        request({url: smallUrl, encoding: null}, (error, response) => {
+                            if (error) {
+                                reject(error);
+                            }
+
+                            if(response.statusCode !== 404) {
+                                resolve(smallUrl);
+                            } else {
+                                resolve(url);
+                            }
+                        });
+                    });
+                }
+
+                fetchBlobAndUpload(url, name) {
+                    fetch(url)
+                        .then(res => res.blob())
+                        .then(blob => {
+                            let extension = url.split(".").pop();
+                            let fullName = name + "." + extension;
+
+                            if(url.endsWith("png")) {
+                                this.compress(name, blob, (resultBlob) => {
+                                    this.uploadFile(resultBlob, fullName);
                                 });
-                            });
-                    }
+                            } else {
+                                this.uploadFile(blob, fullName);
+                            }
+                        });
+                }
+
+                uploadFile(blob, fullName) {
+                    Uploader.upload(SelectedChannelStore.getChannelId(),
+                        new File([blob], fullName), {
+                            content: "", invalidEmojis: [], tts: false
+                        }, false);
                 }
 
                 compress(fileName, originalFile, callback) {
-                    const width = 32;
+                    const width = this.settings.sizeSettings.size;
                     const reader = new FileReader();
                     reader.readAsDataURL(originalFile);
                     reader.onload = event => {
@@ -257,7 +408,7 @@ let EmoteReplacer = (() => {
                             const ctx = elem.getContext('2d');
                             // img.width and img.height will give the original dimensions
                             ctx.drawImage(img, 0, 0, width, img.height * scaleFactor);
-                            callback(ctx.canvas.toDataURL("image/png", 1));
+                            ctx.canvas.toBlob(callback, "image/png", 1);
                         };
                     };
                     reader.onerror = error => {
