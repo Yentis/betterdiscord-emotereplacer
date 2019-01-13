@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.4.1",
+            "version": "0.4.2",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
             "title": "What's New?",
-            "items": ["Improve png downscaling to be less noisy."]
+            "items": ["Message content and emote is now sent together as opposed to seperately."]
         }],
         "defaultConfig": [{
             "type": "category",
@@ -282,30 +282,19 @@ let EmoteReplacer = (() => {
                             let foundEmote = this.getTextPos(newVal);
 
                             if(foundEmote) {
-                                let pos = foundEmote.pos;
-                                let emoteLength = pos+foundEmote.emoteLength;
-                                let prevCharacter = textArea.innerHTML[pos-1];
+                                let content = textArea.innerHTML.replace(foundEmote.name, "").trim();
 
-                                if(prevCharacter && prevCharacter === " ") {
-                                    pos = pos-1;
-                                }
-
-                                if(textArea.innerHTML.endsWith(" ")){
-                                    emoteLength += 1;
-                                }
-
-                                this.setSelectionRange(textArea, pos, emoteLength);
+                                this.setSelectionRange(textArea, 0, textArea.innerHTML.length);
                                 document.execCommand("delete");
-                                this.sendKey(textArea, "Enter", 13);
 
                                 if(foundEmote.url.endsWith("gif")) {
                                     this.getGifUrl(foundEmote.url).then((newUrl) => {
-                                        this.fetchBlobAndUpload(newUrl, foundEmote.name);
+                                        this.fetchBlobAndUpload(newUrl, foundEmote.name, content);
                                     }).catch((error) => {
                                         console.warn("EmoteReplacer: " + error);
                                     });
                                 } else {
-                                    this.fetchBlobAndUpload(foundEmote.url, foundEmote.name);
+                                    this.fetchBlobAndUpload(foundEmote.url, foundEmote.name, content);
                                 }
                             }
                         }
@@ -344,12 +333,6 @@ let EmoteReplacer = (() => {
                     }
                 }
 
-                sendKey(target, key, keyCode) {
-                    const press = new KeyboardEvent("keypress", {key: key, code: key, which: keyCode, keyCode: keyCode, bubbles: true});
-                    Object.defineProperties(press, {keyCode: {value: keyCode}, which: {value: keyCode}});
-                    target.dispatchEvent(press);
-                }
-
                 getGifUrl(url) {
                     return new Promise((resolve, reject) => {
                         let split = url.split(".");
@@ -369,7 +352,7 @@ let EmoteReplacer = (() => {
                     });
                 }
 
-                fetchBlobAndUpload(url, name) {
+                fetchBlobAndUpload(url, name, content = "") {
                     fetch(url)
                         .then(res => res.blob())
                         .then(blob => {
@@ -378,18 +361,18 @@ let EmoteReplacer = (() => {
 
                             if(url.endsWith("png")) {
                                 this.compress(name, blob, (resultBlob) => {
-                                    this.uploadFile(resultBlob, fullName);
+                                    this.uploadFile(resultBlob, fullName, content);
                                 });
                             } else {
-                                this.uploadFile(blob, fullName);
+                                this.uploadFile(blob, fullName, content);
                             }
                         });
                 }
 
-                uploadFile(blob, fullName) {
+                uploadFile(blob, fullName, content) {
                     Uploader.upload(SelectedChannelStore.getChannelId(),
                         new File([blob], fullName), {
-                            content: "", invalidEmojis: [], tts: false
+                            content: content, invalidEmojis: [], tts: false
                         }, false);
                 }
 
