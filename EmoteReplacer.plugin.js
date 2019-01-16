@@ -19,7 +19,7 @@ let EmoteReplacer = (() => {
             "title": "What's New?",
             "items": [
                 "KawaiiEmotes is no longer needed, feel free to delete it.",
-                "Replaced toggle with refresh database button.",
+                "Replaced toggle with refresh database.",
                 "Be sure to redownload the plugin library, it had an issue with automatic updates: https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js"
             ]}, {
             "title": "Bugs Squashed",
