@@ -10,7 +10,7 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.5.1",
+            "version": "0.5.2",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
@@ -19,6 +19,7 @@ let EmoteReplacer = (() => {
             "title": "What's New?",
             "items": [
                 "KawaiiEmotes is no longer needed, feel free to delete it.",
+                "Replaced toggle with refresh database button.",
                 "Be sure to redownload the plugin library, it had an issue with automatic updates: https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js"
             ]}, {
             "title": "Bugs Squashed",
@@ -67,7 +68,7 @@ let EmoteReplacer = (() => {
         stop() {}
     } : (([Plugin, Api]) => {
         const plugin = (Plugin, Api) => {
-            const {DiscordSelectors, PluginUtilities} = Api;
+            const {DiscordSelectors, PluginUtilities, Toasts} = Api;
 
             // If samogot's DiscordInternals lib exists, use it. Otherwise, fall back on bundled code below.
             // See: https://github.com/samogot/betterdiscord-plugins/tree/master/v2/1Lib%20Discord%20Internals
@@ -159,18 +160,17 @@ let EmoteReplacer = (() => {
                     this.cached = {};
                     this.windowSize = 10;
                     this.oldVal = "";
-                    this.enablePlugin = true;
                     this.button = null;
                     this.emoteNames = null;
                     this.mainCSS = `
-                    #toggleEmoteReplacer button {
+                    #refreshEmoteReplacer button {
                         transition: transform .1s;
                         background: transparent;
                         color: hsla(0, 0%, 100%, .7);
                         margin: 0 5px;
                     }
                     
-                    #toggleEmoteReplacer:hover button {
+                    #refreshEmoteReplacer:hover button {
                         color: hsla(0, 0%, 100%, 1);
                         transform: scale(1.2);
                     }`;
@@ -239,9 +239,6 @@ let EmoteReplacer = (() => {
                     PluginUtilities.addStyle(this.getName()  + "-style", this.mainCSS);
                     this.getEmoteNames().then((names) => {
                         this.emoteNames = names;
-                        $(`${DiscordSelectors.Textarea.channelTextArea} textarea`).each(() => {
-                            this.addToggle();
-                        });
                     }).catch((error) => {
                         console.warn("EmoteReplacer: " + name + ": " + error);
                     });
@@ -261,7 +258,7 @@ let EmoteReplacer = (() => {
                     let textarea = elem.querySelector(DiscordSelectors.Textarea.textArea);
 
                     if(textarea && $(textarea).parents(DiscordSelectors.Modals.modal.value).length === 0) {
-                        this.addToggle();
+                        this.addRefresh();
                         this.addListener();
                     }
                 }
@@ -274,20 +271,41 @@ let EmoteReplacer = (() => {
 
                 updateSettings(group, id, value) {}
 
-                addToggle() {
-                    if(document.getElementById("toggleEmoteReplacer")) return;
+                addRefresh() {
+                    if(document.getElementById("refreshEmoteReplacer")) return;
                     $(`${DiscordSelectors.Textarea.inner}`).prepend(
-                        `<div id='toggleEmoteReplacer' class='flex-1xMQg5 flex-1O1GKY da-flex da-flex horizontal-1ae9ci horizontal-2EEEnY flex-1O1GKY directionRow-3v3tfG justifyStart-2NDFzi alignStretch-DpGPf3 noWrap-3jynv6'>
-                            <button type='button'></button>
+                        `<div id='refreshEmoteReplacer' class='flex-1xMQg5 flex-1O1GKY da-flex da-flex horizontal-1ae9ci horizontal-2EEEnY flex-1O1GKY directionRow-3v3tfG justifyStart-2NDFzi alignStretch-DpGPf3 noWrap-3jynv6'>
+                            <button type='button'>↻</button>
                             <div class='attachButtonDivider-3Glu60 da-attachButtonDivider'></div>
                         </div>`);
 
-                    this.button = document.getElementById("toggleEmoteReplacer");
-                    this.setToggleChar();
+                    this.button = document.getElementById("refreshEmoteReplacer");
 
                     $(this.button).on("click." + this.getName(), () => {
-                        this.enablePlugin = !this.enablePlugin;
-                        this.setToggleChar();
+                        this.emoteNames = null;
+                        Toasts.info("Reloading emote database...");
+                        this.getEmoteNames()
+                            .then((names) => {
+                                this.emoteNames = names;
+                                Toasts.success("Emote database reloaded!");
+                            });
+                    });
+
+                    $(this.button).on("mouseover", () => {
+                        let tooltip = $("<div>", {"class": "tooltip-" + this.getName() + " tooltip-1OS-Ti da-tooltip top-1pTh1F da-top black-2bmmnj da-black"}).html("Refresh emote database.");
+                        $(".tooltips-FhwIyl.da-tooltips").append(tooltip);
+
+                        let tooltipRect = tooltip[0].getBoundingClientRect();
+                        let buttonRect = this.button.getBoundingClientRect();
+                        let left = (buttonRect.left+(buttonRect.width/2)) - (tooltipRect.width/2);
+                        let top = buttonRect.top - tooltipRect.height;
+
+                        tooltip.css("left", left + "px");
+                        tooltip.css("top", top + "px");
+                    });
+
+                    $(this.button).on("mouseout", () => {
+                        $(`.tooltip-${this.getName()}`).remove();
                     });
                 }
 
@@ -307,18 +325,6 @@ let EmoteReplacer = (() => {
                     textarea.on(`blur.${this.getName()}`, (e) => {
                         this.destroyCompletions(e);
                     });
-                }
-
-                setToggleChar() {
-                    if(this.button) {
-                        let toggle = $("#toggleEmoteReplacer button")[0];
-
-                        if(this.enablePlugin) {
-                            toggle.innerHTML = "✓";
-                        } else {
-                            toggle.innerHTML = "X";
-                        }
-                    }
                 }
 
                 getEmoteNames() {
@@ -348,8 +354,6 @@ let EmoteReplacer = (() => {
                 }
 
                 replaceEmote(e) {
-                    if(!this.enablePlugin) return;
-
                     let textArea = e.target;
                     let newVal = textArea.innerHTML;
                     if(this.oldVal !== newVal){
@@ -500,7 +504,6 @@ let EmoteReplacer = (() => {
 
                 insertSelectedCompletion() {
                     const {completions, matchStart, selectedIndex} = this.cached;
-                    console.log(this.cached);
 
                     if (completions === undefined) {
                         return;
