@@ -15,11 +15,14 @@ let EmoteReplacer = (() => {
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
-        "changelog": [
-            {"title": "New Stuff", "items": [
+        "changelog": [{
+            "title": "What's New?",
+            "items": [
                 "KawaiiEmotes is no longer needed, feel free to delete it.",
-                    "Be sure to redownload the plugin library, it had an issue with automatic updates: https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js"]},
-            {"title": "Bugs Squashed", "type": "fixed", "items": ["Autocomplete fixed.", "Autcomplete navigation fixed."]}
+                "Be sure to redownload the plugin library, it had an issue with automatic updates: https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js"
+            ]}, {
+            "title": "Bugs Squashed",
+            "items": ["Autocomplete fixed.", "Autocomplete navigation fixed."]
         }],
         "defaultConfig": [{
             "type": "category",
