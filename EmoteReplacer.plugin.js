@@ -654,7 +654,11 @@ let EmoteReplacer = (() => {
                     imgCV.height = img.height;
                     let imgCtx = imgCV.getContext('2d');
                     imgCtx.drawImage(img, 0, 0);
-                    return this.downScaleCanvas(imgCV, scale);
+					if(scale > 0 && scale < 1) {
+						return this.downScaleCanvas(imgCV, scale);
+					} else {
+						return imgCV;
+					}
                 }
 
                 downScaleCanvas(cv, scale) {
