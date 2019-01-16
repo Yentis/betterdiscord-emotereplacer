@@ -500,7 +500,6 @@ let EmoteReplacer = (() => {
 
                 insertSelectedCompletion() {
                     const {completions, matchStart, selectedIndex} = this.cached;
-                    console.log(this.cached);
 
                     if (completions === undefined) {
                         return;
