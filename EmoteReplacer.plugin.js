@@ -10,14 +10,19 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.4.2",
+            "version": "0.5.0",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
             "title": "What's New?",
-            "items": ["Message content and emote is now sent together as opposed to seperately."]
+            "items": [
+                "KawaiiEmotes is no longer needed, feel free to delete it.",
+                "Be sure to redownload the plugin library, it had an issue with automatic updates: https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js"
+            ]}, {
+            "title": "Bugs Squashed",
+            "items": ["Autocomplete fixed."]
         }],
         "defaultConfig": [{
             "type": "category",
@@ -146,10 +151,13 @@ let EmoteReplacer = (() => {
             const Uploader = WebpackModules.findByUniqueProperties(['upload']);
             const SelectedChannelStore = WebpackModules.findByUniqueProperties(['getChannelId']);
             const request = window.require("request");
+            const shouldCompleteTwitch = RegExp.prototype.test.bind(/(?:^|\s)\w{2,}$/);
 
             return class EmoteReplacer extends Plugin {
                 constructor() {
                     super();
+                    this.cached = {};
+                    this.windowSize = 10;
                     this.oldVal = "";
                     this.enablePlugin = true;
                     this.button = null;
@@ -166,6 +174,63 @@ let EmoteReplacer = (() => {
                         color: hsla(0, 0%, 100%, 1);
                         transform: scale(1.2);
                     }`;
+                    this.renderCompletions = _.debounce(function () {
+                        const textarea = $(`${DiscordSelectors.Textarea.textArea}`)[0];
+                        const channelTextArea = $(`${DiscordSelectors.Textarea.inner}`);
+                        const oldAutoComplete = channelTextArea.children(`.${this.getName()}`);
+
+                        const candidateText = textarea.value.slice(0, textarea.selectionEnd);
+                        if (!shouldCompleteTwitch(candidateText) || !this.prepareCompletions(candidateText)) {
+                            oldAutoComplete.remove();
+                            return;
+                        }
+
+                        const {completions, matchText, selectedIndex, windowOffset: firstIndex} = this.cached;
+                        const matchList = completions.slice(firstIndex, firstIndex+this.windowSize);
+
+                        let autoDiv = $("<div>")
+                            .addClass(`autocomplete-1vrmpx autocomplete-i9yVHs ${this.getName()}`)
+                            .on(`wheel.${this.getName()}`, e => this.scrollCompletions(e, {locked: true}));
+                        let inner = $("<div>", {"class": "autocompleteInner-zh20B_"})
+                            .appendTo(autoDiv);
+                        // FIXME: clean up this mess of jQuery
+                        $("<div>", {"class": "autocompleteRowVertical-q1K4ky autocompleteRow-2OthDa"})
+                            .append($("<div>", {"class": "selector-2IcQBU"})
+                                .append($("<div>", {text: "Emoji matching "}).append($("<strong>", {text: matchText}))
+                                    .addClass("contentTitle-2tG_sM primary400-hm0Rav weightBold-2yjlgw")))
+                            .appendTo(inner);
+                        inner
+                            .append(matchList.map((e,i) => {
+                                let row = $("<div>", {"class": "autocompleteRowVertical-q1K4ky autocompleteRow-2OthDa"});
+                                let selector = $("<div>", {"class": "selector-2IcQBU selectable-3dP3y-"})
+                                    .append($("<div>")
+                                        .addClass("flex-1xMQg5 flex-1O1GKY horizontal-1ae9ci horizontal-2EEEnY flex-1O1GKY directionRow-3v3tfG justifyStart-2NDFzi alignCenter-1dQNNs noWrap-3jynv6 content-Qb0rXO")
+                                        .css("flex", "1 1 auto")
+                                        .append($("<img>", {src: e[1], alt: e[0], title: e[0], "class": `icon-3ZzoN7`,}).attr("draggable", "false").css("width", "25px").css('top', 0))
+                                        .append($("<div>", {"class": "marginLeft8-1YseBe", text: e[0]})))
+                                    .appendTo(row);
+
+                                if (i+firstIndex === selectedIndex) {
+                                    selector.addClass("selectorSelected-1_M1WV");
+                                }
+                                row.on(`mouseenter.${this.getName()}`, e => {
+                                    this.cached.selectedIndex = i+firstIndex;
+                                    row.siblings().children(".selectorSelected-1_M1WV").removeClass("selectorSelected-1_M1WV");
+                                    row.children().addClass("selectorSelected-1_M1WV");
+                                }).on(`mousedown.${this.getName()}`, e => {
+                                    this.cached.selectedIndex = i+firstIndex;
+                                    this.insertSelectedCompletion();
+                                    // Prevent loss of focus
+                                    e.preventDefault();
+                                });
+                                return row;
+                            }));
+
+                        oldAutoComplete.remove();
+
+                        channelTextArea
+                            .append(autoDiv);
+                    }, 250)
                 }
 
                 async onStart() {
@@ -227,8 +292,20 @@ let EmoteReplacer = (() => {
                 }
 
                 addListener() {
-                    $(`${DiscordSelectors.Textarea.channelTextArea} textarea`).on("keydown." + this.getName(), (e) => {
+                    let textarea = $(`${DiscordSelectors.Textarea.channelTextArea} textarea`);
+
+                    textarea.on(`keyup.${this.getName()} keypress.${this.getName()} click.${this.getName()}`, (e) => {
+                        this.checkCompletions(e);
+                    });
+                    textarea.on(`keydown.${this.getName()}`, (e) => {
                         this.replaceEmote(e);
+                        this.browseCompletions(e);
+                    });
+                    textarea.on(`wheel.${this.getName()}`, (e) => {
+                        this.scrollCompletions(e);
+                    });
+                    textarea.on(`blur.${this.getName()}`, (e) => {
+                        this.destroyCompletions(e);
                     });
                 }
 
@@ -299,6 +376,185 @@ let EmoteReplacer = (() => {
                             }
                         }
                     }
+                }
+
+                browseCompletions(e) {
+                    let textarea = e.target;
+
+                    const candidateText = textarea.value.slice(0, textarea.selectionEnd);
+                    if (!shouldCompleteTwitch(candidateText)) {
+                        return;
+                    }
+
+                    let delta = 0, options;
+
+                    switch (e.which) {
+                        // Tab
+                        case 9:
+                            const candidateText = textarea.value.slice(0, textarea.selectionEnd);
+                            if (!this.prepareCompletions(candidateText)) {
+                                break;
+                            }
+
+                            // Prevent Discord's default behavior (send message)
+                            e.stopPropagation();
+                            // Prevent adding a tab or line break to text
+                            e.preventDefault();
+
+                            this.insertSelectedCompletion();
+                            break;
+
+                        // Up
+                        case 38:
+                            delta = -1;
+                            break;
+
+                        // Down
+                        case 40:
+                            delta = 1;
+                            break;
+
+                        // Page Up
+                        case 33:
+                            delta = -this.windowSize;
+                            options = {locked: true, clamped: true};
+                            break;
+
+                        // Page Down
+                        case 34:
+                            delta = this.windowSize;
+                            options = {locked: true, clamped: true};
+                            break;
+                    }
+
+                    if (delta !== 0 && this.prepareCompletions()) {
+                        // Prevent Discord's default behavior
+                        e.stopPropagation();
+                        // Prevent cursor movement
+                        e.preventDefault();
+
+                        this.scrollWindow(delta, options);
+                    }
+                }
+
+                checkCompletions(e) {
+                    let textarea = e.target;
+
+                    const candidateText = textarea.value.slice(0, textarea.selectionEnd);
+                    const {candidateText: lastText} = this.cached;
+
+                    // If an emote match is impossible, don't override default behavior.
+                    // This allows other completion types (like usernames or channels) to work as usual.
+                    if (!shouldCompleteTwitch(candidateText)) {
+                        this.destroyCompletions();
+                        return;
+                    }
+
+                    // Don't override enter when there are no actual completions.
+                    // This allows message sending to work as usual.
+                    if (e.key === "Enter") {
+                        return;
+                    }
+
+                    // For any other key, always override, even when there are no actual completions.
+                    // This prevents Discord's emoji autocompletion from kicking in intermittently.
+                    e.stopPropagation();
+
+                    if (lastText !== candidateText) {
+                        this.renderCompletions();
+                    }
+                }
+
+                scrollCompletions(e, options) {
+                    const delta = Math.sign(e.originalEvent.deltaY);
+                    this.scrollWindow(delta, options);
+                }
+
+                scrollWindow(delta, {locked=false, clamped=false} = {}) {
+                    const preScroll = 2;
+                    const {completions, selectedIndex: prevSel, windowOffset} = this.cached;
+
+                    if (completions === undefined || completions.length === 0) {
+                        return;
+                    }
+
+                    // Change selected index
+                    const num = completions.length;
+                    let sel = prevSel + delta;
+                    if (clamped) {
+                        sel = _.clamp(sel, 0, num-1);
+                    } else {
+                        sel = (sel % num) + (sel<0 ? num : 0);
+                    }
+                    this.cached.selectedIndex = sel;
+
+                    // Clamp window position to bounds based on new selected index
+                    const boundLower = _.clamp(sel + preScroll - (this.windowSize-1), 0, num-this.windowSize);
+                    const boundUpper = _.clamp(sel - preScroll, 0, num-this.windowSize);
+                    this.cached.windowOffset = _.clamp(windowOffset + (locked ? delta : 0), boundLower, boundUpper);
+
+                    // Render immediately
+                    this.renderCompletions();
+                    this.renderCompletions.flush();
+                }
+
+                insertSelectedCompletion() {
+                    const {completions, matchStart, selectedIndex} = this.cached;
+                    console.log(this.cached);
+
+                    if (completions === undefined) {
+                        return;
+                    }
+
+                    const textarea = $(`${DiscordSelectors.Textarea.textArea}`)[0];
+                    textarea.focus();
+                    // Set beginning of selection at start of partial emote text; end of selection end remains where it is
+                    textarea.selectionStart = matchStart;
+                    document.execCommand("insertText", false, completions[selectedIndex][0] + " ");
+
+                    this.destroyCompletions();
+                }
+
+                destroyCompletions() {
+                    $(`${DiscordSelectors.Textarea.inner}`).children(`.${this.getName()}`).remove();
+                    this.cached = {};
+                    this.renderCompletions.cancel();
+                }
+
+                prepareCompletions(candidateText) {
+                    const {candidateText: lastText} = this.cached;
+
+                    if (lastText !== candidateText) {
+                        const {completions, matchText, matchStart} = this.getCompletionsTwitch(candidateText);
+                        this.cached = {candidateText, completions, matchText, matchStart, selectedIndex: 0, windowOffset: 0};
+                    }
+
+                    const {completions} = this.cached;
+                    return (completions !== undefined && completions.length !== 0);
+                }
+
+                getCompletionsTwitch(text) {
+                    const match = text.match(/(^|\s)(\w{2,})$/);
+                    if (match === null) {
+                        return {completions: [], matchText: null, matchStart: -1};
+                    }
+
+                    let emoteArray = [];
+                    for (let key in this.emoteNames) {
+                        if(this.emoteNames.hasOwnProperty(key)) {
+                            emoteArray.push([key, this.emoteNames[key]]);
+                        }
+                    }
+
+                    const completions = emoteArray
+                        .filter((emote) => {
+                            if(emote[0].toLowerCase().search(match[2]) !== -1){
+                                return emote;
+                            }
+                        });
+                    const matchText = match[2], matchStart = match.index + match[1].length;
+
+                    return {completions, matchText, matchStart};
                 }
 
                 getTextPos(value) {
