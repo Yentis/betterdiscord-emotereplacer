@@ -325,7 +325,7 @@ let EmoteReplacer = (() => {
                     return new Promise((resolve, reject) => {
                         $.ajax({
                             dataType: "json",
-                            url: "https://yentis.github.io/emotes/emotes.json",
+                            url: "https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/emotes.json",
                             success: function (data) {
                                 let emoteNames = {};
 
@@ -334,7 +334,7 @@ let EmoteReplacer = (() => {
                                         let split = data[key].split('.');
                                         let name = split[0];
 
-                                        emoteNames[name] = "https://yentis.github.io/emotes/images/" + key + '.' + split[1];
+                                        emoteNames[name] = "https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/images/" + key + '.' + split[1];
                                     }
                                 }
 
@@ -654,11 +654,11 @@ let EmoteReplacer = (() => {
                     imgCV.height = img.height;
                     let imgCtx = imgCV.getContext('2d');
                     imgCtx.drawImage(img, 0, 0);
-					if(scale > 0 && scale < 1) {
-						return this.downScaleCanvas(imgCV, scale);
-					} else {
-						return imgCV;
-					}
+                    if(scale > 0 && scale < 1) {
+                        return this.downScaleCanvas(imgCV, scale);
+                    } else {
+                        return imgCV;
+                    }
                 }
 
                 downScaleCanvas(cv, scale) {
