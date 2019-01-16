@@ -10,19 +10,16 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.5.0",
+            "version": "0.5.1",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
-        "changelog": [{
-            "title": "What's New?",
-            "items": [
+        "changelog": [
+            {"title": "New Stuff", "items": [
                 "KawaiiEmotes is no longer needed, feel free to delete it.",
-                "Be sure to redownload the plugin library, it had an issue with automatic updates: https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js"
-            ]}, {
-            "title": "Bugs Squashed",
-            "items": ["Autocomplete fixed."]
+                    "Be sure to redownload the plugin library, it had an issue with automatic updates: https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js"]},
+            {"title": "Bugs Squashed", "type": "fixed", "items": ["Autocomplete fixed.", "Autcomplete navigation fixed."]}
         }],
         "defaultConfig": [{
             "type": "category",
@@ -427,7 +424,7 @@ let EmoteReplacer = (() => {
                             break;
                     }
 
-                    if (delta !== 0 && this.prepareCompletions()) {
+                    if (delta !== 0 && this.prepareCompletions(candidateText)) {
                         // Prevent Discord's default behavior
                         e.stopPropagation();
                         // Prevent cursor movement
