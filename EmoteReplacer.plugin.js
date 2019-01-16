@@ -10,7 +10,7 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.5.2",
+            "version": "0.5.3",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
@@ -18,12 +18,12 @@ let EmoteReplacer = (() => {
         "changelog": [{
             "title": "What's New?",
             "items": [
-                "KawaiiEmotes is no longer needed, feel free to delete it.",
                 "Replaced toggle with refresh database.",
+				"KawaiiEmotes is no longer needed, feel free to delete it.",
                 "Be sure to redownload the plugin library, it had an issue with automatic updates: https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js"
             ]}, {
             "title": "Bugs Squashed",
-            "items": ["Autocomplete fixed.", "Autocomplete navigation fixed."]
+            "items": ["Bug when compressing 128px emotes fixed.", "Autocomplete navigation fixed.", "Autocomplete fixed."]
         }],
         "defaultConfig": [{
             "type": "category",
@@ -660,7 +660,11 @@ let EmoteReplacer = (() => {
                     imgCV.height = img.height;
                     let imgCtx = imgCV.getContext('2d');
                     imgCtx.drawImage(img, 0, 0);
-                    return this.downScaleCanvas(imgCV, scale);
+					if(scale > 0 && scale < 1) {
+						return this.downScaleCanvas(imgCV, scale);
+					} else {
+						return imgCV;
+					}
                 }
 
                 downScaleCanvas(cv, scale) {
