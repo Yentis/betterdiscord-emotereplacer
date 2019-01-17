@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.5.4",
+            "version": "0.5.5",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
             "title": "What's New?",
-            "items": ["Use raw github for faster emote updates."]
+            "items": ["Starting and stopping the plugin should now work properly."]
         }],
         "defaultConfig": [{
             "type": "category",
@@ -233,6 +233,10 @@ let EmoteReplacer = (() => {
                     PluginUtilities.addStyle(this.getName()  + "-style", this.mainCSS);
                     this.getEmoteNames().then((names) => {
                         this.emoteNames = names;
+                        if($(`${DiscordSelectors.Textarea.textArea}`)) {
+                            this.addRefresh();
+                            this.addListener();
+                        }
                     }).catch((error) => {
                         console.warn("EmoteReplacer: " + name + ": " + error);
                     });
@@ -243,6 +247,9 @@ let EmoteReplacer = (() => {
                     if(this.button) $(this.button).remove();
                     PluginUtilities.removeScript("gifsicle-stream");
                     PluginUtilities.removeStyle(this.getName() + "-style");
+                    this.button = null;
+                    this.emoteNames = null;
+                    this.oldVal = "";
                 }
 
                 observer(e) {
