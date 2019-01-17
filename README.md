@@ -1,7 +1,7 @@
 # betterdiscord-emotereplacer
 Check for known emote names and replace them with an embedded image
 
-# usage
+# Usage
 Install BetterDiscord
 https://github.com/rauenzi/BetterDiscordApp/releases
 
