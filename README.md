@@ -9,3 +9,7 @@ Download https://github.com/Yentis/betterdiscord-emotereplacer/blob/master/Emote
 
 Open Discord -> Settings -> Plugins -> Open plugin folder and place the 2 plugins there.
 Enable them in the Plugins menu and hit Ctrl + R.
+
+# Resources
+List of emotes: https://yentis.github.io/emotes
+Want to add an emote? Ask me for the link.
