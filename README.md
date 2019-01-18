@@ -3,7 +3,8 @@ Check for known emote names and replace them with an embedded image
 
 # Usage
 Install BetterDiscord from here  
-https://github.com/rauenzi/BetterDiscordApp/releases
+https://github.com/rauenzi/BetterDiscordApp/releases  
+**Reminder: BetterDiscord is against the TOS, use at your own risk!**
 
 Download https://github.com/Yentis/betterdiscord-emotereplacer/blob/master/EmoteReplacer.plugin.js  
 And this library: https://github.com/rauenzi/BDPluginLibrary/blob/master/release/0PluginLibrary.plugin.js
