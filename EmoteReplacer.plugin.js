@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.5.5",
+            "version": "0.5.6",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
             "title": "What's New?",
-            "items": ["Starting and stopping the plugin should now work properly."]
+            "items": ["You can now flip emotes horizontally or vertically by appending :flip or :flap respectively. (eg. yentDogSmug:flip)"]
         }],
         "defaultConfig": [{
             "type": "category",
@@ -229,7 +229,6 @@ let EmoteReplacer = (() => {
 
                 async onStart() {
                     ZLibrary.PluginUpdater.checkForUpdate(this.getName(), this.getVersion(), "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js");
-                    await PluginUtilities.addScript("gifsicle-stream", "//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@f577a9fbbfa807e82de52b37b5f6df7310ad0c16/gifsicle.js");
                     PluginUtilities.addStyle(this.getName()  + "-style", this.mainCSS);
                     this.getEmoteNames().then((names) => {
                         this.emoteNames = names;
@@ -245,7 +244,6 @@ let EmoteReplacer = (() => {
                 onStop() {
                     $("*").off("." + this.getName());
                     if(this.button) $(this.button).remove();
-                    PluginUtilities.removeScript("gifsicle-stream");
                     PluginUtilities.removeStyle(this.getName() + "-style");
                     this.button = null;
                     this.emoteNames = null;
@@ -352,35 +350,6 @@ let EmoteReplacer = (() => {
                             }
                         });
                     });
-                }
-
-                replaceEmote(e) {
-                    let textArea = e.target;
-                    let newVal = textArea.innerHTML;
-                    if(this.oldVal !== newVal){
-                        this.oldVal = newVal;
-
-                        if(e.key === "Enter") {
-                            let foundEmote = this.getTextPos(newVal);
-
-                            if(foundEmote) {
-                                let content = textArea.innerHTML.replace(foundEmote.name, "").trim();
-
-                                this.setSelectionRange(textArea, 0, textArea.innerHTML.length);
-                                document.execCommand("delete");
-
-                                if(foundEmote.url.endsWith("gif")) {
-                                    this.getGifUrl(foundEmote.url).then((newUrl) => {
-                                        this.fetchBlobAndUpload(newUrl, foundEmote.name, content);
-                                    }).catch((error) => {
-                                        console.warn("EmoteReplacer: " + error);
-                                    });
-                                } else {
-                                    this.fetchBlobAndUpload(foundEmote.url, foundEmote.name, content);
-                                }
-                            }
-                        }
-                    }
                 }
 
                 browseCompletions(e) {
@@ -561,16 +530,80 @@ let EmoteReplacer = (() => {
                     return {completions, matchText, matchStart};
                 }
 
+                replaceEmote(e) {
+                    let textArea = e.target;
+                    let newVal = textArea.innerHTML;
+
+                    if(this.oldVal !== newVal){
+                        this.oldVal = newVal;
+
+                        if(e.key === "Enter") {
+                            e.preventDefault();
+                            let foundEmote = this.getTextPos(newVal);
+
+                            if(foundEmote) {
+                                let content = textArea.innerHTML.replace(foundEmote.nameAndCommand, "").trim();
+
+                                this.setSelectionRange(textArea, 0, textArea.innerHTML.length);
+                                document.execCommand("delete");
+                                this.fetchBlobAndUpload(foundEmote.url, foundEmote.name, content, foundEmote.command ? foundEmote.command : "");
+                            } else {
+                                const press = new KeyboardEvent("keypress", {key: "Enter", code: "Enter", which: 13, keyCode: 13, bubbles: true});
+                                Object.defineProperties(press, {keyCode: {value: 13}, which: {value: 13}});
+                                textArea.dispatchEvent(press);
+                            }
+                        }
+                    }
+                }
+
+                b64toBlob(b64Data, contentType, sliceSize) {
+                    contentType = contentType || '';
+                    sliceSize = sliceSize || 512;
+
+                    let byteCharacters = atob(b64Data);
+                    let byteArrays = [];
+
+                    for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+                        let slice = byteCharacters.slice(offset, offset + sliceSize);
+
+                        let byteNumbers = new Array(slice.length);
+                        for (let i = 0; i < slice.length; i++) {
+                            byteNumbers[i] = slice.charCodeAt(i);
+                        }
+
+                        let byteArray = new Uint8Array(byteNumbers);
+
+                        byteArrays.push(byteArray);
+                    }
+
+                    return new Blob(byteArrays, {type: contentType});
+                }
+
                 getTextPos(value) {
                     let foundEmotes = [];
+                    let regexCommand = new RegExp("\\b:\\S{4,}\\b");
 
                     for (let key in this.emoteNames) {
                         if(this.emoteNames.hasOwnProperty(key)) {
                             let regex = new RegExp("\\b" + key + "\\b");
                             let pos = value.search(regex);
+                            let command = value.match(regexCommand);
 
                             if(pos !== -1) {
-                                foundEmotes.push({name: key, url: this.emoteNames[key], emoteLength: key.length, pos: pos});
+                                let emote = {
+                                    name: key,
+                                    nameAndCommand: key,
+                                    url: this.emoteNames[key],
+                                    emoteLength: key.length,
+                                    pos: pos
+                                };
+
+                                if(command) {
+                                    emote.command = command[0].substring(1, command[0].length);
+                                    emote.nameAndCommand = emote.nameAndCommand + command[0];
+                                }
+
+                                foundEmotes.push(emote);
                             }
                         }
                     }
@@ -593,40 +626,35 @@ let EmoteReplacer = (() => {
                     }
                 }
 
-                getGifUrl(url) {
-                    return new Promise((resolve, reject) => {
-                        let split = url.split(".");
-                        let smallUrl = url.substring(0, url.length -4) + "-" + this.settings.sizeSettings.size + "." + split[split.length-1];
+                fetchBlobAndUpload(url, name, content, command) {
+                    let extension = url.split(".").pop();
+                    let fullName = name + "." + extension;
 
-                        request({url: smallUrl, encoding: null}, (error, response) => {
-                            if (error) {
-                                reject(error);
-                            }
-
-                            if(response.statusCode !== 404) {
-                                resolve(smallUrl);
-                            } else {
-                                resolve(url);
+                    if(url.endsWith(".gif")) {
+                        $.ajax({
+                            url: "https://yentis.glitch.me/modifygif",
+                            method: "post",
+                            contentType: "application/json",
+                            data: JSON.stringify({
+                                url: url,
+                                options: [["resize", this.settings.sizeSettings.size.toString()], command]
+                            }),
+                            success: (data) => {
+                                this.uploadFile(this.b64toBlob(data, "image/gif"), fullName, content);
+                            },
+                            error: (obj) => {
+                                console.warn("EmoteReplacer: " + obj.responseText);
                             }
                         });
-                    });
-                }
-
-                fetchBlobAndUpload(url, name, content = "") {
-                    fetch(url)
-                        .then(res => res.blob())
-                        .then(blob => {
-                            let extension = url.split(".").pop();
-                            let fullName = name + "." + extension;
-
-                            if(url.endsWith("png")) {
-                                this.compress(name, blob, (resultBlob) => {
+                    } else {
+                        fetch(url)
+                            .then(res => res.blob())
+                            .then(blob => {
+                                this.compress(name, blob, command, (resultBlob) => {
                                     this.uploadFile(resultBlob, fullName, content);
                                 });
-                            } else {
-                                this.uploadFile(blob, fullName, content);
-                            }
-                        });
+                            });
+                    }
                 }
 
                 uploadFile(blob, fullName, content) {
@@ -636,16 +664,14 @@ let EmoteReplacer = (() => {
                         }, false);
                 }
 
-                compress(fileName, originalFile, callback) {
-                    const width = this.settings.sizeSettings.size;
+                compress(fileName, originalFile, command, callback) {
                     const reader = new FileReader();
                     reader.readAsDataURL(originalFile);
                     reader.onload = event => {
                         const img = new Image();
                         img.src = event.target.result;
                         img.onload = () => {
-                            const scaleFactor = width / img.width;
-                            let ctx = this.downScaleImage(img, scaleFactor).getContext("2d");
+                            let ctx = this.applyScaling(img, command);
                             ctx.canvas.toBlob(callback, "image/png", 1);
                         };
                     };
@@ -654,6 +680,43 @@ let EmoteReplacer = (() => {
                         callback();
                     };
                 }
+
+                applyScaling(img, command) {
+                    const width = this.settings.sizeSettings.size;
+                    const scaleFactor = width / img.width;
+                    let canvas = this.downScaleImage(img, scaleFactor);
+                    let ctx;
+
+                    if(command !== "") {
+                        ctx = this.flipImage(img, canvas, command);
+                    } else {
+                        ctx = canvas.getContext("2d");
+                    }
+
+                    return ctx;
+                }
+
+                flipImage(image, canvas, command) {
+                    let scaleH = 1,
+                        scaleV = 1,
+                        posX = 0,
+                        posY = 0;
+
+                    if(command === "flip") {
+                        scaleH = -1; // Set horizontal scale to -1 if flip horizontal
+                        posX = canvas.width * -1; // Set x position to -100% if flip horizontal
+                    } else if(command === "flap") {
+                        scaleV = -1; // Set vertical scale to -1 if flip vertical
+                        posY = canvas.height * -1; // Set y position to -100% if flip vertical
+                    }
+
+                    let ctx = canvas.getContext("2d");
+                    ctx.scale(scaleH, scaleV); // Set scale to flip the image
+                    ctx.drawImage(image, posX, posY, canvas.width, canvas.height); // draw the image
+
+                    return ctx;
+                };
+
 
                 downScaleImage(img, scale) {
                     let imgCV = document.createElement('canvas');
