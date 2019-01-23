@@ -19,8 +19,8 @@ Want to add an emote? Ask me for the link.
 # Modifiers
 :flip - Flip emote horizontally.  
 :flap - Flip emote vertically.  
-:rotate-<degrees> - Rotate emote by x degrees, gifs only support 90, 180 or 270 degrees.  
-:speed-<speed> - For gifs, change delay between frames in hundredths of a second.  
+:rotate-\<degrees\> - Rotate emote by x degrees, gifs only support 90, 180 or 270 degrees.  
+:speed-\<speed\> - For gifs, change delay between frames in hundredths of a second.  
 :hyperspeed - Remove every other frame and set delay to the minimum for extreme speed.  
 
 Examples:  
