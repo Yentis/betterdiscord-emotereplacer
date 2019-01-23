@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.5.7",
+            "version": "0.5.8",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
             "title": "What's New?",
-            "items": ["Improved image quality."]
+            "items": ["Added more modifiers."]
         }],
         "defaultConfig": [{
             "type": "category",
@@ -602,6 +602,10 @@ let EmoteReplacer = (() => {
 
                                 if(command) {
                                     emote.command = command[0].substring(1, command[0].length);
+                                    if(emote.command.indexOf('-') !== -1) {
+                                        let newCommand = emote.command.split('-');
+                                        emote.command = [newCommand[0], newCommand[1]];
+                                    }
                                     emote.nameAndCommand = emote.nameAndCommand + command[0];
                                 }
 
@@ -700,7 +704,7 @@ let EmoteReplacer = (() => {
                         resizedCanvas.height = Math.ceil(img.height * scaleFactor);
 
                         if(command !== "") {
-                            canvas = this.flipImage(img, canvas, command);
+                            canvas = this.applyCommand(img, canvas, command);
                         } else {
                             canvas.getContext("2d").drawImage(img, 0, 0);
                         }
@@ -710,7 +714,7 @@ let EmoteReplacer = (() => {
                     });
                 }
 
-                flipImage(image, canvas, command) {
+                applyCommand(image, canvas, command) {
                     let scaleH = 1,
                         scaleV = 1,
                         posX = 0,
@@ -725,7 +729,16 @@ let EmoteReplacer = (() => {
                     }
 
                     let ctx = canvas.getContext("2d");
-                    ctx.scale(scaleH, scaleV); // Set scale to flip the image
+
+                    if(Array.isArray(command) && command[0] === "rotate") {
+                        ctx.translate(canvas.width/2,canvas.height/2);
+                        ctx.rotate(parseInt(command[1]) * Math.PI / 180);
+                        posX = -image.width/2;
+                        posY = -image.width/2;
+                    } else {
+                        ctx.scale(scaleH, scaleV); // Set scale to flip the image
+                    }
+
                     ctx.drawImage(image, posX, posY, canvas.width, canvas.height); // draw the image
 
                     return canvas;
