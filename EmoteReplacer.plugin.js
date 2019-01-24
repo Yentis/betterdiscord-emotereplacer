@@ -144,8 +144,9 @@ let EmoteReplacer = (() => {
             })();
 
             const Uploader = WebpackModules.findByUniqueProperties(['upload']);
+            const ChannelStore = WebpackModules.findByUniqueProperties(['getChannels', 'getDMFromUserId']);
             const SelectedChannelStore = WebpackModules.findByUniqueProperties(['getChannelId']);
-            const request = window.require("request");
+            const MessageParser = WebpackModules.findByUniqueProperties(['createMessage', 'parse', 'unparse']);
             const shouldCompleteTwitch = RegExp.prototype.test.bind(/(?:^|\s)\w{2,}$/);
 
             return class EmoteReplacer extends Plugin {
@@ -548,6 +549,8 @@ let EmoteReplacer = (() => {
 
                                 this.setSelectionRange(textArea, 0, textArea.innerHTML.length);
                                 document.execCommand("delete");
+                                let channel = ChannelStore.getChannel(SelectedChannelStore.getChannelId());
+                                content = MessageParser.parse(channel, content).content;
                                 this.fetchBlobAndUpload(foundEmote.url, foundEmote.name, content, foundEmote.command ? foundEmote.command : "");
                             } else {
                                 const press = new KeyboardEvent("keypress", {key: "Enter", code: "Enter", which: 13, keyCode: 13, bubbles: true});
@@ -709,7 +712,7 @@ let EmoteReplacer = (() => {
                             canvas.getContext("2d").drawImage(img, 0, 0);
                         }
 
-                        this.pica.resize(canvas, resizedCanvas, {alpha: true, unsharpAmount: 80, unsharpRadius: 0.6, unsharpThreshold: 2})
+                        this.pica.resize(canvas, resizedCanvas, {alpha: true, unsharpAmount: 70, unsharpRadius: 0.8, unsharpThreshold: 105})
                             .then(result => resolve(result));
                     });
                 }
