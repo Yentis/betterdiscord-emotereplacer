@@ -17,13 +17,15 @@ List of emotes: https://yentis.github.io/emotes
 Want to add an emote? Ask me for the link.
 
 # Modifiers
+**Modifiers can be chained!**  
 :flip - Flip emote horizontally.  
 :flap - Flip emote vertically.  
 :rotate-\<degrees\> - Rotate emote by x degrees, gifs only support 90, 180 or 270 degrees.  
 :speed-\<speed\> - For gifs, change delay between frames in hundredths of a second.  
 :hyperspeed - Remove every other frame and set delay to the minimum for extreme speed.  
+:spin-\<speed\> - Make your emote spin! Speed can be: left empty, fast, faster or hyper.  
 
-Examples:  
+**Examples:**  
 yentDogSmug:flip  
 yentKrisDance:speed-5  
 yentKannaDance:rotate-90
