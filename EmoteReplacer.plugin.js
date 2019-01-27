@@ -10,17 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.5.9",
+            "version": "0.6.0",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
             "title": "What's New?",
-            "items": ["Improved quality for pngs."]
-        }, {
-            "title": "Bugfixes",
-            "items": ["Fixed bug causing pings or built-in emotes not to send if the message also contained an emote to be replaced."]
+            "items": ["Added spin modifier!", "You can now chain modifiers."]
         }],
         "defaultConfig": [{
             "type": "category",
@@ -554,7 +551,7 @@ let EmoteReplacer = (() => {
                                 document.execCommand("delete");
                                 let channel = ChannelStore.getChannel(SelectedChannelStore.getChannelId());
                                 content = MessageParser.parse(channel, content).content;
-                                this.fetchBlobAndUpload(foundEmote.url, foundEmote.name, content, foundEmote.command ? foundEmote.command : "");
+                                this.fetchBlobAndUpload(foundEmote.url, foundEmote.name, content, foundEmote.commands ? foundEmote.commands : "");
                             } else {
                                 const press = new KeyboardEvent("keypress", {key: "Enter", code: "Enter", which: 13, keyCode: 13, bubbles: true});
                                 Object.defineProperties(press, {keyCode: {value: 13}, which: {value: 13}});
@@ -607,11 +604,12 @@ let EmoteReplacer = (() => {
                                 };
 
                                 if(command) {
-                                    emote.command = command[0].substring(1, command[0].length);
-                                    if(emote.command.indexOf('-') !== -1) {
-                                        let newCommand = emote.command.split('-');
-                                        emote.command = [newCommand[0], newCommand[1]];
-                                    }
+                                    let commands = command[0].substring(1, command[0].length).split(':');
+                                    emote.commands = commands.map(command => {
+                                        let split = command.split('-');
+
+                                        return [split[0], split[1] || null];
+                                    });
                                     emote.nameAndCommand = emote.nameAndCommand + command[0];
                                 }
 
@@ -638,35 +636,56 @@ let EmoteReplacer = (() => {
                     }
                 }
 
-                fetchBlobAndUpload(url, name, content, command) {
+                fetchBlobAndUpload(url, name, content, commands) {
                     let extension = url.split(".").pop();
-                    let fullName = name + "." + extension;
 
                     if(url.endsWith(".gif")) {
-                        $.ajax({
-                            url: "https://yentis.glitch.me/modifygif",
-                            method: "post",
-                            contentType: "application/json",
-                            data: JSON.stringify({
-                                url: url,
-                                options: [["resize", this.settings.sizeSettings.size.toString()], command]
-                            }),
-                            success: (data) => {
-                                this.uploadFile(this.b64toBlob(data, "image/gif"), fullName, content);
-                            },
-                            error: (obj) => {
-                                console.warn("EmoteReplacer: " + obj.responseText);
-                            }
-                        });
+                        this.modifyGif(url, name, content, commands);
                     } else {
-                        fetch(url)
-                            .then(res => res.blob())
-                            .then(blob => {
-                                this.compress(name, blob, command, (resultBlob) => {
-                                    this.uploadFile(resultBlob, fullName, content);
+                        if(this.findCommand(commands, 'spin')) {
+                            this.modifyGif(url, name, content, commands);
+                        } else {
+                            fetch(url)
+                                .then(res => res.blob())
+                                .then(blob => {
+                                    this.compress(name, blob, commands, (resultBlob) => {
+                                        this.uploadFile(resultBlob, name + '.png', content);
+                                    });
                                 });
-                            });
+                        }
                     }
+                }
+
+                findCommand(commands, name) {
+                    let found = false;
+
+                    if(commands.length > 0) {
+                        commands.forEach(command => {
+                            if(command[0] === name) found = true;
+                        });
+                    }
+
+                    return found;
+                }
+
+                modifyGif(url, name, content, commands) {
+                    commands.push(["resize", this.settings.sizeSettings.size.toString()]);
+
+                    $.ajax({
+                        url: "https://yentis.glitch.me/modifygif",
+                        method: "post",
+                        contentType: "application/json",
+                        data: JSON.stringify({
+                            url: url,
+                            options: commands
+                        }),
+                        success: (data) => {
+                            this.uploadFile(this.b64toBlob(data, "image/gif"), name + '.gif', content);
+                        },
+                        error: (obj) => {
+                            console.warn("EmoteReplacer: " + obj.responseText);
+                        }
+                    });
                 }
 
                 uploadFile(blob, fullName, content) {
@@ -676,14 +695,14 @@ let EmoteReplacer = (() => {
                         }, false);
                 }
 
-                compress(fileName, originalFile, command, callback) {
+                compress(fileName, originalFile, commands, callback) {
                     const reader = new FileReader();
                     reader.readAsDataURL(originalFile);
                     reader.onload = event => {
                         const img = new Image();
                         img.src = event.target.result;
                         img.onload = () => {
-                            this.applyScaling(img, command)
+                            this.applyScaling(img, commands)
                                 .then((canvas) => {
                                     let ctx = canvas.getContext("2d");
                                     ctx.canvas.toBlob(callback, "image/png", 1);
@@ -696,7 +715,7 @@ let EmoteReplacer = (() => {
                     };
                 }
 
-                applyScaling(img, command) {
+                applyScaling(img, commands) {
                     return new Promise((resolve) => {
                         const width = this.settings.sizeSettings.size;
                         const scaleFactor = width / img.width;
@@ -709,8 +728,8 @@ let EmoteReplacer = (() => {
                         resizedCanvas.width = Math.ceil(img.width * scaleFactor);
                         resizedCanvas.height = Math.ceil(img.height * scaleFactor);
 
-                        if(command !== "") {
-                            canvas = this.applyCommand(img, canvas, command);
+                        if(commands.length > 0) {
+                            canvas = this.applyCommands(img, canvas, commands);
                         } else {
                             canvas.getContext("2d").drawImage(img, 0, 0);
                         }
@@ -720,25 +739,27 @@ let EmoteReplacer = (() => {
                     });
                 }
 
-                applyCommand(image, canvas, command) {
+                applyCommands(image, canvas, commands) {
                     let scaleH = 1,
                         scaleV = 1,
                         posX = 0,
                         posY = 0;
 
-                    if(command === "flip") {
+                    if(this.findCommand(commands, 'flip')) {
                         scaleH = -1; // Set horizontal scale to -1 if flip horizontal
                         posX = canvas.width * -1; // Set x position to -100% if flip horizontal
-                    } else if(command === "flap") {
+                    }
+                    if(this.findCommand(commands, 'flap')) {
                         scaleV = -1; // Set vertical scale to -1 if flip vertical
                         posY = canvas.height * -1; // Set y position to -100% if flip vertical
                     }
 
                     let ctx = canvas.getContext("2d");
+                    let rotateCommand = this.findCommand(commands, 'rotate');
 
-                    if(Array.isArray(command) && command[0] === "rotate") {
+                    if(rotateCommand) {
                         ctx.translate(canvas.width/2,canvas.height/2);
-                        ctx.rotate(parseInt(command[1]) * Math.PI / 180);
+                        ctx.rotate(parseInt(rotateCommand[1]) * Math.PI / 180);
                         posX = -image.width/2;
                         posY = -image.width/2;
                     } else {
