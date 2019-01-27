@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.6.0",
+            "version": "0.6.1",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
-            "title": "What's New?",
-            "items": ["Added spin modifier!", "You can now chain modifiers."]
+            "title": "Bugfixes",
+            "items": ["Fix gifs not sending."]
         }],
         "defaultConfig": [{
             "type": "category",
@@ -600,7 +600,8 @@ let EmoteReplacer = (() => {
                                     nameAndCommand: key,
                                     url: this.emoteNames[key],
                                     emoteLength: key.length,
-                                    pos: pos
+                                    pos: pos,
+                                    commands: []
                                 };
 
                                 if(command) {
@@ -661,7 +662,7 @@ let EmoteReplacer = (() => {
 
                     if(commands.length > 0) {
                         commands.forEach(command => {
-                            if(command[0] === name) found = true;
+                            if(command[0] === name) found = command;
                         });
                     }
 
