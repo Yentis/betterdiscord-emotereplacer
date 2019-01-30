@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.6.1",
+            "version": "0.6.2",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
             "title": "Bugfixes",
-            "items": ["Fix gifs not sending."]
+            "items": ["Fix loss of focus causing emotes not to send."]
         }],
         "defaultConfig": [{
             "type": "category",
@@ -154,7 +154,6 @@ let EmoteReplacer = (() => {
                     super();
                     this.cached = {};
                     this.windowSize = 10;
-                    this.oldVal = "";
                     this.button = null;
                     this.emoteNames = null;
                     this.mainCSS = `
@@ -250,7 +249,6 @@ let EmoteReplacer = (() => {
                     PluginUtilities.removeStyle(this.getName() + "-style");
                     this.button = null;
                     this.emoteNames = null;
-                    this.oldVal = "";
                 }
 
                 observer(e) {
@@ -312,13 +310,13 @@ let EmoteReplacer = (() => {
                 }
 
                 addListener() {
+                    let channelTextArea = $(`${DiscordSelectors.Textarea.channelTextArea}`);
                     let textarea = $(`${DiscordSelectors.Textarea.channelTextArea} textarea`);
 
                     textarea.on(`keyup.${this.getName()} keypress.${this.getName()} click.${this.getName()}`, (e) => {
                         this.checkCompletions(e);
                     });
                     textarea.on(`keydown.${this.getName()}`, (e) => {
-                        this.replaceEmote(e);
                         this.browseCompletions(e);
                     });
                     textarea.on(`wheel.${this.getName()}`, (e) => {
@@ -326,6 +324,9 @@ let EmoteReplacer = (() => {
                     });
                     textarea.on(`blur.${this.getName()}`, (e) => {
                         this.destroyCompletions(e);
+                    });
+                    channelTextArea.on(`keydown.${this.getName()}`, e => {
+                        this.replaceEmote(e);
                     });
                 }
 
@@ -534,29 +535,23 @@ let EmoteReplacer = (() => {
                 }
 
                 replaceEmote(e) {
-                    let textArea = e.target;
-                    let newVal = textArea.innerHTML;
+                    if(e.key === "Enter") {
+                        e.preventDefault();
+                        let textArea = $(`${DiscordSelectors.Textarea.channelTextArea} textarea`)[0];
+                        let foundEmote = this.getTextPos(textArea.innerHTML);
 
-                    if(this.oldVal !== newVal){
-                        this.oldVal = newVal;
+                        if(foundEmote) {
+                            let content = textArea.innerHTML.replace(foundEmote.nameAndCommand, "").trim();
 
-                        if(e.key === "Enter") {
-                            e.preventDefault();
-                            let foundEmote = this.getTextPos(newVal);
-
-                            if(foundEmote) {
-                                let content = textArea.innerHTML.replace(foundEmote.nameAndCommand, "").trim();
-
-                                this.setSelectionRange(textArea, 0, textArea.innerHTML.length);
-                                document.execCommand("delete");
-                                let channel = ChannelStore.getChannel(SelectedChannelStore.getChannelId());
-                                content = MessageParser.parse(channel, content).content;
-                                this.fetchBlobAndUpload(foundEmote.url, foundEmote.name, content, foundEmote.commands ? foundEmote.commands : "");
-                            } else {
-                                const press = new KeyboardEvent("keypress", {key: "Enter", code: "Enter", which: 13, keyCode: 13, bubbles: true});
-                                Object.defineProperties(press, {keyCode: {value: 13}, which: {value: 13}});
-                                textArea.dispatchEvent(press);
-                            }
+                            this.setSelectionRange(textArea, 0, textArea.innerHTML.length);
+                            document.execCommand("delete");
+                            let channel = ChannelStore.getChannel(SelectedChannelStore.getChannelId());
+                            content = MessageParser.parse(channel, content).content;
+                            this.fetchBlobAndUpload(foundEmote.url, foundEmote.name, content, foundEmote.commands ? foundEmote.commands : "");
+                        } else {
+                            const press = new KeyboardEvent("keypress", {key: "Enter", code: "Enter", which: 13, keyCode: 13, bubbles: true});
+                            Object.defineProperties(press, {keyCode: {value: 13}, which: {value: 13}});
+                            textArea.dispatchEvent(press);
                         }
                     }
                 }
