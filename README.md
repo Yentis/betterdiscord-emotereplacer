@@ -6,8 +6,8 @@ Install BetterDiscord from here
 https://github.com/rauenzi/BetterDiscordApp/releases  
 **Reminder: BetterDiscord is against the TOS, use at your own risk!**
 
-Download https://github.com/Yentis/betterdiscord-emotereplacer/blob/master/EmoteReplacer.plugin.js  
-And this library: https://github.com/rauenzi/BDPluginLibrary/blob/master/release/0PluginLibrary.plugin.js
+Download this library https://github.com/rauenzi/BDPluginLibrary/blob/master/release/0PluginLibrary.plugin.js  
+And the plugin: https://github.com/Yentis/betterdiscord-emotereplacer/blob/master/EmoteReplacer.plugin.js  
 
 Open Discord -> Settings -> Plugins -> Open plugin folder and place the 2 plugins there.  
 Enable them in the Plugins menu and hit Ctrl + R.
