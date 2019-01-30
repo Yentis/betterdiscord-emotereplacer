@@ -13,6 +13,7 @@ Open Discord -> Settings -> Plugins -> Open plugin folder and place the 2 plugin
 Enable them in the Plugins menu and hit Ctrl + R.
 
 # Resources
+Server code: https://glitch.com/edit/#!/yentis
 List of emotes: https://yentis.github.io/emotes  
 Want to add an emote? Ask me for the link.
 
