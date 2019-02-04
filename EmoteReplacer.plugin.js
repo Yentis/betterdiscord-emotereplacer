@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.6.2",
+            "version": "0.6.3",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
             "title": "Bugfixes",
-            "items": ["Fix loss of focus causing emotes not to send."]
+            "items": ["Fix not being able to use shift+enter."]
         }],
         "defaultConfig": [{
             "type": "category",
@@ -535,7 +535,7 @@ let EmoteReplacer = (() => {
                 }
 
                 replaceEmote(e) {
-                    if(e.key === "Enter") {
+                    if(e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         let textArea = $(`${DiscordSelectors.Textarea.channelTextArea} textarea`)[0];
                         let foundEmote = this.getTextPos(textArea.innerHTML);
