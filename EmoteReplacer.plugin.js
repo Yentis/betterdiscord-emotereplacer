@@ -156,6 +156,7 @@ let EmoteReplacer = (() => {
                     this.windowSize = 10;
                     this.button = null;
                     this.emoteNames = null;
+                    this.gifCommands = [];
                     this.mainCSS = `
                     #refreshEmoteReplacer button {
                         transition: transform .1s;
@@ -231,12 +232,15 @@ let EmoteReplacer = (() => {
                     ZLibrary.PluginUpdater.checkForUpdate(this.getName(), this.getVersion(), "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js");
                     await PluginUtilities.addScript("pica", "//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@bc5bb1f55bc8db09cb1eb97dd7a65666b12d5c46/pica.js");
                     PluginUtilities.addStyle(this.getName()  + "-style", this.mainCSS);
-                    this.getEmoteNames().then((names) => {
+                    this.getEmoteNames().then(names => {
                         this.emoteNames = names;
-                        if($(`${DiscordSelectors.Textarea.textArea}`)) {
-                            this.addRefresh();
-                            this.addListener();
-                        }
+                        this.getGifModifiers().then(modifiers => {
+                            this.gifCommands = modifiers;
+                            if($(`${DiscordSelectors.Textarea.textArea}`)) {
+                                this.addRefresh();
+                                this.addListener();
+                            }
+                        });
                     }).catch((error) => {
                         console.warn("EmoteReplacer: " + name + ": " + error);
                     });
@@ -352,6 +356,17 @@ let EmoteReplacer = (() => {
                             error: function (obj, name, error) {
                                 reject(name + " - " + error);
                             }
+                        });
+                    });
+                }
+
+                getGifModifiers() {
+                    return new Promise((resolve, reject) => {
+                        $.ajax({
+                            dataType: "json",
+                            url: "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/gifModifiers.json",
+                            success: data => resolve(data),
+                            error: (obj, name, error) => reject(name + " - " + error)
                         });
                     });
                 }
@@ -638,7 +653,7 @@ let EmoteReplacer = (() => {
                     if(url.endsWith(".gif")) {
                         this.modifyGif(url, name, content, commands);
                     } else {
-                        if(this.findCommand(commands, 'spin')) {
+                        if(this.findCommand(commands, this.gifCommands)) {
                             this.modifyGif(url, name, content, commands);
                         } else {
                             fetch(url)
@@ -652,12 +667,14 @@ let EmoteReplacer = (() => {
                     }
                 }
 
-                findCommand(commands, name) {
+                findCommand(commands, names) {
                     let found = false;
 
                     if(commands.length > 0) {
                         commands.forEach(command => {
-                            if(command[0] === name) found = command;
+                            names.forEach(name => {
+                                if(command[0] === name) found = command;
+                            })
                         });
                     }
 
@@ -741,17 +758,17 @@ let EmoteReplacer = (() => {
                         posX = 0,
                         posY = 0;
 
-                    if(this.findCommand(commands, 'flip')) {
+                    if(this.findCommand(commands, ['flip'])) {
                         scaleH = -1; // Set horizontal scale to -1 if flip horizontal
                         posX = canvas.width * -1; // Set x position to -100% if flip horizontal
                     }
-                    if(this.findCommand(commands, 'flap')) {
+                    if(this.findCommand(commands, ['flap'])) {
                         scaleV = -1; // Set vertical scale to -1 if flip vertical
                         posY = canvas.height * -1; // Set y position to -100% if flip vertical
                     }
 
                     let ctx = canvas.getContext("2d");
-                    let rotateCommand = this.findCommand(commands, 'rotate');
+                    let rotateCommand = this.findCommand(commands, ['rotate']);
 
                     if(rotateCommand) {
                         ctx.translate(canvas.width/2,canvas.height/2);
