@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.6.3",
+            "version": "0.6.4",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
-            "title": "Bugfixes",
-            "items": ["Fix not being able to use shift+enter."]
+            "title": "What's new",
+            "items": ["Modifiers resulting in gifs are now retrieved dynamically."]
         }],
         "defaultConfig": [{
             "type": "category",
