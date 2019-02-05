@@ -25,7 +25,8 @@ Want to add an emote? Ask me for the link.
 :speed-\<speed\> - For gifs, change delay between frames in hundredths of a second.  
 :hyperspeed - Remove every other frame and set delay to the minimum for extreme speed.  
 :spin-\<speed\> - Make your emote spin! Speed can be: left empty, fast, faster or hyper.  
-:spinrev-\<speed\> - Same as above but spin in the other direction.
+:spinrev-\<speed\> - Same as above but spin in the other direction.  
+:shake-\<speed\> - Make your emote shake! Speed can be: left empty, fast, faster or hyper. Only works with static emotes for now.  
 
 **Examples:**  
 yentDogSmug:flip  
