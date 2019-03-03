@@ -26,7 +26,8 @@ Want to add an emote? Ask me for the link.
 :hyperspeed - Remove every other frame and set delay to the minimum for extreme speed.  
 :spin-\<speed\> - Make your emote spin! Speed can be: left empty, fast, faster or hyper.  
 :spinrev-\<speed\> - Same as above but spin in the other direction.  
-:shake-\<speed\> - Make your emote shake! Speed can be: left empty, fast, faster or hyper.  
+:shake-\<speed\> - Make your emote shake! Speed can be: left empty, fast, faster or hyper.
+:reverse - Make a gif play backwards.
 
 **Examples:**  
 yentDogSmug:flip  
