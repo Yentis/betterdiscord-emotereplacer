@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.6.4",
+            "version": "0.6.5",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
             "title": "What's new",
-            "items": ["Modifiers resulting in gifs are now retrieved dynamically."]
+            "items": ["Better support for wide emotes.", "Fix rotate png clipping."]
         }],
         "defaultConfig": [{
             "type": "category",
@@ -728,24 +728,28 @@ let EmoteReplacer = (() => {
                     };
                 }
 
-                applyScaling(img, commands) {
+                applyScaling(image, commands) {
                     return new Promise((resolve) => {
-                        const width = this.settings.sizeSettings.size;
-                        const scaleFactor = width / img.width;
+                        let scaleFactor;
+                        let sizeSetting = this.settings.sizeSettings.size;
+                        if (image.width < image.height) {
+                            scaleFactor = sizeSetting / image.width;
+                        } else scaleFactor = sizeSetting / image.height;
 
                         let canvas = document.createElement("canvas");
-                        canvas.width = img.width;
-                        canvas.height = img.height;
+                        canvas.width = image.width;
+                        canvas.height = image.height;
 
                         let resizedCanvas = document.createElement("canvas");
-                        resizedCanvas.width = Math.ceil(img.width * scaleFactor);
-                        resizedCanvas.height = Math.ceil(img.height * scaleFactor);
 
                         if(commands.length > 0) {
-                            canvas = this.applyCommands(img, canvas, commands);
+                            canvas = this.applyCommands(image, canvas, commands);
                         } else {
-                            canvas.getContext("2d").drawImage(img, 0, 0);
+                            canvas.getContext("2d").drawImage(image, 0, 0);
                         }
+
+                        resizedCanvas.width = Math.ceil(canvas.width * scaleFactor);
+                        resizedCanvas.height = Math.ceil(canvas.height * scaleFactor);
 
                         this.pica.resize(canvas, resizedCanvas, {alpha: true, unsharpAmount: 70, unsharpRadius: 0.8, unsharpThreshold: 105})
                             .then(result => resolve(result));
@@ -757,7 +761,7 @@ let EmoteReplacer = (() => {
                         scaleV = 1,
                         posX = 0,
                         posY = 0;
-
+                
                     if(this.findCommand(commands, ['flip'])) {
                         scaleH = -1; // Set horizontal scale to -1 if flip horizontal
                         posX = canvas.width * -1; // Set x position to -100% if flip horizontal
@@ -766,21 +770,33 @@ let EmoteReplacer = (() => {
                         scaleV = -1; // Set vertical scale to -1 if flip vertical
                         posY = canvas.height * -1; // Set y position to -100% if flip vertical
                     }
-
+                
                     let ctx = canvas.getContext("2d");
                     let rotateCommand = this.findCommand(commands, ['rotate']);
-
+                
                     if(rotateCommand) {
-                        ctx.translate(canvas.width/2,canvas.height/2);
-                        ctx.rotate(parseInt(rotateCommand[1]) * Math.PI / 180);
+                        let angle = parseInt(rotateCommand[1]) * Math.PI / 180,
+                            sin = Math.sin(angle),
+                            cos = Math.cos(angle);
+                
+                        let newWidth = Math.abs(canvas.width * cos) + Math.abs(canvas.height * sin);
+                        let newHeight = Math.abs(canvas.width * sin) + Math.abs(canvas.height * cos);
+                
+                        canvas.width = newWidth;
+                        canvas.height = newHeight;
+                
+                        ctx.translate(canvas.width/2, canvas.height/2);
+                        ctx.rotate(angle);
+                
                         posX = -image.width/2;
-                        posY = -image.width/2;
+                        posY = -image.height/2;
+                
                     } else {
                         ctx.scale(scaleH, scaleV); // Set scale to flip the image
                     }
-
-                    ctx.drawImage(image, posX, posY, canvas.width, canvas.height); // draw the image
-
+                
+                    ctx.drawImage(image, posX, posY); // draw the image
+                
                     return canvas;
                 };
             }
