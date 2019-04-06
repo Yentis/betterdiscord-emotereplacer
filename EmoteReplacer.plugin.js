@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.6.5",
+            "version": "0.6.6",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
             "title": "What's new",
-            "items": ["Better support for wide emotes.", "Fix rotate png clipping."]
+            "items": ["Better support for wide emotes. (gifs)"]
         }],
         "defaultConfig": [{
             "type": "category",
@@ -651,10 +651,10 @@ let EmoteReplacer = (() => {
                     let extension = url.split(".").pop();
 
                     if(url.endsWith(".gif")) {
-                        this.modifyGif(url, name, content, commands);
+                        this.getMetaAndModifyGif(url, name, content, commands);
                     } else {
                         if(this.findCommand(commands, this.gifCommands)) {
-                            this.modifyGif(url, name, content, commands);
+                            this.getMetaAndModifyGif(url, name, content, commands);
                         } else {
                             fetch(url)
                                 .then(res => res.blob())
@@ -681,24 +681,34 @@ let EmoteReplacer = (() => {
                     return found;
                 }
 
-                modifyGif(url, name, content, commands) {
-                    commands.push(["resize", this.settings.sizeSettings.size.toString()]);
+                getMetaAndModifyGif(url, name, content, commands){
+                    let image = new Image();
+                    image.onload = () => {
+                        let scaleFactor;
+                        let sizeSetting = this.settings.sizeSettings.size;
+                        if (image.width < image.height) {
+                            scaleFactor = sizeSetting / image.width;
+                        } else scaleFactor = sizeSetting / image.height;
 
-                    $.ajax({
-                        url: "https://yentis.glitch.me/modifygif",
-                        method: "post",
-                        contentType: "application/json",
-                        data: JSON.stringify({
-                            url: url,
-                            options: commands
-                        }),
-                        success: (data) => {
-                            this.uploadFile(this.b64toBlob(data, "image/gif"), name + '.gif', content);
-                        },
-                        error: (obj) => {
-                            console.warn("EmoteReplacer: " + obj.responseText);
-                        }
-                    });
+                        commands.push(["resize", scaleFactor]);
+
+                        $.ajax({
+                            url: "https://yentis.glitch.me/modifygif",
+                            method: "post",
+                            contentType: "application/json",
+                            data: JSON.stringify({
+                                url: url,
+                                options: commands
+                            }),
+                            success: (data) => {
+                                this.uploadFile(this.b64toBlob(data, "image/gif"), name + '.gif', content);
+                            },
+                            error: (obj) => {
+                                console.warn("EmoteReplacer: " + obj.responseText);
+                            }
+                        });
+                    };
+                    image.src = url;
                 }
 
                 uploadFile(blob, fullName, content) {
