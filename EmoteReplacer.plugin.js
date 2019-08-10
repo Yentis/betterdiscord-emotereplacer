@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.6.6",
+            "version": "0.6.7",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
-            "title": "What's new",
-            "items": ["Better support for wide emotes. (gifs)"]
+            "title": "Bugfix",
+            "items": ["Fix emote uploading being broken."]
         }],
         "defaultConfig": [{
             "type": "category",
@@ -143,7 +143,17 @@ let EmoteReplacer = (() => {
                 return {find, findByUniqueProperties, findByDisplayName};
             })();
 
-            const Uploader = WebpackModules.findByUniqueProperties(['upload']);
+            const Uploader = WebpackModules.findByUniqueProperties(['instantBatchUpload']);
+			//In case upload function was moved
+			/*function hasUpload(prop) {
+				let keys = Object.keys(prop);
+				for (let i = 0; i < keys.length; i++) {
+					if (keys[i].indexOf('upload') !== -1) {
+						console.log(prop);
+					}
+				}
+			}
+			WebpackModules.find(hasUpload);*/
             const ChannelStore = WebpackModules.findByUniqueProperties(['getChannels', 'getDMFromUserId']);
             const SelectedChannelStore = WebpackModules.findByUniqueProperties(['getChannelId']);
             const MessageParser = WebpackModules.findByUniqueProperties(['createMessage', 'parse', 'unparse']);
@@ -691,6 +701,7 @@ let EmoteReplacer = (() => {
                         } else scaleFactor = sizeSetting / image.height;
 
                         commands.push(["resize", scaleFactor]);
+                        console.log("Commands: " + commands);
 
                         $.ajax({
                             url: "https://yentis.glitch.me/modifygif",
