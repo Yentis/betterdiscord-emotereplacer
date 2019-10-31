@@ -10,14 +10,18 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.6.7",
+            "version": "0.7.0",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
+			"title": "Added",
+			"items": ["Allow emotes to be surrounded in spoiler tags, causing the emote to be a spoiler."]
+		},{
             "title": "Bugfix",
-            "items": ["Fix emote uploading being broken."]
+            "items": ["Fix emotes being uploaded when surrounded by quotes.",
+					  "Fix emotes being uploaded when inside URLs."]
         }],
         "defaultConfig": [{
             "type": "category",
@@ -566,13 +570,15 @@ let EmoteReplacer = (() => {
                         let foundEmote = this.getTextPos(textArea.innerHTML);
 
                         if(foundEmote) {
-                            let content = textArea.innerHTML.replace(foundEmote.nameAndCommand, "").trim();
+                            let content = textArea.innerHTML;
+                            content = content.substring(0, foundEmote.pos) + content.substring(foundEmote.pos + foundEmote.nameAndCommand.length);
+                            content.trim();
 
                             this.setSelectionRange(textArea, 0, textArea.innerHTML.length);
                             document.execCommand("delete");
                             let channel = ChannelStore.getChannel(SelectedChannelStore.getChannelId());
-                            content = MessageParser.parse(channel, content).content;
-                            this.fetchBlobAndUpload(foundEmote.url, foundEmote.name, content, foundEmote.commands ? foundEmote.commands : "");
+                            foundEmote.content = MessageParser.parse(channel, content).content;
+                            this.fetchBlobAndUpload(foundEmote);
                         } else {
                             const press = new KeyboardEvent("keypress", {key: "Enter", code: "Enter", which: 13, keyCode: 13, bubbles: true});
                             Object.defineProperties(press, {keyCode: {value: 13}, which: {value: 13}});
@@ -610,17 +616,20 @@ let EmoteReplacer = (() => {
 
                     for (let key in this.emoteNames) {
                         if(this.emoteNames.hasOwnProperty(key)) {
-                            let regex = new RegExp("\\b" + key + "\\b");
-                            let pos = value.search(regex);
+                            let regex = new RegExp("(?<!\\/)\\b" + key + "\\b", 'g');
+                            let matches = value.match(regex);
                             let command = value.match(regexCommand);
 
-                            if(pos !== -1) {
+                            if (!matches || matches.length === 0) continue;
+                            for (let i = 0; i < matches.length; i++) {
+                                let pos = this.getNthIndexOf(value, key, i);
                                 let emote = {
                                     name: key,
                                     nameAndCommand: key,
                                     url: this.emoteNames[key],
                                     emoteLength: key.length,
                                     pos: pos,
+                                    spoiler: false,
                                     commands: []
                                 };
 
@@ -633,8 +642,20 @@ let EmoteReplacer = (() => {
                                     });
                                     emote.nameAndCommand = emote.nameAndCommand + command[0];
                                 }
-
-                                foundEmotes.push(emote);
+                                
+                                let beforeEmote = value.substring(0, pos);
+                                let afterEmote = value.substring(pos + emote.nameAndCommand.length);
+                                if (beforeEmote.indexOf('||') !== -1 && afterEmote.indexOf('||') !== -1) {
+                                    let spoilerStart = beforeEmote.substring(beforeEmote.indexOf('||'))
+                                    emote.nameAndCommand = spoilerStart + emote.nameAndCommand;
+                                    emote.pos -= spoilerStart.length;
+                                    let spoilerEnd = afterEmote.substring(0, afterEmote.indexOf('||')+2);
+                                    emote.nameAndCommand = emote.nameAndCommand + spoilerEnd;
+                                    emote.spoiler = true;
+                                }
+                                if (beforeEmote.indexOf('`') === -1 || afterEmote.indexOf('`') === -1) {
+                                    foundEmotes.push(emote);
+                                }
                             }
                         }
                     }
@@ -643,6 +664,24 @@ let EmoteReplacer = (() => {
                         return foundEmotes[foundEmotes.length-1];
                     }
                 }
+
+                getNthIndexOf(input, search, nth) {
+                    let firstIndex = input.indexOf(search);
+                    let startPos = firstIndex + search.length;
+
+                    if (nth == 0) {
+                        return firstIndex;
+                    } else {
+                        let inputAfterFirstOccurrence = input.substring(startPos);
+                        let nextOccurrence = this.getNthIndexOf(inputAfterFirstOccurrence, search, nth-1);
+
+                        if (nextOccurrence === -1) {
+                            return -1;
+                        } else {
+                            return startPos + nextOccurrence;  
+                        }
+                    }
+                 }
 
                 setSelectionRange(input, selectionStart, selectionEnd) {
                     if(input.setSelectionRange) {
@@ -657,20 +696,21 @@ let EmoteReplacer = (() => {
                     }
                 }
 
-                fetchBlobAndUpload(url, name, content, commands) {
+                fetchBlobAndUpload(emote) {
+                    let url = emote.url, name = emote.name, commands = emote.commands ? emote.commands : "";
                     let extension = url.split(".").pop();
 
                     if(url.endsWith(".gif")) {
-                        this.getMetaAndModifyGif(url, name, content, commands);
+                        this.getMetaAndModifyGif(emote);
                     } else {
                         if(this.findCommand(commands, this.gifCommands)) {
-                            this.getMetaAndModifyGif(url, name, content, commands);
+                            this.getMetaAndModifyGif(emote);
                         } else {
                             fetch(url)
                                 .then(res => res.blob())
                                 .then(blob => {
                                     this.compress(name, blob, commands, (resultBlob) => {
-                                        this.uploadFile(resultBlob, name + '.png', content);
+                                        this.uploadFile(resultBlob, name + '.png', emote.content, emote.spoiler);
                                     });
                                 });
                         }
@@ -691,7 +731,8 @@ let EmoteReplacer = (() => {
                     return found;
                 }
 
-                getMetaAndModifyGif(url, name, content, commands){
+                getMetaAndModifyGif(emote){
+                    let url = emote.url, commands = emote.commands;
                     let image = new Image();
                     image.onload = () => {
                         let scaleFactor;
@@ -701,7 +742,6 @@ let EmoteReplacer = (() => {
                         } else scaleFactor = sizeSetting / image.height;
 
                         commands.push(["resize", scaleFactor]);
-                        console.log("Commands: " + commands);
 
                         $.ajax({
                             url: "https://yentis.glitch.me/modifygif",
@@ -712,7 +752,7 @@ let EmoteReplacer = (() => {
                                 options: commands
                             }),
                             success: (data) => {
-                                this.uploadFile(this.b64toBlob(data, "image/gif"), name + '.gif', content);
+                                this.uploadFile(this.b64toBlob(data, "image/gif"), emote.name + '.gif', emote.content, emote.spoiler);
                             },
                             error: (obj) => {
                                 console.warn("EmoteReplacer: " + obj.responseText);
@@ -722,11 +762,11 @@ let EmoteReplacer = (() => {
                     image.src = url;
                 }
 
-                uploadFile(blob, fullName, content) {
+                uploadFile(blob, fullName, content, spoiler) {
                     Uploader.upload(SelectedChannelStore.getChannelId(),
                         new File([blob], fullName), {
                             content: content, invalidEmojis: [], tts: false
-                        }, false);
+                        }, spoiler);
                 }
 
                 compress(fileName, originalFile, commands, callback) {
