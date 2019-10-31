@@ -34,3 +34,7 @@ Want to add an emote? Ask me for the link.
 yentDogSmug:flip  
 yentKrisDance:speed-5  
 yentKannaDance:rotate-90
+
+# Extra Features
+Size - Emotes can be 32 (normal emote size), 64 and 128px large.
+Spoilers - Emotes can be hidden behind a spoiler using spoiler tags.
