@@ -10,7 +10,7 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.8.0",
+            "version": "0.8.1",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
@@ -794,8 +794,19 @@ let EmoteReplacer = (() => {
                 }
  
                 addResizeCommand(commands, image) {
-                    let scaleFactor, sizeSetting, resizeCommand;
-                   
+                    let scaleFactor, sizeSetting = this.getEmoteSize(commands);
+            
+                    if (image.width < image.height) {
+                        scaleFactor = sizeSetting / image.width;
+                    } else scaleFactor = sizeSetting / image.height;
+ 
+                    commands.push(['resize', scaleFactor]);
+                }
+
+                getEmoteSize(commands) {
+                    let resizeCommand;
+                    let size;
+
                     commands.forEach((command, index, object) => {
                         if (command[0] === 'resize') {
                             resizeCommand = command;
@@ -804,20 +815,11 @@ let EmoteReplacer = (() => {
                     });
 
                     if (resizeCommand && resizeCommand[1]) {
-                        sizeSetting = this.getEmoteSize(resizeCommand[1])
+                        size = resizeCommand[1];
                     } else {
-                        sizeSetting = this.getEmoteSize();
+                        size = this.settings.sizeSettings.size;
                     }
- 
-                    if (image.width < image.height) {
-                        scaleFactor = sizeSetting / image.width;
-                    } else scaleFactor = sizeSetting / image.height;
- 
-                    commands.push(['resize', scaleFactor]);
-                }
 
-                getEmoteSize(size) {
-                    if (!size) size = this.settings.sizeSettings.size;
                     if (size === 'large' || size === 'big') {
                         return 128;
                     } else if (size === 'medium' || size === 'normal') {
@@ -859,7 +861,7 @@ let EmoteReplacer = (() => {
                 applyScaling(image, commands) {
                     return new Promise((resolve) => {
                         let scaleFactor;
-                        let size = this.getEmoteSize();
+                        let size = this.getEmoteSize(commands);
                         if (image.width < image.height) {
                             scaleFactor = size / image.width;
                         } else scaleFactor = size / image.height;
