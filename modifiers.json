@@ -1,31 +1,31 @@
 [{
-  name: "flip",
-  type: "normal"
+  "name": "flip",
+  "type": "normal"
 }, {
-  name: "flap",
-  type: "normal"
+  "name": "flap",
+  "type": "normal"
 }, {
-  name: "rotate",
-  type: "normal"
+  "name": "rotate",
+  "type": "normal"
 }, {
-  name: "speed",
-  type: "normal"
+  "name": "speed",
+  "type": "normal"
 }, {
-  name: "hyperspeed",
-  type: "normal"
+  "name": "hyperspeed",
+  "type": "normal"
 }, {
-  name: "reverse",
-  type: "normal"
+  "name": "reverse",
+  "type": "normal"
 }, {
-  name: "spin",
-  type: "gif"
+  "name": "spin",
+  "type": "gif"
 }, {
-  name: "spinrev",
-  type: "gif"
+  "name": "spinrev",
+  "type": "gif"
 }, {
-  name: "shake",
-  type: "gif"
+  "name": "shake",
+  "type": "gif"
 }, {
-  name: "rainbow",
-  type: "gif"
+  "name": "rainbow",
+  "type": "gif"
 }]
