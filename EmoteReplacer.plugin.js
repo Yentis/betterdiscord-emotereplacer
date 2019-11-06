@@ -10,19 +10,15 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.7.0",
+            "version": "0.7.1",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
 			"title": "Added",
-			"items": ["Allow emotes to be surrounded in spoiler tags, causing the emote to be a spoiler."]
-		},{
-            "title": "Bugfix",
-            "items": ["Fix emotes being uploaded when surrounded by quotes.",
-					  "Fix emotes being uploaded when inside URLs."]
-        }],
+			"items": ["New modifier 'rainbow'! (Thanks to Badewanne3)"]
+		}],
         "defaultConfig": [{
             "type": "category",
             "id": "sizeSettings",
