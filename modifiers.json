@@ -6,10 +6,12 @@
   "type": "normal"
 }, {
   "name": "rotate",
-  "type": "normal"
+  "type": "normal",
+  "arguments": ["number"]
 }, {
   "name": "speed",
-  "type": "normal"
+  "type": "normal",
+  "arguments": ["number"]
 }, {
   "name": "hyperspeed",
   "type": "normal"
@@ -18,13 +20,16 @@
   "type": "normal"
 }, {
   "name": "spin",
-  "type": "gif"
+  "type": "gif",
+  "arguments": ["", "fast", "faster", "hyper"]
 }, {
   "name": "spinrev",
-  "type": "gif"
+  "type": "gif",
+  "arguments": ["", "fast", "faster", "hyper"]
 }, {
   "name": "shake",
-  "type": "gif"
+  "type": "gif",
+  "arguments": ["", "fast", "faster", "hyper"]
 }, {
   "name": "rainbow",
   "type": "gif"
