@@ -17,7 +17,7 @@ let EmoteReplacer = (() => {
         },
         "changelog": [{
 			"title": "Added",
-            "items": ["New modifier 'resize' (small, medium/large, large/big or a number from 32 to 128).",
+            "items": ["New modifier 'resize' (small, medium/normal, large/big or a number from 32 to 128).",
                       "Ability to enter your own emote size from 32 to 128 in the settings.",
                       "Default emote size is now 48px, reflecting discord's recent change.",
                       "Show autocomplete list for modifiers."]
