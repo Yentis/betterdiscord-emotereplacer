@@ -28,8 +28,9 @@ Want to add an emote? Ask me for the link.
 :spin-\<speed\> - Make your emote spin! Speed can be: left empty, fast, faster or hyper.  
 :spinrev-\<speed\> - Same as above but spin in the other direction.  
 :shake-\<speed\> - Make your emote shake! Speed can be: left empty, fast, faster or hyper.  
-:rainbow - Make your emote strobe with a rainbow of colors!  
 :reverse - Make a gif play backwards.  
+:rainbow - Make your emote strobe with a rainbow of colors!  
+:wiggle - Make your emote wiggle!  
 
 **Examples:**  
 yentDogSmug:flip  
