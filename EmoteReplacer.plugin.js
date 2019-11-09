@@ -10,17 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.8.1",
+            "version": "0.8.2",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
 			"title": "Added",
-            "items": ["New modifier 'resize' (small, medium/normal, large/big or a number from 32 to 128).",
-                      "Ability to enter your own emote size from 32 to 128 in the settings.",
-                      "Default emote size is now 48px, reflecting discord's recent change.",
-                      "Show autocomplete list for modifiers."]
+            "items": ["New modifier 'wiggle' made by Badewanne3"]
 		}],
         "defaultConfig": [{
             "type": "category",
