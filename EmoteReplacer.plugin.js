@@ -10,14 +10,15 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.8.2",
+            "version": "0.8.4",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
 			"title": "Added",
-            "items": ["New modifier 'wiggle' made by Badewanne3"]
+            "items": ["New modifier 'infinite' made by Badewanne3",
+					  "New modifier 'wide'"]
 		}],
         "defaultConfig": [{
             "type": "category",
@@ -796,6 +797,12 @@ let EmoteReplacer = (() => {
                     if (image.width < image.height) {
                         scaleFactor = sizeSetting / image.width;
                     } else scaleFactor = sizeSetting / image.height;
+
+                    let wideCommand = this.findCommand(commands, ['wide']);
+                    if (wideCommand) {
+                        let wideness = this.getEmoteWideness(wideCommand);
+                        scaleFactor = (scaleFactor * wideness) + 'x' + scaleFactor;
+                    }
  
                     commands.push(['resize', scaleFactor]);
                 }
@@ -899,8 +906,14 @@ let EmoteReplacer = (() => {
                     }
                 
                     let ctx = canvas.getContext('2d');
+
+                    let wideCommand = this.findCommand(commands, ['wide']);
+                    if(wideCommand) {
+                        let wideness = this.getEmoteWideness(wideCommand);
+                        image.width = image.width * wideness;
+                        canvas.width = canvas.width * wideness;
+                    }
                     let rotateCommand = this.findCommand(commands, ['rotate']);
-                
                     if(rotateCommand) {
                         let angle = parseInt(rotateCommand[1]) * Math.PI / 180,
                             sin = Math.sin(angle),
@@ -917,15 +930,28 @@ let EmoteReplacer = (() => {
                 
                         posX = -image.width/2;
                         posY = -image.height/2;
-                
-                    } else {
-                        ctx.scale(scaleH, scaleV); // Set scale to flip the image
                     }
-                
-                    ctx.drawImage(image, posX, posY); // draw the image
+
+                    ctx.scale(scaleH, scaleV); // Set scale to flip the image
+                    ctx.drawImage(image, posX, posY, image.width, image.height); // draw the image
                 
                     return canvas;
                 };
+
+                getEmoteWideness(wideCommand) {
+                    let param = wideCommand[1];
+                    if (!isNaN(param)) {
+                        return Math.max(Math.min(param, 8), 2);
+                    } else if (param === 'extreme') {
+                        return 8;
+                    } else if (param === 'huge') {
+                        return 6;
+                    } else if (param === 'big') {
+                        return 4;
+                    } else {
+                        return 2;
+                    }
+                }
             }
         };
         return plugin(Plugin, Api);
