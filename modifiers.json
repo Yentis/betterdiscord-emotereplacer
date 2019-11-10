@@ -49,5 +49,5 @@
 }, {
   "name": "wide",
   "type": "normal",
-  "arguments": ["", "big", "huge", "extreme"]
+  "arguments": ["", "big", "huge", "extreme", "number"]
 }]
