@@ -33,6 +33,7 @@ Want to add an emote? Ask me for the link.
 :wiggle - Make your emote wiggle!  
 :infinite - Make your emote pulse outwards!  
 :wide-\<wideness\> - Make your emote extra wide! Wideness can be: left empty, big, huge, extreme or a number from 2 to 8.  
+:slide-\<direction\> - Make your emote slide! Direction can be: left empty (left) or right.  
 
 **Examples:**  
 yentDogSmug:flip  
