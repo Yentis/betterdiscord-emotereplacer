@@ -36,8 +36,14 @@
   "arguments": ["", "fast", "faster", "hyper"]
 }, {
   "name": "rainbow",
-  "type": "gif"
+  "type": "gif",
+  "arguments": ["", "fast", "faster", "hyper"]
 }, {
   "name": "wiggle",
-  "type": "gif"
+  "type": "gif",
+  "arguments": ["", "fast", "faster", "hyper"]
+}, {
+  "name": "infinite",
+  "type": "gif",
+  "arguments": ["", "fast", "faster", "hyper"]
 }]
