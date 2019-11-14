@@ -25,15 +25,15 @@ Want to add an emote? Ask me for the link.
 :rotate-\<degrees\> - Rotate emote by x degrees.  
 :speed-\<speed\> - For gifs, change delay between frames in hundredths of a second.  
 :hyperspeed - Remove every other frame and set delay to the minimum for extreme speed.  
+:reverse - Make a gif play backwards.  
 :spin-\<speed\> - Make your emote spin! Speed can be: left empty, fast, faster or hyper.  
 :spinrev-\<speed\> - Same as above but spin in the other direction.  
 :shake-\<speed\> - Make your emote shake! Speed can be: left empty, fast, faster or hyper.  
-:reverse - Make a gif play backwards.  
-:rainbow - Make your emote strobe with a rainbow of colors!  
-:wiggle - Make your emote wiggle!  
-:infinite - Make your emote pulse outwards!  
+:rainbow-\<speed\> - Make your emote strobe with a rainbow of colors!  Speed can be: left empty, fast, faster or hyper.  
+:infinite-\<speed\> - Make your emote pulse outwards!  Speed can be: left empty, fast, faster or hyper.  
+:slide-\<speed\> - Make your emote slide! Speed can be: left empty, fast, faster or hyper.  
+:wiggle-\<intensity\> - Make your emote wiggle!  Intensity can be: left empty, big, bigger, huge.  
 :wide-\<wideness\> - Make your emote extra wide! Wideness can be: left empty, big, huge, extreme or a number from 2 to 8.  
-:slide-\<direction\> - Make your emote slide! Direction can be: left empty (left) or right.  
 
 **Examples:**  
 yentDogSmug:flip  
