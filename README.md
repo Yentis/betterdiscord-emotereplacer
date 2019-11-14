@@ -28,10 +28,11 @@ Want to add an emote? Ask me for the link.
 :reverse - Make a gif play backwards.  
 :spin-\<speed\> - Make your emote spin! Speed can be: left empty, fast, faster or hyper.  
 :spinrev-\<speed\> - Same as above but spin in the other direction.  
+:slide-\<speed\> - Make your emote slide! Speed can be: left empty, fast, faster or hyper.  
+:sliderev-\<speed\> - Same as above but slide in the other direction.  
 :shake-\<speed\> - Make your emote shake! Speed can be: left empty, fast, faster or hyper.  
 :rainbow-\<speed\> - Make your emote strobe with a rainbow of colors!  Speed can be: left empty, fast, faster or hyper.  
 :infinite-\<speed\> - Make your emote pulse outwards!  Speed can be: left empty, fast, faster or hyper.  
-:slide-\<speed\> - Make your emote slide! Speed can be: left empty, fast, faster or hyper.  
 :wiggle-\<intensity\> - Make your emote wiggle!  Intensity can be: left empty, big, bigger, huge.  
 :wide-\<wideness\> - Make your emote extra wide! Wideness can be: left empty, big, huge, extreme or a number from 2 to 8.  
 
