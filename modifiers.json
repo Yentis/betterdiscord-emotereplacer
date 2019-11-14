@@ -45,7 +45,7 @@
 }, {
   "name": "wiggle",
   "type": "gif",
-  "arguments": ["", "fast", "faster", "hyper"]
+  "arguments": ["", "big", "bigger", "huge"]
 }, {
   "name": "infinite",
   "type": "gif",
@@ -53,5 +53,9 @@
 }, {
   "name": "slide",
   "type": "gif",
-  "arguments": ["", "right"]
+  "arguments": ["", "fast", "faster", "hyper"]
+}, {
+  "name": "sliderev",
+  "type": "gif",
+  "arguments": ["", "fast", "faster", "hyper"]
 }]
