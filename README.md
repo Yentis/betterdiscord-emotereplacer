@@ -42,5 +42,5 @@ yentKrisDance:speed-5
 yentKannaDance:rotate-90
 
 # Extra Features
-Size - Emotes can be 32 (normal emote size), 64 and 128px large.  
+Size - Emotes can be 32 to 128px large, with 48 being the normal emote size.  
 Spoilers - Emotes can be hidden behind a spoiler using spoiler tags.  
