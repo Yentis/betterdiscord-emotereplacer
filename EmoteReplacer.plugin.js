@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.8.5",
+            "version": "0.8.6",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
 			"title": "Bugfix",
-            "items": ["Fixed emote list not working due to Discord update."]
+            "items": ["Fixed bug due to Discord update... again."]
 		}],
         "defaultConfig": [{
             "type": "category",
@@ -164,51 +164,26 @@ let EmoteReplacer = (() => {
                         color: hsla(0, 0%, 100%, 1);
                         transform: scale(1.2);
                     }`;
+                    this.getTextAreaContainer = () => {
+                        return $(`${DiscordSelectors.Textarea.channelTextArea}`);
+                    }
+
                     this.getTextArea = () => {
-                        return $(`${DiscordSelectors.Textarea.channelTextArea} .da-textArea`);
+                        return $(`${DiscordSelectors.Textarea.channelTextArea} .da-textArea`)[0];
                     }
 
-                    this.getTextAreaSpans = (textArea) => {
+                    this.getTextAreaCandidateText = (textArea) => {
                         if (!textArea) textArea = this.getTextArea();
-                        return textArea.find('[data-slate-string]');
-                    }
-
-                    this.getTextAreaRange = () => {
-                        const selection = window.getSelection();
-                        const range = selection.getRangeAt(0);
-
-                        return range;
-                    }
-
-                    this.getTextareaCandidateText = () => {
-                        const textAreaSpans = this.getTextAreaSpans();
-                        if (textAreaSpans.length === 0) return '';
-
-                        const range = this.getTextAreaRange();
-                        let textAreaSpan;
-                        let end;
-                        for (let i = 0; i < textAreaSpans.length; i++) {
-                            if (range.endContainer.parentElement === textAreaSpans[i]) {
-                                end = range.endOffset;
-                                textAreaSpan = textAreaSpans[i];
-                            }
-                        }
-                        if (textAreaSpan === undefined) return '';
-                        if (end === undefined) end = textAreaSpans[textAreaSpans.length-1].textContent.length;
-
-                        return textAreaSpan.textContent.slice(0, end);
+                        return textArea.value.slice(0, textArea.selectionEnd);
                     }
 
                     this.renderCompletions = _.debounce(function () {
-                        const textAreaSpans = this.getTextAreaSpans();
-                        if (textAreaSpans.length === 0) return;
-
-                        const textAreaSpan = textAreaSpans[textAreaSpans.length-1];
-                        const channelTextArea = $(`${DiscordSelectors.Textarea.inner}`);
+                        const textArea = this.getTextArea();
+                        const channelTextArea = this.getTextAreaContainer();
                         const oldAutoComplete = channelTextArea.children(`.${this.getName()}`);
 
-                        const isTwitch = shouldCompleteTwitch(textAreaSpan.textContent);
-                        const candidateText = this.getTextareaCandidateText(textAreaSpans);
+                        const isTwitch = shouldCompleteTwitch(textArea.value);
+                        const candidateText = this.getTextAreaCandidateText(textArea);
                         if ((!shouldCompleteTwitch(candidateText) && !shouldCompleteCommand(candidateText)) || !this.prepareCompletions(candidateText)) {
                             oldAutoComplete.remove();
                             return;
@@ -351,7 +326,7 @@ let EmoteReplacer = (() => {
                 }
 
                 addListener() {
-                    let channelTextArea = $(`${DiscordSelectors.Textarea.channelTextArea}`);
+                    let channelTextArea = this.getTextAreaContainer();
                     let textArea = this.getTextArea();
 
                     textArea.on(`keyup.${this.getName()} keypress.${this.getName()} click.${this.getName()}`, (e) => {
@@ -419,8 +394,8 @@ let EmoteReplacer = (() => {
                 }
 
                 browseCompletions(e) {
-                    const textAreaSpans = this.getTextAreaSpans();
-                    const candidateText = this.getTextareaCandidateText(textAreaSpans);
+                    const textArea = this.getTextArea();
+                    const candidateText = this.getTextAreaCandidateText(textArea);
                     if (!shouldCompleteTwitch(candidateText) && !shouldCompleteCommand(candidateText)) {
                         return;
                     }
@@ -430,7 +405,7 @@ let EmoteReplacer = (() => {
                     switch (e.which) {
                         // Tab
                         case 9:
-                            const candidateText = this.getTextareaCandidateText(textAreaSpans);
+                            const candidateText = this.getTextAreaCandidateText(textArea);
                             if (!this.prepareCompletions(candidateText)) {
                                 break;
                             }
@@ -477,7 +452,7 @@ let EmoteReplacer = (() => {
                 }
 
                 checkCompletions(e) {
-                    const candidateText = this.getTextareaCandidateText();
+                    const candidateText = this.getTextAreaCandidateText();
                     const {candidateText: lastText} = this.cached;
 
                     // If an emote match is impossible, don't override default behavior.
@@ -542,9 +517,9 @@ let EmoteReplacer = (() => {
                         return;
                     }
 
-                    const range = this.getTextAreaRange();
+                    const textArea = this.getTextArea();
                     // Set beginning of selection at start of partial emote text; end of selection end remains where it is
-                    range.setStart(range.startContainer, matchStart);
+                    textArea.selectionStart = matchStart;
 
                     let selectedCompletion = completions[selectedIndex];
                     let suffix = '-';
@@ -563,7 +538,7 @@ let EmoteReplacer = (() => {
                 }
 
                 destroyCompletions() {
-                    $(`${DiscordSelectors.Textarea.inner}`).children(`.${this.getName()}`).remove();
+                    this.getTextAreaContainer().children(`.${this.getName()}`).remove();
                     this.cached = {};
                     this.renderCompletions.cancel();
                 }
@@ -634,20 +609,16 @@ let EmoteReplacer = (() => {
                 replaceEmote(e) {
                     if(e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
-                        let textAreaSpans = this.getTextAreaSpans();
-                        if (textAreaSpans.length === 0) return;
-
-                        let textAreaSpan = textAreaSpans[textAreaSpans.length-1];
-                        let foundEmote = this.getTextPos(textAreaSpan.textContent);
+                        let textArea = this.getTextArea();
+                        let foundEmote = this.getTextPos(textArea.value);
 
                         if(foundEmote) {
-                            let content = textAreaSpan.textContent;
+                            let content = textArea.value;
                             content = content.substring(0, foundEmote.pos) + content.substring(foundEmote.pos + foundEmote.nameAndCommand.length);
                             content.trim();
 
-                            const range = this.getTextAreaRange();
-                            range.setStart(range.startContainer, 0);
-                            range.setEnd(range.endContainer, textAreaSpan.textContent.length);
+                            textArea.selectionStart = 0;
+                            textArea.selectionEnd = textArea.value.length;
                             document.execCommand('delete');
                             let channel = ChannelStore.getChannel(SelectedChannelStore.getChannelId());
                             foundEmote.content = MessageParser.parse(channel, content).content;
@@ -655,7 +626,7 @@ let EmoteReplacer = (() => {
                         } else {
                             const press = new KeyboardEvent('keypress', {key: 'Enter', code: 'Enter', which: 13, keyCode: 13, bubbles: true});
                             Object.defineProperties(press, {keyCode: {value: 13}, which: {value: 13}});
-                            textAreaSpan.dispatchEvent(press);
+                            textArea.dispatchEvent(press);
                         }
                     }
                 }
