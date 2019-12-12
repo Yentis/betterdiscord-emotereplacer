@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.8.6",
+            "version": "0.8.7",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
 			"title": "Bugfix",
-            "items": ["Fixed bug due to Discord update... again."]
+            "items": ["Fixed bug due to Discord update for the third time this week."]
 		}],
         "defaultConfig": [{
             "type": "category",
@@ -168,21 +168,92 @@ let EmoteReplacer = (() => {
                         return $(`${DiscordSelectors.Textarea.channelTextArea}`);
                     }
 
+                    this.getTextAreaField = () => {
+                        return $(`${DiscordSelectors.Textarea.channelTextArea} .da-textArea`);
+                    }
+
+                    this.getTextAreaValue = (textArea) => {
+                        if (!textArea.value) {
+                            return textArea.textContent;
+                        } else return textArea.value;
+                    }
+
+                    this.getTextAreaRange = () => {
+                        const selection = window.getSelection();
+                        const range = selection.getRangeAt(0);
+
+                        return range;
+                    }
+
+                    this.setTextAreaRange = (textArea, start, end) => {
+                        if (!textArea.value) {
+                            const range = this.getTextAreaRange();
+                            if (start !== undefined) {
+                                range.setStart(range.startContainer, start);
+                            }
+                            if (end !== undefined) {
+                                range.setEnd(range.endContainer, end);
+                            }
+                        } else {
+                            if (start !== undefined) {
+                                textArea.selectionStart = start;
+                            }
+                            if (end !== undefined) {
+                                textArea.selectionEnd = end;
+                            }
+                        }
+                    }
+
                     this.getTextArea = () => {
-                        return $(`${DiscordSelectors.Textarea.channelTextArea} .da-textArea`)[0];
+                        let textAreaCandidate = this.getTextAreaField();
+                        if (!textAreaCandidate) return;
+                        if (!textAreaCandidate[0].value) {
+                            textAreaCandidate = textAreaCandidate.find('[data-slate-string]');
+    
+                            const range = this.getTextAreaRange();
+                            let currentSpan;
+                            for (let i = 0; i < textAreaCandidate.length; i++) {
+                                if (range.endContainer.parentElement === textAreaCandidate[i]) {
+                                    currentSpan = textAreaCandidate[i];
+                                }
+                            }
+
+                            textAreaCandidate = currentSpan;
+                        } else textAreaCandidate = textAreaCandidate[0];
+
+                        return textAreaCandidate;
                     }
 
                     this.getTextAreaCandidateText = (textArea) => {
-                        if (!textArea) textArea = this.getTextArea();
-                        return textArea.value.slice(0, textArea.selectionEnd);
+                        if (textArea === undefined) textArea = this.getTextArea();
+                        if (textArea === undefined) return '';
+                        
+                        let text;
+                        let end;
+                        if (!textArea.value) {
+                            const range = this.getTextAreaRange();
+                            if (range.endContainer.parentElement === textArea) {
+                                end = range.endOffset;
+                            }
+                            if (end === undefined) end = textArea.textContent.length;
+    
+                            text = textArea.textContent;
+                        } else {
+                            text = textArea.value;
+                            end = textArea.selectionEnd;
+                        }
+
+                        return text.slice(0, end);
                     }
 
                     this.renderCompletions = _.debounce(function () {
                         const textArea = this.getTextArea();
+                        if (textArea === undefined) return;
+
                         const channelTextArea = this.getTextAreaContainer();
                         const oldAutoComplete = channelTextArea.children(`.${this.getName()}`);
 
-                        const isTwitch = shouldCompleteTwitch(textArea.value);
+                        const isTwitch = shouldCompleteTwitch(this.getTextAreaValue(textArea));
                         const candidateText = this.getTextAreaCandidateText(textArea);
                         if ((!shouldCompleteTwitch(candidateText) && !shouldCompleteCommand(candidateText)) || !this.prepareCompletions(candidateText)) {
                             oldAutoComplete.remove();
@@ -248,7 +319,7 @@ let EmoteReplacer = (() => {
                         this.emoteNames = names;
                         this.getModifiers().then(modifiers => {
                             this.modifiers = modifiers;
-                            if(this.getTextArea()) {
+                            if(this.getTextAreaField()) {
                                 this.addRefresh();
                                 this.addListener();
                             }
@@ -327,7 +398,8 @@ let EmoteReplacer = (() => {
 
                 addListener() {
                     let channelTextArea = this.getTextAreaContainer();
-                    let textArea = this.getTextArea();
+                    let textArea = this.getTextAreaField();
+                    if (textArea === undefined) return;
 
                     textArea.on(`keyup.${this.getName()} keypress.${this.getName()} click.${this.getName()}`, (e) => {
                         this.checkCompletions(e);
@@ -395,6 +467,8 @@ let EmoteReplacer = (() => {
 
                 browseCompletions(e) {
                     const textArea = this.getTextArea();
+                    if (textArea === undefined) return;
+
                     const candidateText = this.getTextAreaCandidateText(textArea);
                     if (!shouldCompleteTwitch(candidateText) && !shouldCompleteCommand(candidateText)) {
                         return;
@@ -518,8 +592,9 @@ let EmoteReplacer = (() => {
                     }
 
                     const textArea = this.getTextArea();
+                    if (textArea === undefined) return;
                     // Set beginning of selection at start of partial emote text; end of selection end remains where it is
-                    textArea.selectionStart = matchStart;
+                    this.setTextAreaRange(textArea, matchStart);
 
                     let selectedCompletion = completions[selectedIndex];
                     let suffix = '-';
@@ -608,17 +683,18 @@ let EmoteReplacer = (() => {
 
                 replaceEmote(e) {
                     if(e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
                         let textArea = this.getTextArea();
-                        let foundEmote = this.getTextPos(textArea.value);
+                        if (textArea === undefined) return;
+                        
+                        e.preventDefault();
+                        let foundEmote = this.getTextPos(this.getTextAreaValue(textArea));
 
                         if(foundEmote) {
-                            let content = textArea.value;
+                            let content = this.getTextAreaValue(textArea);
                             content = content.substring(0, foundEmote.pos) + content.substring(foundEmote.pos + foundEmote.nameAndCommand.length);
                             content.trim();
 
-                            textArea.selectionStart = 0;
-                            textArea.selectionEnd = textArea.value.length;
+                            this.setTextAreaRange(textArea, 0, this.getTextAreaValue(textArea).length);
                             document.execCommand('delete');
                             let channel = ChannelStore.getChannel(SelectedChannelStore.getChannelId());
                             foundEmote.content = MessageParser.parse(channel, content).content;
