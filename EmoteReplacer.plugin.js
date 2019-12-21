@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.8.7",
+            "version": "0.8.8",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
 			"title": "Bugfix",
-            "items": ["Fixed bug due to Discord update for the third time this week."]
+            "items": ["Fixed autocomplete position."]
 		}],
         "defaultConfig": [{
             "type": "category",
@@ -264,7 +264,7 @@ let EmoteReplacer = (() => {
                         const matchList = completions.slice(firstIndex, firstIndex+this.windowSize);
 
                         let autoDiv = $('<div>')
-                            .addClass(`autocomplete-1vrmpx autocomplete-i9yVHs ${this.getName()}`)
+                            .addClass(`autocomplete-1vrmpx autocomplete-Z9HwQh ${this.getName()}`)
                             .on(`wheel.${this.getName()}`, e => this.scrollCompletions(e, {locked: true}));
                         let inner = $('<div>', {'class': 'autocompleteInner-zh20B_'})
                             .appendTo(autoDiv);
