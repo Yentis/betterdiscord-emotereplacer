@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.8.8",
+            "version": "0.8.9",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
 			"title": "Bugfix",
-            "items": ["Fixed autocomplete position."]
+            "items": ["Fixed autocomplete when editing messages."]
 		}],
         "defaultConfig": [{
             "type": "category",
@@ -250,8 +250,9 @@ let EmoteReplacer = (() => {
                         const textArea = this.getTextArea();
                         if (textArea === undefined) return;
 
-                        const channelTextArea = this.getTextAreaContainer();
-                        const oldAutoComplete = channelTextArea.children(`.${this.getName()}`);
+                        const channelTextAreas = this.getTextAreaContainer();
+                        const oldAutoComplete = channelTextAreas.children(`.${this.getName()}`);
+                        const channelTextArea = $(channelTextAreas[0]);
 
                         const isTwitch = shouldCompleteTwitch(this.getTextAreaValue(textArea));
                         const candidateText = this.getTextAreaCandidateText(textArea);
