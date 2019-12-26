@@ -58,4 +58,8 @@
   "name": "sliderev",
   "type": "gif",
   "arguments": ["", "fast", "faster", "hyper"]
+}, {
+  "name": "rain",
+  "type": "gif",
+  "arguments": ["", "glitter"]
 }]
