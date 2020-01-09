@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "0.8.9",
+            "version": "0.9.0",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
 			"title": "Bugfix",
-            "items": ["Fixed autocomplete when editing messages."]
+            "items": ["Fixed crash on startup."]
 		}],
         "defaultConfig": [{
             "type": "category",
@@ -52,95 +52,97 @@ let EmoteReplacer = (() => {
             // See: https://github.com/samogot/betterdiscord-plugins/tree/master/v2/1Lib%20Discord%20Internals
             const DI = window.DiscordInternals;
             const hasLib = !!(DI && DI.versionCompare && DI.versionCompare(DI.version || '', '1.9') >= 0);
-            const WebpackModules = hasLib && DI.WebpackModules || (() => {
+		    const WebpackModules = hasLib && DI.WebpackModules || (() => {
+	
+		        const req = typeof (webpackJsonp) === "function" ? webpackJsonp([], {
+		            '__extra_id__': (module, exports, req) => exports.default = req
+		        }, ['__extra_id__']).default : webpackJsonp.push([[], {
+		            '__extra_id__': (module, exports, req) => module.exports = req
+		        }, [['__extra_id__']]]);
+		        delete req.m['__extra_id__'];
+		        delete req.c['__extra_id__'];
+	
+		        /**
+		         * Predicate for searching module
+		         * @callback modulePredicate
+		         * @param {*} module Module to test
+		         * @return {boolean} Returns `true` if `module` matches predicate.
+		         */
+	
+		        /**
+		         * Look through all modules of internal Discord's Webpack and return first one that matches filter predicate.
+		         * At first this function will look through already loaded modules cache. If no loaded modules match, then this function tries to load all modules and match for them. Loading any module may have unexpected side effects, like changing current locale of moment.js, so in that case there will be a warning the console. If no module matches, this function returns `null`. You should always try to provide a predicate that will match something, but your code should be ready to receive `null` in case of changes in Discord's codebase.
+		         * If module is ES6 module and has default property, consider default first; otherwise, consider the full module object.
+		         * @param {modulePredicate} filter Predicate to match module
+		         * @param {object} [options] Options object.
+		         * @param {boolean} [options.cacheOnly=false] Set to `true` if you want to search only the cache for modules.
+		         * @return {*} First module that matches `filter` or `null` if none match.
+		         */
+		        const find = (filter, options = {}) => {
+		            const {cacheOnly = true} = options;
+		            for (let i in req.c) {
+		                if (req.c.hasOwnProperty(i)) {
+		                    let m = req.c[i].exports;
+		                    if (m && m.__esModule && m.default && filter(m.default))
+		                        return m.default;
+		                    if (m && filter(m))
+		                        return m;
+		                }
+		            }
+		            if (cacheOnly) {
+		                console.warn('Cannot find loaded module in cache');
+		                return null;
+		            }
+		            console.warn('Cannot find loaded module in cache. Loading all modules may have unexpected side effects');
+		            for (let i = 0; i < req.m.length; ++i) {
+		                try {
+		                    let m = req(i);
+		                    if (m && m.__esModule && m.default && filter(m.default))
+		                        return m.default;
+		                    if (m && filter(m))
+		                        return m;
+		                } catch (e) {
+		                }
+		            }
+		            console.warn('Cannot find module');
+		            return null;
+		        };
+	
+		        /**
+		         * Look through all modules of internal Discord's Webpack and return first object that has all of following properties. You should be ready that in any moment, after Discord update, this function may start returning `null` (if no such object exists anymore) or even some different object with the same properties. So you should provide all property names that you use, and often even some extra properties to make sure you'll get exactly what you want.
+		         * @see Read {@link find} documentation for more details how search works
+		         * @param {string[]} propNames Array of property names to look for
+		         * @param {object} [options] Options object to pass to {@link find}.
+		         * @return {object} First module that matches `propNames` or `null` if none match.
+		         */
+		        const findByUniqueProperties = (propNames, options) => find(module => propNames.every(prop => module[prop] !== undefined), options);
+	
+		        /**
+		         * Look through all modules of internal Discord's Webpack and return first object that has `displayName` property with following value. This is useful for searching for React components by name. Take into account that not all components are exported as modules. Also, there might be several components with the same name.
+		         * @see Use {@link ReactComponents} as another way to get react components
+		         * @see Read {@link find} documentation for more details how search works
+		         * @param {string} displayName Display name property value to look for
+		         * @param {object} [options] Options object to pass to {@link find}.
+		         * @return {object} First module that matches `displayName` or `null` if none match.
+		         */
+		        const findByDisplayName = (displayName, options) => find(module => module.displayName === displayName, options);
+	
+		        return {find, findByUniqueProperties, findByDisplayName};
+	
+		    })();
 
-                const req = typeof(webpackJsonp) == 'function' ? webpackJsonp([], {
-                    '__extra_id__': (module, exports, req) => exports.default = req
-                }, ['__extra_id__']).default : webpackJsonp.push([[], {
-                    '__extra_id__': (module, exports, req) => module.exports = req
-                }, [['__extra_id__']]]);
-                delete req.m['__extra_id__'];
-                delete req.c['__extra_id__'];
-
-                /**
-                 * Predicate for searching module
-                 * @callback modulePredicate
-                 * @param {*} module Module to test
-                 * @return {boolean} Returns `true` if `module` matches predicate.
-                 */
-
-                /**
-                 * Look through all modules of internal Discord's Webpack and return first one that matches filter predicate.
-                 * At first this function will look through already loaded modules cache. If no loaded modules match, then this function tries to load all modules and match for them. Loading any module may have unexpected side effects, like changing current locale of moment.js, so in that case there will be a warning the console. If no module matches, this function returns `null`. You should always try to provide a predicate that will match something, but your code should be ready to receive `null` in case of changes in Discord's codebase.
-                 * If module is ES6 module and has default property, consider default first; otherwise, consider the full module object.
-                 * @param {modulePredicate} filter Predicate to match module
-                 * @param {object} [options] Options object.
-                 * @param {boolean} [options.cacheOnly=false] Set to `true` if you want to search only the cache for modules.
-                 * @return {*} First module that matches `filter` or `null` if none match.
-                 */
-                const find = (filter, options = {}) => {
-                    const {cacheOnly = false} = options;
-                    for (let i in req.c) {
-                        if (req.c.hasOwnProperty(i)) {
-                            let m = req.c[i].exports;
-                            if (m && m.__esModule && m.default && filter(m.default))
-                                return m.default;
-                            if (m && filter(m))
-                                return m;
-                        }
+            const findByUniquePropertiesAndPropertyCount = (propNames, propCount) => {
+                return WebpackModules.find(module => {
+                    if (propNames.every(prop => module[prop] !== undefined) && Object.keys(module).length === propCount) {
+                        return true;
                     }
-                    if (cacheOnly) {
-                        console.warn('Cannot find loaded module in cache');
-                        return null;
-                    }
-                    console.warn('Cannot find loaded module in cache. Loading all modules may have unexpected side effects');
-                    for (let i = 0; i < req.m.length; ++i) {
-                        let m = req(i);
-                        if (m && m.__esModule && m.default && filter(m.default))
-                            return m.default;
-                        if (m && filter(m))
-                            return m;
-                    }
-                    console.warn('Cannot find module');
-                    return null;
-                };
-
-                /**
-                 * Look through all modules of internal Discord's Webpack and return first object that has all of following properties. You should be ready that in any moment, after Discord update, this function may start returning `null` (if no such object exists anymore) or even some different object with the same properties. So you should provide all property names that you use, and often even some extra properties to make sure you'll get exactly what you want.
-                 * @see Read {@link find} documentation for more details how search works
-                 * @param {string[]} propNames Array of property names to look for
-                 * @param {object} [options] Options object to pass to {@link find}.
-                 * @return {object} First module that matches `propNames` or `null` if none match.
-                 */
-                const findByUniqueProperties = (propNames, options) => find(module => propNames.every(prop => module[prop] !== undefined), options);
-
-                /**
-                 * Look through all modules of internal Discord's Webpack and return first object that has `displayName` property with following value. This is useful for searching for React components by name. Take into account that not all components are exported as modules. Also, there might be several components with the same name.
-                 * @see Use {@link ReactComponents} as another way to get react components
-                 * @see Read {@link find} documentation for more details how search works
-                 * @param {string} displayName Display name property value to look for
-                 * @param {object} [options] Options object to pass to {@link find}.
-                 * @return {object} First module that matches `displayName` or `null` if none match.
-                 */
-                const findByDisplayName = (displayName, options) => find(module => module.displayName === displayName, options);
-
-                return {find, findByUniqueProperties, findByDisplayName};
-            })();
+                });
+            }
 
             const Uploader = WebpackModules.findByUniqueProperties(['instantBatchUpload']);
-			//In case upload function was moved
-			/*function hasUpload(prop) {
-				let keys = Object.keys(prop);
-				for (let i = 0; i < keys.length; i++) {
-					if (keys[i].indexOf('upload') !== -1) {
-						console.log(prop);
-					}
-				}
-			}
-			WebpackModules.find(hasUpload);*/
             const ChannelStore = WebpackModules.findByUniqueProperties(['getChannels', 'getDMFromUserId']);
             const SelectedChannelStore = WebpackModules.findByUniqueProperties(['getChannelId']);
-            const MessageParser = WebpackModules.findByUniqueProperties(['createMessage', 'parse', 'unparse']);
+            const MessageParser = findByUniquePropertiesAndPropertyCount(['parse', 'unparse'], 2);
             const shouldCompleteTwitch = RegExp.prototype.test.bind(/(?:^|\s)\w{2,}$/);
             const shouldCompleteCommand = RegExp.prototype.test.bind(/((?<!\/)\b(?:yent[A-Z]|:)\w*\b:)(\w*)$/);
 
