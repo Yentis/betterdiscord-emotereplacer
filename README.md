@@ -33,8 +33,9 @@ Want to add an emote? Ask me for the link.
 :shake-\<speed\> - Make your emote shake! Speed can be: left empty, fast, faster or hyper.  
 :rainbow-\<speed\> - Make your emote strobe with a rainbow of colors!  Speed can be: left empty, fast, faster or hyper.  
 :infinite-\<speed\> - Make your emote pulse outwards!  Speed can be: left empty, fast, faster or hyper.  
-:wiggle-\<intensity\> - Make your emote wiggle!  Intensity can be: left empty, big, bigger, huge.  
+:wiggle-\<intensity\> - Make your emote wiggle!  Intensity can be: left empty, big, bigger or huge.  
 :wide-\<wideness\> - Make your emote extra wide! Wideness can be: left empty, big, huge, extreme or a number from 2 to 8.  
+:resize-\<size\> - Resize emote, can be:small, medium, large or a number from 32 to 128.  
 
 **Examples:**  
 yentDogSmug:flip  
