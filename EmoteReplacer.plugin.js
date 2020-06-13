@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "1.0.0",
+            "version": "1.1.0",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
 			"title": "Bugfix",
-            "items": ["Fixed text parsing.", "Fixed spoilers."]
+            "items": ["Fixed text parsing.", "Fixed spoilers.", "Fixed key listeners sometimes triggering twice"]
 		}],
         "defaultConfig": [{
             "type": "category",
@@ -391,13 +391,18 @@ let EmoteReplacer = (() => {
                 addListener() {
                     let textArea = this.getTextAreaField();
                     if (textArea === undefined) return;
-
+                    
+                    textArea.off(`keydown.${this.getName()}`);
                     textArea.on(`keydown.${this.getName()}`, (e) => {
                         this.browseCompletions(e);
                     });
+                    
+                    textArea.off(`wheel.${this.getName()}`);
                     textArea.on(`wheel.${this.getName()}`, (e) => {
                         this.scrollCompletions(e);
                     });
+                    
+                    textArea.off(`blur.${this.getName()}`);
                     textArea.on(`blur.${this.getName()}`, (e) => {
                         this.destroyCompletions(e);
                     });
