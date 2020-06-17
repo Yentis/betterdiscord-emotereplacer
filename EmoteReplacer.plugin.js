@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "1.2.0",
+            "version": "1.3.0",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
 			"title": "Changes",
-            "items": ["Send emotes to the channel the message was sent in.", "Add some progress indicators."]
+            "items": ["Send emotes to the channel the message was sent in.", "Add some progress indicators.", "Add gif timeout."]
 		}],
         "defaultConfig": [{
             "type": "category",
@@ -132,6 +132,7 @@ let EmoteReplacer = (() => {
 		    })();
 
             const Uploader = WebpackModules.findByUniqueProperties(['instantBatchUpload']);
+            const MessageActions = ZeresPluginLibrary.DiscordModules.MessageActions;
             const SelectedChannelStore = WebpackModules.findByUniqueProperties(['getChannelId']);
             const shouldCompleteTwitch = RegExp.prototype.test.bind(/(?:^|\s)\w{2,}$/);
             const shouldCompleteCommand = RegExp.prototype.test.bind(/((?<!\/)\b(?:yent[A-Z]|:)\w*\b:)(\w*)$/);
@@ -296,7 +297,13 @@ let EmoteReplacer = (() => {
                             content.trim();
 
                             foundEmote.content = content;
-                            this.fetchBlobAndUpload(foundEmote);
+                            this.fetchBlobAndUpload(foundEmote)
+                            .catch(() => {
+                                if (content === '') return;
+                                
+                                message.content = content;
+                                callDefault(...args);
+                            });
 
                             return;
                         }
@@ -741,18 +748,24 @@ let EmoteReplacer = (() => {
                     emote.channel = SelectedChannelStore.getChannelId();
 
                     if (url.endsWith('.gif')) {
-                        this.getMetaAndModifyGif(emote);
+                        return this.getMetaAndModifyGif(emote);
                     } else {
                         if (this.findCommand(commands, this.getGifModifiers())) {
-                            this.getMetaAndModifyGif(emote);
+                            return this.getMetaAndModifyGif(emote);
                         } else {
-                            fetch(url)
+                            return new Promise((resolve, reject) => {
+                                fetch(url)
                                 .then(res => res.blob())
                                 .then(blob => {
                                     this.compress(name, blob, commands, (resultBlob) => {
                                         this.uploadFile(resultBlob, name + '.png', emote);
+                                        resolve();
                                     });
+                                })
+                                .catch(error => {
+                                    reject(error);
                                 });
+                            })
                         }
                     }
                 }
@@ -772,30 +785,35 @@ let EmoteReplacer = (() => {
                 }
 
                 getMetaAndModifyGif(emote){
-                    let url = emote.url, commands = emote.commands;
-                    let image = new Image();
-                    image.onload = () => {
-                        this.addResizeCommand(commands, image);
- 
-                        Toasts.info('Processing gif...');
-                        $.ajax({
-                            url: 'https://yentis.glitch.me/modifygif',
-                            method: 'post',
-                            contentType: 'application/json',
-                            data: JSON.stringify({
-                                url: url,
-                                options: commands
-                            }),
-                            success: (data) => {
-                                this.uploadFile(this.b64toBlob(data, 'image/gif'), emote.name + '.gif', emote);
-                            },
-                            error: (obj) => {
-                                Toasts.error('Failed to process gif');
-                                console.warn('EmoteReplacer: ' + obj.responseText);
-                            }
-                        });
-                    };
-                    image.src = url;
+                    return new Promise((resolve, reject) => {
+                        let url = emote.url, commands = emote.commands;
+                        let image = new Image();
+                        image.onload = () => {
+                            this.addResizeCommand(commands, image);
+     
+                            Toasts.info('Processing gif...');
+                            $.ajax({
+                                url: 'https://yentis.glitch.me/modifygif',
+                                method: 'post',
+                                contentType: 'application/json',
+                                data: JSON.stringify({
+                                    url: url,
+                                    options: commands
+                                }),
+                                success: (data) => {
+                                    this.uploadFile(this.b64toBlob(data, 'image/gif'), emote.name + '.gif', emote);
+                                    resolve();
+                                },
+                                error: (obj) => {
+                                    Toasts.error('Failed to process gif, ignoring emote.');
+                                    console.warn('EmoteReplacer: ' + obj.responseText);
+                                    reject();
+                                },
+                                timeout: 10000
+                            });
+                        };
+                        image.src = url;
+                    })
                 }
  
                 addResizeCommand(commands, image) {
