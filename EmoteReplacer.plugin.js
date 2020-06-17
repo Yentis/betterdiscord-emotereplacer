@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "1.1.0",
+            "version": "1.2.0",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
-			"title": "Bugfix",
-            "items": ["Fixed text parsing.", "Fixed spoilers.", "Fixed key listeners sometimes triggering twice"]
+			"title": "Changes",
+            "items": ["Send emotes to the channel the message was sent in.", "Add some progress indicators."]
 		}],
         "defaultConfig": [{
             "type": "category",
@@ -738,6 +738,7 @@ let EmoteReplacer = (() => {
 
                 fetchBlobAndUpload(emote) {
                     let url = emote.url, name = emote.name, commands = emote.commands ? emote.commands : '';
+                    emote.channel = SelectedChannelStore.getChannelId();
 
                     if (url.endsWith('.gif')) {
                         this.getMetaAndModifyGif(emote);
@@ -749,7 +750,7 @@ let EmoteReplacer = (() => {
                                 .then(res => res.blob())
                                 .then(blob => {
                                     this.compress(name, blob, commands, (resultBlob) => {
-                                        this.uploadFile(resultBlob, name + '.png', emote.content, emote.spoiler);
+                                        this.uploadFile(resultBlob, name + '.png', emote);
                                     });
                                 });
                         }
@@ -776,6 +777,7 @@ let EmoteReplacer = (() => {
                     image.onload = () => {
                         this.addResizeCommand(commands, image);
  
+                        Toasts.info('Processing gif...');
                         $.ajax({
                             url: 'https://yentis.glitch.me/modifygif',
                             method: 'post',
@@ -785,9 +787,10 @@ let EmoteReplacer = (() => {
                                 options: commands
                             }),
                             success: (data) => {
-                                this.uploadFile(this.b64toBlob(data, 'image/gif'), emote.name + '.gif', emote.content, emote.spoiler);
+                                this.uploadFile(this.b64toBlob(data, 'image/gif'), emote.name + '.gif', emote);
                             },
                             error: (obj) => {
+                                Toasts.error('Failed to process gif');
                                 console.warn('EmoteReplacer: ' + obj.responseText);
                             }
                         });
@@ -839,11 +842,12 @@ let EmoteReplacer = (() => {
                     }
                 }
 
-                uploadFile(blob, fullName, content, spoiler) {
-                    Uploader.upload(SelectedChannelStore.getChannelId(),
+                uploadFile(blob, fullName, emote) {
+                    Toasts.info('Uploading...');
+                    Uploader.upload(emote.channel,
                         new File([blob], fullName), {
-                            content: content, invalidEmojis: [], tts: false
-                        }, spoiler);
+                            content: emote.content, invalidEmojis: [], tts: false
+                        }, emote.spoiler);
                 }
 
                 compress(fileName, originalFile, commands, callback) {
