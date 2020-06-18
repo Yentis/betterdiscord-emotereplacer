@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "1.4.2",
+            "version": "1.4.3",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
 			"title": "Changes",
-            "items": ["Process gifs locally!", "Send emotes to the channel the message was sent in.", "Add some progress indicators.", "Add gif timeout."]
+            "items": ["Fix gifs not working on OSX", "Process gifs locally!", "Send emotes to the channel the message was sent in.", "Add some progress indicators.", "Add gif timeout."]
 		}],
         "defaultConfig": [{
             "type": "category",
@@ -272,7 +272,7 @@ let EmoteReplacer = (() => {
                     const https = require('https');
                     const fs = require('fs');
                     const binFilename = process.platform === 'win32' ? 'gifsicle.exe' : 'gifsicle';
-                    const gifsiclePath = BdApi.Plugins.folder + '\\' + binFilename;
+                    const gifsiclePath = BdApi.Plugins.folder + '/' + binFilename;
 
                     let gifsicleUrl;
                     switch (process.platform) {
@@ -311,6 +311,7 @@ let EmoteReplacer = (() => {
                             response.pipe(file);
                             file.on('finish', () => {
                                 file.close();
+                                fs.chmodSync(gifsiclePath, '0777');
                             });
                         }).on('error', (err) => {
                             fs.unlink(gifsiclePath);
