@@ -14,7 +14,7 @@ Open Discord -> Settings -> Plugins -> Open plugin folder and place the 2 plugin
 Enable them in the Plugins menu and hit Ctrl + R.
 
 # Resources
-Gif utils code: https://github.com/Yentis/emotereplacer-gifutils
+Gif utils code: https://github.com/Yentis/emotereplacer-gifutils  
 Server code: https://github.com/Yentis/EmoteServer  
 List of emotes: https://yentis.github.io/emotes  
 Want to add an emote? Ask me for the link.
