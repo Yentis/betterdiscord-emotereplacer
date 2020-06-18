@@ -10,7 +10,7 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "1.4.0",
+            "version": "1.4.1",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
@@ -809,7 +809,7 @@ let EmoteReplacer = (() => {
                             this.addResizeCommand(commands, image);
      
                             Toasts.info('Processing gif...');
-                            window.GifUtils.modifyGif({url: url, options: commands, gifsiclePath: Gifsicle.path()})
+                            window.EmoteReplacer.GifUtils.modifyGif({url: url, options: commands, gifsiclePath: Gifsicle.path()})
                                 .then(b64Buffer => {
                                     this.uploadFile(this.b64toBlob(b64Buffer, 'image/gif'), emote.name + '.gif', emote);
                                     resolve();
