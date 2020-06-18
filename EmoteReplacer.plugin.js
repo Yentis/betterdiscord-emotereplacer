@@ -10,7 +10,7 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "1.4.1",
+            "version": "1.4.2",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
@@ -135,18 +135,7 @@ let EmoteReplacer = (() => {
             const SelectedChannelStore = WebpackModules.findByUniqueProperties(['getChannelId']);
             const shouldCompleteTwitch = RegExp.prototype.test.bind(/(?:^|\s)\w{2,}$/);
             const shouldCompleteCommand = RegExp.prototype.test.bind(/((?<!\/)\b(?:yent[A-Z]|:)\w*\b:)(\w*)$/);
-            const BinWrapper = require('bin-wrapper');
-            const gifsicleUrl = 'https://raw.githubusercontent.com/imagemin/gifsicle-bin/v4.0.1/vendor/';
-            const Gifsicle = new BinWrapper()
-                .src(`${gifsicleUrl}macos/gifsicle`, 'darwin')
-                .src(`${gifsicleUrl}linux/x86/gifsicle`, 'linux', 'x86')
-                .src(`${gifsicleUrl}linux/x64/gifsicle`, 'linux', 'x64')
-                .src(`${gifsicleUrl}freebsd/x86/gifsicle`, 'freebsd', 'x86')
-                .src(`${gifsicleUrl}freebsd/x64/gifsicle`, 'freebsd', 'x64')
-                .src(`${gifsicleUrl}win/x86/gifsicle.exe`, 'win32', 'x86')
-                .src(`${gifsicleUrl}win/x64/gifsicle.exe`, 'win32', 'x64')
-                .dest(BdApi.Plugins.folder)
-                .use(process.platform === 'win32' ? 'gifsicle.exe' : 'gifsicle');
+            const baseGifsicleUrl = 'https://raw.githubusercontent.com/imagemin/gifsicle-bin/v4.0.1/vendor/';
 
             return class EmoteReplacer extends Plugin {
                 constructor() {
@@ -261,7 +250,7 @@ let EmoteReplacer = (() => {
                     window.EmoteReplacer = {};
                     ZLibrary.PluginUpdater.checkForUpdate(this.getName(), this.getVersion(), 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js');
                     await BdApi.linkJS('pica', '//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@058ee1d1d00933e2a55545e9830d67549a8e354a/pica.js');
-                    await BdApi.linkJS('gifUtils', '//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@9bb762ee59ae6060ee0757575a46b0c8705d12f2/gif-utils.js');
+                    await BdApi.linkJS('gifUtils', '//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@642f5344564bc13a5cdff56c40502bf09dba210c/gif-utils.js');
                     PluginUtilities.addStyle(this.getName()  + '-style', this.mainCSS);
                     this.getEmoteNames().then(names => {
                         this.emoteNames = names;
@@ -276,8 +265,58 @@ let EmoteReplacer = (() => {
                         console.warn('EmoteReplacer: ' + name + ': ' + error);
                     });
 
-                    // Download Gifsicle binaries if needed
-                    Gifsicle.run();
+                    while (!window.EmoteReplacer.GifUtils) {
+                        await new Promise(resolve => setTimeout(resolve, 500));;
+                    }
+
+                    const https = require('https');
+                    const fs = require('fs');
+                    const binFilename = process.platform === 'win32' ? 'gifsicle.exe' : 'gifsicle';
+                    const gifsiclePath = BdApi.Plugins.folder + '\\' + binFilename;
+
+                    let gifsicleUrl;
+                    switch (process.platform) {
+                        case 'darwin':
+                            gifsicleUrl = `${baseGifsicleUrl}macos/gifsicle`;
+                            break;
+                        case 'linux':
+                            if (process.arch === 'x86') {
+                                gifsicleUrl = `${baseGifsicleUrl}linux/x86/gifsicle`;
+                            } else {
+                                gifsicleUrl = `${baseGifsicleUrl}linux/x64/gifsicle`;
+                            }
+                            break;
+                        case 'freebsd':
+                            if (process.arch === 'x86') {
+                                gifsicleUrl = `${baseGifsicleUrl}freebsd/x86/gifsicle`;
+                            } else {
+                                gifsicleUrl = `${baseGifsicleUrl}freebsd/x64/gifsicle`;
+                            }
+                            break;
+                        case 'win32':
+                            if (process.arch === 'x86') {
+                                gifsicleUrl = `${baseGifsicleUrl}win/x86/gifsicle.exe`;
+                            } else {
+                                gifsicleUrl = `${baseGifsicleUrl}win/x64/gifsicle.exe`;
+                            }
+                            break;
+                        default:
+                            return;
+                    }
+
+                    this.gifsicle = gifsiclePath;
+                    if (!fs.existsSync(gifsiclePath)) {
+                        const file = fs.createWriteStream(gifsiclePath);
+                        https.get(gifsicleUrl, (response) => {
+                            response.pipe(file);
+                            file.on('finish', () => {
+                                file.close();
+                            });
+                        }).on('error', (err) => {
+                            fs.unlink(gifsiclePath);
+                            console.log('EmoteReplacer:', err.message);
+                        });
+                    }
                 }
 
                 onStop() {
@@ -809,7 +848,7 @@ let EmoteReplacer = (() => {
                             this.addResizeCommand(commands, image);
      
                             Toasts.info('Processing gif...');
-                            window.EmoteReplacer.GifUtils.modifyGif({url: url, options: commands, gifsiclePath: Gifsicle.path()})
+                            window.EmoteReplacer.GifUtils.modifyGif({url: url, options: commands, gifsiclePath: this.gifsicle})
                                 .then(b64Buffer => {
                                     this.uploadFile(this.b64toBlob(b64Buffer, 'image/gif'), emote.name + '.gif', emote);
                                     resolve();
