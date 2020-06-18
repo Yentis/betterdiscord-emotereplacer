@@ -10,14 +10,14 @@ let EmoteReplacer = (() => {
                 "github_username": "Yentis",
                 "twitter_username": "yentis178"
             }],
-            "version": "1.3.0",
+            "version": "1.4.0",
             "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
             "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
             "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
         },
         "changelog": [{
 			"title": "Changes",
-            "items": ["Send emotes to the channel the message was sent in.", "Add some progress indicators.", "Add gif timeout."]
+            "items": ["Process gifs locally!", "Send emotes to the channel the message was sent in.", "Add some progress indicators.", "Add gif timeout."]
 		}],
         "defaultConfig": [{
             "type": "category",
@@ -132,10 +132,21 @@ let EmoteReplacer = (() => {
 		    })();
 
             const Uploader = WebpackModules.findByUniqueProperties(['instantBatchUpload']);
-            const MessageActions = ZeresPluginLibrary.DiscordModules.MessageActions;
             const SelectedChannelStore = WebpackModules.findByUniqueProperties(['getChannelId']);
             const shouldCompleteTwitch = RegExp.prototype.test.bind(/(?:^|\s)\w{2,}$/);
             const shouldCompleteCommand = RegExp.prototype.test.bind(/((?<!\/)\b(?:yent[A-Z]|:)\w*\b:)(\w*)$/);
+            const BinWrapper = require('bin-wrapper');
+            const gifsicleUrl = 'https://raw.githubusercontent.com/imagemin/gifsicle-bin/v4.0.1/vendor/';
+            const Gifsicle = new BinWrapper()
+                .src(`${gifsicleUrl}macos/gifsicle`, 'darwin')
+                .src(`${gifsicleUrl}linux/x86/gifsicle`, 'linux', 'x86')
+                .src(`${gifsicleUrl}linux/x64/gifsicle`, 'linux', 'x64')
+                .src(`${gifsicleUrl}freebsd/x86/gifsicle`, 'freebsd', 'x86')
+                .src(`${gifsicleUrl}freebsd/x64/gifsicle`, 'freebsd', 'x64')
+                .src(`${gifsicleUrl}win/x86/gifsicle.exe`, 'win32', 'x86')
+                .src(`${gifsicleUrl}win/x64/gifsicle.exe`, 'win32', 'x64')
+                .dest(BdApi.Plugins.folder)
+                .use(process.platform === 'win32' ? 'gifsicle.exe' : 'gifsicle');
 
             return class EmoteReplacer extends Plugin {
                 constructor() {
@@ -247,8 +258,10 @@ let EmoteReplacer = (() => {
                 }
 
                 async onStart() {
+                    window.EmoteReplacer = {};
                     ZLibrary.PluginUpdater.checkForUpdate(this.getName(), this.getVersion(), 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js');
-                    await PluginUtilities.addScript('pica', '//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@bc5bb1f55bc8db09cb1eb97dd7a65666b12d5c46/pica.js');
+                    await BdApi.linkJS('pica', '//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@058ee1d1d00933e2a55545e9830d67549a8e354a/pica.js');
+                    await BdApi.linkJS('gifUtils', '//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@9bb762ee59ae6060ee0757575a46b0c8705d12f2/gif-utils.js');
                     PluginUtilities.addStyle(this.getName()  + '-style', this.mainCSS);
                     this.getEmoteNames().then(names => {
                         this.emoteNames = names;
@@ -262,6 +275,9 @@ let EmoteReplacer = (() => {
                     }).catch((error) => {
                         console.warn('EmoteReplacer: ' + name + ': ' + error);
                     });
+
+                    // Download Gifsicle binaries if needed
+                    Gifsicle.run();
                 }
 
                 onStop() {
@@ -278,7 +294,8 @@ let EmoteReplacer = (() => {
 
                     $('*').off('.' + this.getName());
                     if (this.button) $(this.button).remove();
-                    PluginUtilities.removeScript('pica');
+                    BdApi.unlinkJS('pica');
+                    BdApi.unlinkJS('gifUtils');
                     PluginUtilities.removeStyle(this.getName() + '-style');
                     this.button = null;
                     this.emoteNames = null;
@@ -792,25 +809,16 @@ let EmoteReplacer = (() => {
                             this.addResizeCommand(commands, image);
      
                             Toasts.info('Processing gif...');
-                            $.ajax({
-                                url: 'https://yentis.glitch.me/modifygif',
-                                method: 'post',
-                                contentType: 'application/json',
-                                data: JSON.stringify({
-                                    url: url,
-                                    options: commands
-                                }),
-                                success: (data) => {
-                                    this.uploadFile(this.b64toBlob(data, 'image/gif'), emote.name + '.gif', emote);
+                            window.GifUtils.modifyGif({url: url, options: commands, gifsiclePath: Gifsicle.path()})
+                                .then(b64Buffer => {
+                                    this.uploadFile(this.b64toBlob(b64Buffer, 'image/gif'), emote.name + '.gif', emote);
                                     resolve();
-                                },
-                                error: (obj) => {
+                                })
+                                .catch(err => {
                                     Toasts.error('Failed to process gif, ignoring emote.');
-                                    console.warn('EmoteReplacer: ' + obj.responseText);
+                                    console.warn('EmoteReplacer: ' + err);
                                     reject();
-                                },
-                                timeout: 10000
-                            });
+                                });
                         };
                         image.src = url;
                     })
@@ -911,7 +919,7 @@ let EmoteReplacer = (() => {
                         resizedCanvas.width = Math.ceil(canvas.width * scaleFactor);
                         resizedCanvas.height = Math.ceil(canvas.height * scaleFactor);
 
-                        this.pica.resize(canvas, resizedCanvas, {alpha: true, unsharpAmount: 70, unsharpRadius: 0.8, unsharpThreshold: 105})
+                        window.EmoteReplacer.pica.resize(canvas, resizedCanvas, {alpha: true, unsharpAmount: 70, unsharpRadius: 0.8, unsharpThreshold: 105})
                             .then(result => resolve(result));
                     });
                 }
