@@ -37,6 +37,7 @@ Want to add an emote? Ask me for the link.
 :wiggle-\<intensity\> - Make your emote wiggle!  Intensity can be: left empty, big, bigger or huge.  
 :wide-\<wideness\> - Make your emote extra wide! Wideness can be: left empty, big, huge, extreme or a number from 2 to 8.  
 :resize-\<size\> - Resize your emote. Can be: small, medium, large or a number from 32 to 128.  
+:rain-\<option\> - Add a rain effect to the emote. Option can be: left empty, glitter.
 
 **Examples:**  
 yentDogSmug:flip  
