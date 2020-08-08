@@ -1,269 +1,184 @@
-//META{"name":"EmoteReplacer","displayName":"Emote Replacer","website":"https://github.com/Yentis/betterdiscord-emotereplacer","source":"https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"}*//
+/**
+ * @name EmoteReplacer
+ * @authorId 68834122860077056
+ * @website https://github.com/Yentis/betterdiscord-emotereplacer
+ * @source https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js
+ */
 
 let EmoteReplacer = (() => {
     const config = {
-        "info": {
-            "name": "EmoteReplacer",
-            "authors": [{
-                "name": "Yentis",
-                "discord_id": "68834122860077056",
-                "github_username": "Yentis",
-                "twitter_username": "yentis178"
+        info: {
+            name: 'EmoteReplacer',
+            authors: [{
+                name: 'Yentis',
+                discord_id: '68834122860077056',
+                github_username: 'Yentis',
+                twitter_username: 'yentis178'
             }],
-            "version": "1.4.3",
-            "description": "Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer",
-            "github": "https://github.com/Yentis/betterdiscord-emotereplacer",
-            "github_raw": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js"
+            version: '1.4.4',
+            description: 'Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer',
+            github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
+            github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
-        "changelog": [{
-			"title": "Changes",
-            "items": ["Fix gifs not working on OSX", "Process gifs locally!", "Send emotes to the channel the message was sent in.", "Add some progress indicators.", "Add gif timeout."]
+        changelog: [{
+			title: 'Changes',
+            items: ['Add new autocomplete settings', 'Big code cleanup']
 		}],
-        "defaultConfig": [{
-            "type": "category",
-            "id": "sizeSettings",
-            "name": "Size settings",
-            "collapsible": false,
-            "shown": true,
-            "settings": [{
-                "type": "textbox",
-                "id": "size",
-                "name": "Size",
-                "note": "What size the emotes should be (in px, 32 - 128).",
-                "value": 48
-            }]
-        }],
-        "main": "index.js"
+        defaultConfig: [{
+                type: 'slider',
+                id: 'emoteSize',
+                name: 'Emote Size',
+                note: 'The size of emotes. (default 48)',
+                min: 32,
+                max: 128,
+                value: 48,
+                units: 'px',
+                markers: [32, 48, 64, 96, 128]
+            }, {
+                type: 'slider',
+                id: 'autocompleteEmoteSize',
+                name: 'Autocomplete Emote Size',
+                note: 'The size of emotes in the autocomplete window. (default 15)',
+                min: 15,
+                max: 64,
+                value: 15,
+                units: 'px',
+                markers: [15, 32, 48, 64]
+            }, {
+                type: 'slider',
+                id: 'autocompleteItems',
+                name: 'Autocomplete Items',
+                note: 'The amount of emotes shown in the autocomplete window. (default 10)',
+                min: 1,
+                max: 25,
+                value: 10,
+                units: ' items',
+                markers: [1, 5, 10, 15, 20, 25]
+            }
+        ],
+        main: 'index.js'
     };
 
-    return !global.ZeresPluginLibrary ? class {
+    return !ZeresPluginLibrary ? class {
+        constructor() {this._config = config;}
         getName() {return config.info.name;}
+        getAuthor() {return config.info.authors.map(a => a.name).join(', ');}
         getDescription() {return config.info.description;}
         getVersion() {return config.info.version;}
-        getAuthor() {return config.info.authors.map(a => a.name).join(', ');}
-        load() {window.BdApi.alert("Library Missing",`The library plugin needed for ${config.info.name} is missing.<br /><br /> <a href="https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js" target="_blank">Click here to download the library!</a>`);}
+        load() {
+            BdApi.showConfirmationModal('Library Missing', `The library plugin needed for ${config.info.name} is missing. Please click Download Now to install it.`, {
+                confirmText: 'Download Now',
+                cancelText: 'Cancel',
+                onConfirm: () => {
+                    require('request').get('https://rauenzi.github.io/BDPluginLibrary/release/0PluginLibrary.plugin.js', async (err, _response, body) => {
+                        if (err) return require('electron').shell.openExternal('https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js');
+                        await new Promise(r => require('fs').writeFile(require('path').join(BdApi.Plugins.folder, '0PluginLibrary.plugin.js'), body, r));
+                    });
+                }
+            });
+        }
         start() {}
         stop() {}
     } : (([Plugin, Api]) => {
         const plugin = (Plugin, Api) => {
-            const {DiscordSelectors, PluginUtilities, Toasts} = Api;
+            const {DiscordSelectors, DiscordClassModules, Logger, PluginUpdater, EmulatedTooltip} = Api;
 
-            // If samogot's DiscordInternals lib exists, use it. Otherwise, fall back on bundled code below.
-            // See: https://github.com/samogot/betterdiscord-plugins/tree/master/v2/1Lib%20Discord%20Internals
-            const DI = window.DiscordInternals;
-            const hasLib = !!(DI && DI.versionCompare && DI.versionCompare(DI.version || '', '1.9') >= 0);
-		    const WebpackModules = hasLib && DI.WebpackModules || (() => {
-	
-		        const req = typeof (webpackJsonp) === "function" ? webpackJsonp([], {
-		            '__extra_id__': (module, exports, req) => exports.default = req
-		        }, ['__extra_id__']).default : webpackJsonp.push([[], {
-		            '__extra_id__': (module, exports, req) => module.exports = req
-		        }, [['__extra_id__']]]);
-		        delete req.m['__extra_id__'];
-		        delete req.c['__extra_id__'];
-	
-		        /**
-		         * Predicate for searching module
-		         * @callback modulePredicate
-		         * @param {*} module Module to test
-		         * @return {boolean} Returns `true` if `module` matches predicate.
-		         */
-	
-		        /**
-		         * Look through all modules of internal Discord's Webpack and return first one that matches filter predicate.
-		         * At first this function will look through already loaded modules cache. If no loaded modules match, then this function tries to load all modules and match for them. Loading any module may have unexpected side effects, like changing current locale of moment.js, so in that case there will be a warning the console. If no module matches, this function returns `null`. You should always try to provide a predicate that will match something, but your code should be ready to receive `null` in case of changes in Discord's codebase.
-		         * If module is ES6 module and has default property, consider default first; otherwise, consider the full module object.
-		         * @param {modulePredicate} filter Predicate to match module
-		         * @param {object} [options] Options object.
-		         * @param {boolean} [options.cacheOnly=false] Set to `true` if you want to search only the cache for modules.
-		         * @return {*} First module that matches `filter` or `null` if none match.
-		         */
-		        const find = (filter, options = {}) => {
-		            const {cacheOnly = true} = options;
-		            for (let i in req.c) {
-		                if (req.c.hasOwnProperty(i)) {
-		                    let m = req.c[i].exports;
-		                    if (m && m.__esModule && m.default && filter(m.default))
-		                        return m.default;
-		                    if (m && filter(m))
-		                        return m;
-		                }
-		            }
-		            if (cacheOnly) {
-		                console.warn('Cannot find loaded module in cache');
-		                return null;
-		            }
-		            console.warn('Cannot find loaded module in cache. Loading all modules may have unexpected side effects');
-		            for (let i = 0; i < req.m.length; ++i) {
-		                try {
-		                    let m = req(i);
-		                    if (m && m.__esModule && m.default && filter(m.default))
-		                        return m.default;
-		                    if (m && filter(m))
-		                        return m;
-		                } catch (e) {
-		                }
-		            }
-		            console.warn('Cannot find module');
-		            return null;
-		        };
-	
-		        /**
-		         * Look through all modules of internal Discord's Webpack and return first object that has all of following properties. You should be ready that in any moment, after Discord update, this function may start returning `null` (if no such object exists anymore) or even some different object with the same properties. So you should provide all property names that you use, and often even some extra properties to make sure you'll get exactly what you want.
-		         * @see Read {@link find} documentation for more details how search works
-		         * @param {string[]} propNames Array of property names to look for
-		         * @param {object} [options] Options object to pass to {@link find}.
-		         * @return {object} First module that matches `propNames` or `null` if none match.
-		         */
-		        const findByUniqueProperties = (propNames, options) => find(module => propNames.every(prop => module[prop] !== undefined), options);
-	
-		        /**
-		         * Look through all modules of internal Discord's Webpack and return first object that has `displayName` property with following value. This is useful for searching for React components by name. Take into account that not all components are exported as modules. Also, there might be several components with the same name.
-		         * @see Use {@link ReactComponents} as another way to get react components
-		         * @see Read {@link find} documentation for more details how search works
-		         * @param {string} displayName Display name property value to look for
-		         * @param {object} [options] Options object to pass to {@link find}.
-		         * @return {object} First module that matches `displayName` or `null` if none match.
-		         */
-		        const findByDisplayName = (displayName, options) => find(module => module.displayName === displayName, options);
-	
-		        return {find, findByUniqueProperties, findByDisplayName};
-	
-		    })();
+            const Uploader = BdApi.findModuleByProps('instantBatchUpload');
+            const SelectedChannelStore = BdApi.findModuleByProps('getChannelId');
+            const Autocomplete = BdApi.findModuleByProps('autocomplete', 'autocompleteInner');
+            const FlexFirst = BdApi.findModuleByProps('flex', 'flexCenter');
+            const FlexSecond = BdApi.findModuleByProps('flex', 'flexChild');
 
-            const Uploader = WebpackModules.findByUniqueProperties(['instantBatchUpload']);
-            const SelectedChannelStore = WebpackModules.findByUniqueProperties(['getChannelId']);
             const shouldCompleteTwitch = RegExp.prototype.test.bind(/(?:^|\s)\w{2,}$/);
             const shouldCompleteCommand = RegExp.prototype.test.bind(/((?<!\/)\b(?:yent[A-Z]|:)\w*\b:)(\w*)$/);
             const baseGifsicleUrl = 'https://raw.githubusercontent.com/imagemin/gifsicle-bin/v4.0.1/vendor/';
+            const refreshEmotes = `${config.info.name}RefreshEmotes`;
+            const mainCSS = `
+                #${refreshEmotes} button {
+                    background: transparent;
+                    color: hsla(0, 0%, 100%, .7);
+                    font-size: 1.75em;
+                }
+                
+                #${refreshEmotes}:hover button {
+                    color: hsla(0, 0%, 100%, 1);
+                }
+            `;
 
             return class EmoteReplacer extends Plugin {
                 constructor() {
                     super();
-                    this.draft;
-                    this.unpatches = [];
-                    this.unpatches.push(
-                        ZeresPluginLibrary.Patcher.instead(
-                        this.getName(),
-                        ZeresPluginLibrary.DiscordModules.MessageActions,
-                        'sendMessage',
-                        (_, args, original) => this.onSendMessage(args, original)
-                        )
-                    );
-                    this.unpatches.push(
-                        ZeresPluginLibrary.Patcher.before(
-                        this.getName(),
-                        ZeresPluginLibrary.WebpackModules.findByUniqueProperties(['saveDraft']),
-                        'saveDraft',
-                        (_, args, original) => this.onSaveDraft(args, original)
-                        )
-                    );
 
+                    if (!DiscordClassModules.Autocomplete) {
+                        DiscordClassModules.Autocomplete = {
+                            ...Autocomplete,
+                            autocomplete: [
+                                BdApi.findModuleByProps('autocomplete', 'horizontalAutocomplete').autocomplete,
+                                Autocomplete.autocomplete
+                            ].join(' ')
+                        };
+                    }
+
+                    if (!DiscordClassModules.Wrapper) {
+                        DiscordClassModules.Wrapper = BdApi.findModuleByProps('wrapper', 'base');
+                    }
+
+                    if (!DiscordClassModules.Size) {
+                        DiscordClassModules.Size = BdApi.findModuleByProps('size10');
+                    }
+
+                    if (!DiscordClassModules.Flex) {
+                        DiscordClassModules.Flex = {
+                            ...FlexFirst,
+                            flex: FlexSecond.flex,
+                            flexChild: FlexSecond.flexChild,
+                            horizontal: FlexSecond.horizontal
+                        }
+                    }
+
+                    window.EmoteReplacer = {};
+
+                    this.draft = '';
                     this.cached = {};
-                    this.windowSize = 10;
                     this.button = null;
                     this.emoteNames = null;
                     this.modifiers = [];
-                    this.mainCSS = `
-                    #refreshEmoteReplacer button {
-                        transition: transform .1s;
-                        background: transparent;
-                        color: hsla(0, 0%, 100%, .7);
-                        margin: 0 5px;
-                    }
-                    
-                    #refreshEmoteReplacer:hover button {
-                        color: hsla(0, 0%, 100%, 1);
-                        transform: scale(1.2);
-                    }`;
-                    this.getTextAreaContainer = () => {
-                        return $(`${DiscordSelectors.Textarea.channelTextArea}`);
-                    }
 
-                    this.getTextAreaField = () => {
-                        return $(`${DiscordSelectors.Textarea.channelTextArea} .da-textArea`);
-                    }
-
-                    this.renderCompletions = _.debounce(function () {
-                        const channelTextAreas = this.getTextAreaContainer();
-                        const oldAutoComplete = channelTextAreas.children(`.${this.getName()}`);
-                        const channelTextArea = $(channelTextAreas[0]);
-
-                        const isTwitch = shouldCompleteTwitch(this.draft);
-                        if ((!shouldCompleteTwitch(this.draft) && !shouldCompleteCommand(this.draft)) || !this.prepareCompletions()) {
-                            oldAutoComplete.remove();
-                            return;
-                        }
-
-                        const {completions, matchText, selectedIndex, windowOffset: firstIndex} = this.cached;
-                        const matchList = completions.slice(firstIndex, firstIndex+this.windowSize);
-
-                        let autoDiv = $('<div>')
-                            .addClass(`autocomplete-1vrmpx autocomplete-Z9HwQh ${this.getName()}`)
-                            .on(`wheel.${this.getName()}`, e => this.scrollCompletions(e, {locked: true}));
-                        let inner = $('<div>', {'class': 'autocompleteInner-zh20B_'})
-                            .appendTo(autoDiv);
-                        // FIXME: clean up this mess of jQuery
-                        let text = isTwitch ? 'Emoji matching ' : 'Commands ';
-                        $('<div>', {'class': 'autocompleteRowVertical-q1K4ky autocompleteRow-2OthDa'})
-                            .append($('<div>', {'class': 'selector-2IcQBU'})
-                                .append($('<div>', {text: text}).append($('<strong>', {text: matchText}))
-                                    .addClass('contentTitle-2tG_sM primary400-hm0Rav weightBold-2yjlgw')))
-                            .appendTo(inner);
-                        inner
-                            .append(matchList.map((e,i) => {
-                                let row = $('<div>', {'class': 'autocompleteRowVertical-q1K4ky autocompleteRow-2OthDa'});
-                                let container = $('<div>')
-                                    .addClass('flex-1xMQg5 flex-1O1GKY horizontal-1ae9ci horizontal-2EEEnY flex-1O1GKY directionRow-3v3tfG justifyStart-2NDFzi alignCenter-1dQNNs noWrap-3jynv6 content-Qb0rXO')
-                                    .css('flex', '1 1 auto');
-                                if (isTwitch) {
-                                    container.append($('<img>', {src: e[1], alt: e[0], title: e[0], 'class': `icon-3ZzoN7`,}).attr('draggable', 'false').css('width', '25px').css('top', 0));
-                                }
-                                container.append($('<div>', {'class': 'marginLeft8-1YseBe', text: e[0]}));
-                                let selector = $('<div>', {'class': 'selector-2IcQBU selectable-3dP3y-'})
-                                    .append(container)
-                                    .appendTo(row);
-                                if (i+firstIndex === selectedIndex) {
-                                    selector.addClass('selectorSelected-1_M1WV');
-                                }
-                                row.on(`mouseenter.${this.getName()}`, e => {
-                                    this.cached.selectedIndex = i+firstIndex;
-                                    row.siblings().children('.selectorSelected-1_M1WV').removeClass('selectorSelected-1_M1WV');
-                                    row.children().addClass('selectorSelected-1_M1WV');
-                                }).on(`mousedown.${this.getName()}`, e => {
-                                    this.cached.selectedIndex = i+firstIndex;
-                                    this.insertSelectedCompletion();
-                                    // Prevent loss of focus
-                                    e.preventDefault();
-                                });
-                                return row;
-                            }));
-
-                        oldAutoComplete.remove();
-
-                        channelTextArea
-                            .append(autoDiv);
-                    }, 250)
+                    this.unpatches = [
+                        ZeresPluginLibrary.Patcher.instead(
+                            this.getName(),
+                            BdApi.findModuleByProps('sendMessage'),
+                            'sendMessage',
+                            (_, args, original) => this.onSendMessage(args, original)
+                        ),
+                        ZeresPluginLibrary.Patcher.before(
+                            this.getName(),
+                            BdApi.findModuleByProps('saveDraft'),
+                            'saveDraft',
+                            (_, args, original) => this.onSaveDraft(args, original)
+                        )
+                    ];
                 }
 
                 async onStart() {
-                    window.EmoteReplacer = {};
-                    ZLibrary.PluginUpdater.checkForUpdate(this.getName(), this.getVersion(), 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js');
+                    PluginUpdater.checkForUpdate(this.getName(), this.getVersion(), 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js');
+
                     await BdApi.linkJS('pica', '//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@058ee1d1d00933e2a55545e9830d67549a8e354a/pica.js');
                     await BdApi.linkJS('gifUtils', '//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@642f5344564bc13a5cdff56c40502bf09dba210c/gif-utils.js');
-                    PluginUtilities.addStyle(this.getName()  + '-style', this.mainCSS);
-                    this.getEmoteNames().then(names => {
-                        this.emoteNames = names;
-                        this.getModifiers().then(modifiers => {
-                            this.modifiers = modifiers;
-                            if (this.getTextAreaField()) {
-                                this.addRefresh();
-                                this.addListener();
-                            }
-                        });
-                    }).catch((error) => {
-                        console.warn('EmoteReplacer: ' + name + ': ' + error);
-                    });
+                    BdApi.injectCSS(this.getName(), mainCSS);
+
+                    Promise.all([
+                        this.getEmoteNames(),
+                        this.getModifiers()
+                    ]).then(results => {
+                        this.emoteNames = results[0];
+                        this.modifiers = results[1];
+                        
+                        if (this.getTextAreaField()) {
+                            this.addRefresh();
+                            this.addListener();
+                        }
+                    }).catch(err => Logger.warn('Failed to get emote names and/or modifiers', err));
 
                     while (!window.EmoteReplacer.GifUtils) {
                         await new Promise(resolve => setTimeout(resolve, 500));;
@@ -315,7 +230,7 @@ let EmoteReplacer = (() => {
                             });
                         }).on('error', (err) => {
                             fs.unlink(gifsiclePath);
-                            console.log('EmoteReplacer:', err.message);
+                            Logger.warn('Failed to get Gifsicle', err);
                         });
                     }
                 }
@@ -324,21 +239,32 @@ let EmoteReplacer = (() => {
                     const tryUnpatch = fn => {
                         if (typeof fn !== 'function') return;
                         try {
-                          // things can bug out, best to reload tbh, should maybe warn the user?
+                          // Things can bug out, best to reload, should maybe warn the user?
                           fn();
-                        } catch (e) {
-                          ZeresPluginLibrary.Logger.stacktrace(this.getName(), 'Error unpatching', e);
+                        } catch (err) {
+                          Logger.warn('Error unpatching', err);
                         }
-                      };
-                    if (Array.isArray(this.unpatches)) for (let unpatch of this.unpatches) tryUnpatch(unpatch);
+                    };
+
+                    if (Array.isArray(this.unpatches)) {
+                        for (let unpatch of this.unpatches) {
+                            tryUnpatch(unpatch);
+                        }
+                    }
 
                     $('*').off('.' + this.getName());
                     if (this.button) $(this.button).remove();
                     BdApi.unlinkJS('pica');
                     BdApi.unlinkJS('gifUtils');
-                    PluginUtilities.removeStyle(this.getName() + '-style');
+                    BdApi.clearCSS(this.getName());
+                    
+                    window.EmoteReplacer = {};
+
+                    this.draft = null;
+                    this.cached = null;
                     this.button = null;
                     this.emoteNames = null;
+                    this.modifiers = null;
                 }
 
                 onSendMessage(args, callDefault) {
@@ -367,7 +293,7 @@ let EmoteReplacer = (() => {
 
                         return callDefault(...args);
                     } catch (err) {
-                        ZeresPluginLibrary.Logger.stacktrace(this.getName(), 'Error in onEnqueue', err);
+                        Logger.warn('Error in onEnqueue', err);
                     }
                 }
 
@@ -390,7 +316,7 @@ let EmoteReplacer = (() => {
                             this.renderCompletions();
                         }
                     } catch (err) {
-                        ZeresPluginLibrary.Logger.stacktrace(this.getName(), 'Error in onDispatchEvent', err);
+                        Logger.warn('Error in onDispatchEvent', err);
                     }
                 }
 
@@ -406,6 +332,10 @@ let EmoteReplacer = (() => {
                     }
                 }
 
+                onSwitch() {
+                    this.destroyCompletions();
+                }
+
                 getSettingsPanel() {
                     const panel = this.buildSettingsPanel();
                     panel.addListener(this.updateSettings.bind(this));
@@ -414,42 +344,149 @@ let EmoteReplacer = (() => {
 
                 updateSettings(group, id, value) {}
 
-                addRefresh() {
-                    if (document.getElementById('refreshEmoteReplacer')) return;
-                    $(`${DiscordSelectors.Textarea.inner}`).prepend(
-                        `<div id='refreshEmoteReplacer' class='flex-1xMQg5 flex-1O1GKY da-flex da-flex horizontal-1ae9ci horizontal-2EEEnY flex-1O1GKY directionRow-3v3tfG justifyStart-2NDFzi alignStretch-DpGPf3 noWrap-3jynv6'>
-                            <button type='button'>↻</button>
-                            <div class='attachButtonDivider-3Glu60 da-attachButtonDivider'></div>
-                        </div>`);
+                getTextAreaContainer = () => {
+                    return $(`${DiscordSelectors.Textarea.channelTextArea}`);
+                }
 
-                    this.button = document.getElementById('refreshEmoteReplacer');
+                getTextAreaField = () => {
+                    return $(`${DiscordSelectors.Textarea.textArea}`);
+                }
+
+                renderCompletions = _.debounce(() => {
+                    const channelTextAreas = this.getTextAreaContainer();
+                    const oldAutoComplete = channelTextAreas.children(`.${this.getName()}`);
+                    const channelTextArea = $(channelTextAreas[0]);
+
+                    const isTwitch = shouldCompleteTwitch(this.draft);
+
+                    oldAutoComplete.remove();
+                    if ((!shouldCompleteTwitch(this.draft) && !shouldCompleteCommand(this.draft)) || !this.prepareCompletions()) {
+                        return;
+                    }
+
+                    const {completions, matchText, selectedIndex, windowOffset: firstIndex} = this.cached;
+                    const matchList = completions.slice(firstIndex, firstIndex + Math.round(this.settings.autocompleteItems));
+                        
+                    const autocompleteDiv = $('<div>')
+                        .addClass(`${DiscordClassModules.Autocomplete.autocomplete} ${this.getName()}`)
+                        .on(`wheel.${this.getName()}`, e => this.scrollCompletions(e, {locked: true}))
+                        .appendTo(channelTextArea);
+
+                    const autocompleteInnerDiv = $('<div>')
+                        .addClass(DiscordClassModules.Autocomplete.autocompleteInner)
+                        .appendTo(autocompleteDiv);
+
+                    const titleRow = $('<div>')
+                        .addClass(DiscordClassModules.Autocomplete.autocompleteRowVertical)
+                        .appendTo(autocompleteInnerDiv);
+
+                    const selector = $('<div>')
+                        .addClass(DiscordClassModules.Autocomplete.selector)
+                        .appendTo(titleRow);
+
+                    const contentTitle = $('<h3>')
+                        .addClass(`${DiscordClassModules.Autocomplete.contentTitle} ${DiscordClassModules.Wrapper.base} ${DiscordClassModules.Size.size12}`)
+                        .text(isTwitch ? 'Emoji matching ' : 'Commands ')
+                        .appendTo(selector);
+
+                    contentTitle.append(
+                        $(`<strong>${matchText}</strong>`)
+                    );
+
+                    for (let i = 0; i < matchList.length; i++) {
+                        const name = matchList[i][0];
+                        const url = matchList[i][1];
+
+                        const emoteRow = $('<div>')
+                            .addClass(DiscordClassModules.Autocomplete.autocompleteRowVertical)
+                            .on(`mouseenter.${this.getName()}`, _e => {
+                                this.cached.selectedIndex = i + firstIndex;
+    
+                                titleRow.siblings().children()
+                                    .removeClass()
+                                    .addClass(`${DiscordClassModules.Autocomplete.selector} ${DiscordClassModules.Autocomplete.selectable}`);
+                                emoteSelector.addClass(DiscordClassModules.Autocomplete.selectorSelected);
+                            })
+                            .on(`mousedown.${this.getName()}`, e => {
+                                // Prevent loss of focus
+                                e.preventDefault();
+    
+                                this.cached.selectedIndex = i + firstIndex;
+                                this.insertSelectedCompletion();
+                            })
+                            .appendTo(autocompleteInnerDiv);
+
+                        const emoteSelector = $('<div>')
+                            .addClass(`${DiscordClassModules.Autocomplete.selector} ${DiscordClassModules.Autocomplete.selectable}`)
+                            .appendTo(emoteRow);
+
+                        if (i + firstIndex === selectedIndex) {
+                            emoteSelector.addClass(DiscordClassModules.Autocomplete.selectorSelected);
+                        }
+
+                        const emoteContainer = $('<div>')
+                            .addClass(
+                                `${DiscordClassModules.Flex.flex} 
+                                ${DiscordClassModules.Flex.horizontal} 
+                                ${DiscordClassModules.Flex.justifyStart} 
+                                ${DiscordClassModules.Flex.alignCenter} 
+                                ${DiscordClassModules.Flex.noWrap} 
+                                ${DiscordClassModules.Autocomplete.content}`
+                            )
+                            .appendTo(emoteSelector);
+
+                        const flexChild = $('<div>')
+                            .addClass(DiscordClassModules.Flex.flexChild)
+                            .css('flex', '1 1 auto')
+                            .appendTo(emoteContainer);
+
+                        if (isTwitch) {
+                            flexChild.append(
+                                $('<img>')
+                                    .attr({
+                                        src: url,
+                                        alt: name,
+                                        title: name
+                                    })
+                                    .css({
+                                        width: Math.round(this.settings.autocompleteEmoteSize),
+                                        height: Math.round(this.settings.autocompleteEmoteSize)
+                                    })
+                                    .addClass(DiscordClassModules.Autocomplete.icon)
+                                    .appendTo(flexChild)
+                            );
+                        }
+
+                        flexChild.append(
+                            $('<span>')
+                                .addClass(DiscordClassModules.Autocomplete.marginLeft8)
+                                .text(name)
+                        );
+                    }
+                }, 250)
+
+                addRefresh() {
+                    if (document.getElementById(refreshEmotes)) return;
+
+                    $(`${DiscordSelectors.Textarea.buttons}`).prepend(
+                        `<div id="${refreshEmotes}" class="${DiscordClassModules.Textarea.buttonContainer}">
+                            <button aria-label="Refresh emote list" type="button" class="${DiscordClassModules.Textarea.button}">↻</button>
+                        </div>`
+                    );
+
+                    this.button = document.getElementById(refreshEmotes);
 
                     $(this.button).on('click.' + this.getName(), () => {
                         this.emoteNames = null;
-                        Toasts.info('Reloading emote database...');
+                        BdApi.showToast('Reloading emote database...', {type: 'info'});
                         this.getEmoteNames()
                             .then((names) => {
                                 this.emoteNames = names;
-                                Toasts.success('Emote database reloaded!');
+                                BdApi.showToast('Emote database reloaded!', {type: 'success'});
                             });
                     });
 
-                    $(this.button).on('mouseover', () => {
-                        let tooltip = $('<div>', {'class': 'tooltip-' + this.getName() + ' tooltip-1OS-Ti da-tooltip top-1pTh1F da-top black-2bmmnj da-black'}).html('Refresh emote database.');
-                        $('.tooltips-FhwIyl.da-tooltips').append(tooltip);
-
-                        let tooltipRect = tooltip[0].getBoundingClientRect();
-                        let buttonRect = this.button.getBoundingClientRect();
-                        let left = (buttonRect.left+(buttonRect.width/2)) - (tooltipRect.width/2);
-                        let top = buttonRect.top - tooltipRect.height;
-
-                        tooltip.css('left', left + 'px');
-                        tooltip.css('top', top + 'px');
-                    });
-
-                    $(this.button).on('mouseout', () => {
-                        $(`.tooltip-${this.getName()}`).remove();
-                    });
+                    new EmulatedTooltip(this.button, 'Refresh emote list');
                 }
 
                 addListener() {
@@ -491,9 +528,7 @@ let EmoteReplacer = (() => {
 
                                 resolve(emoteNames);
                             },
-                            error: function (obj, name, error) {
-                                reject(name + ' - ' + error);
-                            }
+                            error: (_obj, name, err) => reject(name + ' - ' + err)
                         });
                     });
                 }
@@ -504,7 +539,7 @@ let EmoteReplacer = (() => {
                             dataType: 'json',
                             url: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/modifiers.json',
                             success: data => resolve(data),
-                            error: (obj, name, error) => reject(name + ' - ' + error)
+                            error: (_obj, name, err) => reject(name + ' - ' + err)
                         });
                     });
                 }
@@ -525,6 +560,7 @@ let EmoteReplacer = (() => {
                     }
 
                     let delta = 0, options;
+                    const autocompleteItems = Math.round(this.settings.autocompleteItems);
 
                     switch (e.which) {
                         // Tab
@@ -553,13 +589,13 @@ let EmoteReplacer = (() => {
 
                         // Page Up
                         case 33:
-                            delta = -this.windowSize;
+                            delta = -autocompleteItems;
                             options = {locked: true, clamped: true};
                             break;
 
                         // Page Down
                         case 34:
-                            delta = this.windowSize;
+                            delta = autocompleteItems;
                             options = {locked: true, clamped: true};
                             break;
                     }
@@ -582,6 +618,7 @@ let EmoteReplacer = (() => {
                 scrollWindow(delta, {locked=false, clamped=false} = {}) {
                     const preScroll = 2;
                     const {completions, selectedIndex: prevSel, windowOffset} = this.cached;
+                    const autocompleteItems = Math.round(this.settings.autocompleteItems);
 
                     if (completions === undefined || completions.length === 0) {
                         return;
@@ -598,8 +635,8 @@ let EmoteReplacer = (() => {
                     this.cached.selectedIndex = sel;
 
                     // Clamp window position to bounds based on new selected index
-                    const boundLower = _.clamp(sel + preScroll - (this.windowSize-1), 0, num-this.windowSize);
-                    const boundUpper = _.clamp(sel - preScroll, 0, num-this.windowSize);
+                    const boundLower = _.clamp(sel + preScroll - (autocompleteItems - 1), 0, num - autocompleteItems);
+                    const boundUpper = _.clamp(sel - preScroll, 0, num - autocompleteItems);
                     this.cached.windowOffset = _.clamp(windowOffset + (locked ? delta : 0), boundLower, boundUpper);
 
                     // Render immediately
@@ -814,14 +851,12 @@ let EmoteReplacer = (() => {
                                 fetch(url)
                                 .then(res => res.blob())
                                 .then(blob => {
-                                    this.compress(name, blob, commands, (resultBlob) => {
+                                    this.compress(blob, commands, (resultBlob) => {
                                         this.uploadFile(resultBlob, name + '.png', emote);
                                         resolve();
                                     });
                                 })
-                                .catch(error => {
-                                    reject(error);
-                                });
+                                .catch(err => reject(err));
                             })
                         }
                     }
@@ -848,15 +883,15 @@ let EmoteReplacer = (() => {
                         image.onload = () => {
                             this.addResizeCommand(commands, image);
      
-                            Toasts.info('Processing gif...');
+                            BdApi.showToast('Processing gif...', {type: 'info'});
                             window.EmoteReplacer.GifUtils.modifyGif({url: url, options: commands, gifsiclePath: this.gifsicle})
                                 .then(b64Buffer => {
                                     this.uploadFile(this.b64toBlob(b64Buffer, 'image/gif'), emote.name + '.gif', emote);
                                     resolve();
                                 })
                                 .catch(err => {
-                                    Toasts.error('Failed to process gif, ignoring emote.');
-                                    console.warn('EmoteReplacer: ' + err);
+                                    BdApi.showToast('Failed to process gif, ignoring emote.', {type: 'error'});
+                                    Logger.warn('Failed to modify gif', err);
                                     reject();
                                 });
                         };
@@ -894,7 +929,7 @@ let EmoteReplacer = (() => {
                     if (resizeCommand && resizeCommand[1]) {
                         size = resizeCommand[1];
                     } else {
-                        size = this.settings.sizeSettings.size;
+                        size = Math.round(this.settings.emoteSize);
                     }
 
                     if (size === 'large' || size === 'big') {
@@ -909,14 +944,14 @@ let EmoteReplacer = (() => {
                 }
 
                 uploadFile(blob, fullName, emote) {
-                    Toasts.info('Uploading...');
+                    BdApi.showToast('Uploading...', {type: 'info'});
                     Uploader.upload(emote.channel,
                         new File([blob], fullName), {
                             content: emote.content, invalidEmojis: [], tts: false
                         }, emote.spoiler);
                 }
 
-                compress(fileName, originalFile, commands, callback) {
+                compress(originalFile, commands, callback) {
                     const reader = new FileReader();
                     reader.readAsDataURL(originalFile);
                     reader.onload = event => {
@@ -930,8 +965,8 @@ let EmoteReplacer = (() => {
                                 });
                         };
                     };
-                    reader.onerror = error => {
-                        console.warn('EmoteReplacer: ' + error);
+                    reader.onerror = err => {
+                        Logger.warn('Failed to compress image', err);
                         callback();
                     };
                 }
@@ -1029,5 +1064,5 @@ let EmoteReplacer = (() => {
             }
         };
         return plugin(Plugin, Api);
-    })(global.ZeresPluginLibrary.buildPlugin(config));
+    })(ZeresPluginLibrary.buildPlugin(config));
 })();
