@@ -15,14 +15,14 @@ let EmoteReplacer = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.4.4',
+            version: '1.4.5',
             description: 'Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
 			title: 'Changes',
-            items: ['Add new autocomplete settings', 'Big code cleanup']
+            items: ['Fix emotes not uploading']
 		}],
         defaultConfig: [{
                 type: 'slider',
@@ -84,7 +84,7 @@ let EmoteReplacer = (() => {
             const {DiscordSelectors, DiscordClassModules, Logger, PluginUpdater, EmulatedTooltip} = Api;
 
             const Uploader = BdApi.findModuleByProps('instantBatchUpload');
-            const SelectedChannelStore = BdApi.findModuleByProps('getChannelId');
+            const SelectedChannelStore = BdApi.findModuleByProps('getChannelId', 'getVoiceChannelId');
             const Autocomplete = BdApi.findModuleByProps('autocomplete', 'autocompleteInner');
             const FlexFirst = BdApi.findModuleByProps('flex', 'flexCenter');
             const FlexSecond = BdApi.findModuleByProps('flex', 'flexChild');
