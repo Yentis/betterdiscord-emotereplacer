@@ -15,14 +15,14 @@ let EmoteReplacer = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.4.5',
+            version: '1.4.6',
             description: 'Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
 			title: 'Changes',
-            items: ['Fix emotes not uploading']
+            items: ['Fix emote suggestion formatting']
 		}],
         defaultConfig: [{
                 type: 'slider',
@@ -381,7 +381,7 @@ let EmoteReplacer = (() => {
                         .appendTo(autocompleteInnerDiv);
 
                     const selector = $('<div>')
-                        .addClass(DiscordClassModules.Autocomplete.selector)
+                        .addClass(DiscordClassModules.Autocomplete.base)
                         .appendTo(titleRow);
 
                     const contentTitle = $('<h3>')
@@ -404,8 +404,8 @@ let EmoteReplacer = (() => {
     
                                 titleRow.siblings().children()
                                     .removeClass()
-                                    .addClass(`${DiscordClassModules.Autocomplete.selector} ${DiscordClassModules.Autocomplete.selectable}`);
-                                emoteSelector.addClass(DiscordClassModules.Autocomplete.selectorSelected);
+                                    .addClass(`${DiscordClassModules.Autocomplete.base} ${DiscordClassModules.Autocomplete.selectable}`);
+                                emoteSelector.addClass(DiscordClassModules.Autocomplete.selected);
                             })
                             .on(`mousedown.${this.getName()}`, e => {
                                 // Prevent loss of focus
@@ -417,11 +417,11 @@ let EmoteReplacer = (() => {
                             .appendTo(autocompleteInnerDiv);
 
                         const emoteSelector = $('<div>')
-                            .addClass(`${DiscordClassModules.Autocomplete.selector} ${DiscordClassModules.Autocomplete.selectable}`)
+                            .addClass(`${DiscordClassModules.Autocomplete.base} ${DiscordClassModules.Autocomplete.selectable}`)
                             .appendTo(emoteRow);
 
                         if (i + firstIndex === selectedIndex) {
-                            emoteSelector.addClass(DiscordClassModules.Autocomplete.selectorSelected);
+                            emoteSelector.addClass(DiscordClassModules.Autocomplete.selected);
                         }
 
                         const emoteContainer = $('<div>')
