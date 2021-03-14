@@ -15,14 +15,14 @@ let EmoteReplacer = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.4.6',
+            version: '1.4.7',
             description: 'Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
 			title: 'Changes',
-            items: ['Fix emote suggestion formatting']
+            items: ['Fix emote suggestion text color', 'Fix message content being removed when uploading emote']
 		}],
         defaultConfig: [{
                 type: 'slider',
@@ -398,7 +398,7 @@ let EmoteReplacer = (() => {
                         const url = matchList[i][1];
 
                         const emoteRow = $('<div>')
-                            .addClass(DiscordClassModules.Autocomplete.autocompleteRowVertical)
+                            .addClass(`${DiscordClassModules.Autocomplete.autocompleteRowVertical} ${DiscordClassModules.Autocomplete.autocompleteRowVerticalSmall}`)
                             .on(`mouseenter.${this.getName()}`, _e => {
                                 this.cached.selectedIndex = i + firstIndex;
     
@@ -425,23 +425,15 @@ let EmoteReplacer = (() => {
                         }
 
                         const emoteContainer = $('<div>')
-                            .addClass(
-                                `${DiscordClassModules.Flex.flex} 
-                                ${DiscordClassModules.Flex.horizontal} 
-                                ${DiscordClassModules.Flex.justifyStart} 
-                                ${DiscordClassModules.Flex.alignCenter} 
-                                ${DiscordClassModules.Flex.noWrap} 
-                                ${DiscordClassModules.Autocomplete.content}`
-                            )
+                            .addClass(DiscordClassModules.Autocomplete.autocompleteRowContent)
                             .appendTo(emoteSelector);
 
-                        const flexChild = $('<div>')
-                            .addClass(DiscordClassModules.Flex.flexChild)
-                            .css('flex', '1 1 auto')
-                            .appendTo(emoteContainer);
-
                         if (isTwitch) {
-                            flexChild.append(
+                            const containerIcon = $('<div>')
+                                .addClass(DiscordClassModules.Autocomplete.autocompleteRowIcon)
+                                .appendTo(emoteContainer);
+
+                            containerIcon.append(
                                 $('<img>')
                                     .attr({
                                         src: url,
@@ -452,16 +444,16 @@ let EmoteReplacer = (() => {
                                         width: Math.round(this.settings.autocompleteEmoteSize),
                                         height: Math.round(this.settings.autocompleteEmoteSize)
                                     })
-                                    .addClass(DiscordClassModules.Autocomplete.icon)
-                                    .appendTo(flexChild)
+                                    .addClass(DiscordClassModules.Autocomplete.emojiImage)
+                                    .appendTo(containerIcon)
                             );
                         }
 
-                        flexChild.append(
-                            $('<span>')
-                                .addClass(DiscordClassModules.Autocomplete.marginLeft8)
-                                .text(name)
-                        );
+                        $('<div>')
+                            .css({ color: 'var(--interactive-active)' })
+                            .addClass(DiscordClassModules.Autocomplete.autocompleteRowContentPrimary)
+                            .appendTo(emoteContainer)
+                            .text(name);
                     }
                 }, 250)
 
@@ -944,11 +936,22 @@ let EmoteReplacer = (() => {
                 }
 
                 uploadFile(blob, fullName, emote) {
+                    // 1 = channel ID
+                    // 2 = File
+                    // 3 = no idea, this is usually 0
+                    // 4 = message
+                    // 5 = spoiler
+                    // 6 = filename
+
                     BdApi.showToast('Uploading...', {type: 'info'});
-                    Uploader.upload(emote.channel,
-                        new File([blob], fullName), {
-                            content: emote.content, invalidEmojis: [], tts: false
-                        }, emote.spoiler);
+                    Uploader.upload(
+                        emote.channel,
+                        new File([blob], fullName),
+                        0,
+                        { content: emote.content, invalidEmojis: [], tts: false },
+                        emote.spoiler,
+                        fullName
+                    );
                 }
 
                 compress(originalFile, commands, callback) {
