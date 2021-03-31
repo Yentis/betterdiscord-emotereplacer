@@ -15,14 +15,14 @@ let EmoteReplacer = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.4.7',
+            version: '1.4.8',
             description: 'Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
 			title: 'Changes',
-            items: ['Fix emote suggestion text color', 'Fix message content being removed when uploading emote']
+            items: ['Fix gif rotate', 'Fix gif processing sometimes failing']
 		}],
         defaultConfig: [{
                 type: 'slider',
@@ -164,7 +164,7 @@ let EmoteReplacer = (() => {
                     PluginUpdater.checkForUpdate(this.getName(), this.getVersion(), 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js');
 
                     await BdApi.linkJS('pica', '//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@058ee1d1d00933e2a55545e9830d67549a8e354a/pica.js');
-                    await BdApi.linkJS('gifUtils', '//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@642f5344564bc13a5cdff56c40502bf09dba210c/gif-utils.js');
+                    await BdApi.linkJS('gifUtils', '//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@601a3100832b6a53352473225f148010ed99773f/gif-utils.js');
                     BdApi.injectCSS(this.getName(), mainCSS);
 
                     Promise.all([
@@ -830,7 +830,7 @@ let EmoteReplacer = (() => {
                  }
 
                 fetchBlobAndUpload(emote) {
-                    let url = emote.url, name = emote.name, commands = emote.commands ? emote.commands : '';
+                    let url = emote.url, name = emote.name, commands = emote.commands ? emote.commands : [];
                     emote.channel = SelectedChannelStore.getChannelId();
 
                     if (url.endsWith('.gif')) {
@@ -869,23 +869,22 @@ let EmoteReplacer = (() => {
                 }
 
                 getMetaAndModifyGif(emote){
-                    return new Promise((resolve, reject) => {
+                    return new Promise((resolve) => {
                         let url = emote.url, commands = emote.commands;
                         let image = new Image();
-                        image.onload = () => {
+                        image.onload = async () => {
                             this.addResizeCommand(commands, image);
      
                             BdApi.showToast('Processing gif...', {type: 'info'});
-                            window.EmoteReplacer.GifUtils.modifyGif({url: url, options: commands, gifsiclePath: this.gifsicle})
-                                .then(b64Buffer => {
-                                    this.uploadFile(this.b64toBlob(b64Buffer, 'image/gif'), emote.name + '.gif', emote);
-                                    resolve();
-                                })
-                                .catch(err => {
-                                    BdApi.showToast('Failed to process gif, ignoring emote.', {type: 'error'});
-                                    Logger.warn('Failed to modify gif', err);
-                                    reject();
-                                });
+                            try {
+                                const b64Buffer = await window.EmoteReplacer.GifUtils.modifyGif({url: url, options: commands, gifsiclePath: this.gifsicle})
+                                if (b64Buffer.length === 0) throw Error('Result buffer was empty')
+                                this.uploadFile(this.b64toBlob(b64Buffer, 'image/gif'), emote.name + '.gif', emote);
+                            } catch (error) {
+                                BdApi.showToast('Failed to process gif, ignoring emote.', {type: 'error'});
+                                Logger.warn('Failed to modify gif', error);
+                            }
+                            resolve();
                         };
                         image.src = url;
                     })
