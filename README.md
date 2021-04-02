@@ -17,7 +17,8 @@ Enable them in the Plugins menu and hit Ctrl + R.
 Gif utils code: https://github.com/Yentis/emotereplacer-gifutils  
 Server code: https://github.com/Yentis/EmoteServer  
 List of emotes: https://yentis.github.io/emotes  
-Want to add an emote? Ask me for the link.
+Want to add an emote? Send me a message on Discord.
+Yentis#5218
 
 # Modifiers
 **Modifiers can be chained!**  
