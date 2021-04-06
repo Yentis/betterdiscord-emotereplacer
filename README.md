@@ -1,4 +1,4 @@
-# betterdiscord-emotereplacer
+# BetterDiscord EmoteReplacer
 Check for known emote names and replace them with an embedded image
 
 # Usage
