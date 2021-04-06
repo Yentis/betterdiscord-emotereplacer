@@ -15,14 +15,14 @@ let EmoteReplacer = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.4.9',
+            version: '1.4.10',
             description: 'Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
 			title: 'Changes',
-            items: ['Fix everything being broken by BD 1.0.0']
+            items: ['Fix autocomplete event handlers sometimes being added twice.']
 		}],
         defaultConfig: [{
                 type: 'slider',
@@ -178,8 +178,8 @@ let EmoteReplacer = (() => {
                         this.modifiers = results[1];
                         
                         if (this.getTextAreaField()) {
-                            this.addRefresh();
                             this.addListeners();
+                            this.addRefresh();
                         }
                     }).catch(err => Logger.warn('Failed to get emote names and/or modifiers', err));
 
@@ -327,8 +327,8 @@ let EmoteReplacer = (() => {
                     let elem = e.addedNodes[0];
 
                     if (elem.querySelector(DiscordSelectors.Textarea.textArea)) {
-                        this.addRefresh();
                         this.addListeners();
+                        this.addRefresh();
                     }
                 }
 
@@ -370,9 +370,9 @@ let EmoteReplacer = (() => {
                         
                     const autocompleteDiv = document.createElement('div');
                     this.addClasses(autocompleteDiv, DiscordClassModules.Autocomplete.autocomplete, this.getName());
-                    let listener = { element: autocompleteDiv, name: 'wheel', callback: (e) => { this.scrollCompletions(e, { locked: true }) } }
-                    autocompleteDiv.addEventListener(listener.name, listener.callback);
-                    this.listeners.push(listener);
+                    const autocompleteListener = { element: autocompleteDiv, name: 'wheel', callback: (e) => { this.scrollCompletions(e, { locked: true }) } }
+                    autocompleteDiv.addEventListener(autocompleteListener.name, autocompleteListener.callback);
+                    this.listeners.push(autocompleteListener);
                     channelTextArea.append(autocompleteDiv);
 
                     const autocompleteInnerDiv = document.createElement('div');
@@ -402,9 +402,8 @@ let EmoteReplacer = (() => {
 
                         const emoteRow = document.createElement('div');
                         this.addClasses(emoteRow, DiscordClassModules.Autocomplete.autocompleteRowVertical, DiscordClassModules.Autocomplete.autocompleteRowVerticalSmall);
-                        listener.element = emoteRow;
-                        listener.name = 'mouseenter';
-                        listener.callback = (_e) => {
+
+                        const mouseEnterListener = { element: emoteRow, name: 'mouseenter', callback: (_e) => {
                             this.cached.selectedIndex = i + firstIndex;
     
                             for (const child of titleRow.parentElement.children) {
@@ -414,19 +413,19 @@ let EmoteReplacer = (() => {
                                 }
                             }
                             this.addClasses(emoteSelector, DiscordClassModules.Autocomplete.selected);
-                        };
-                        emoteRow.addEventListener(listener.name, listener.callback);
-                        this.listeners.push(listener);
-                        listener.name = 'mousedown';
-                        listener.callback = (e) => {
+                        } };
+                        emoteRow.addEventListener(mouseEnterListener.name, mouseEnterListener.callback);
+                        this.listeners.push(mouseEnterListener);
+
+                        const mouseDownListener = { element: emoteRow, name: 'mousedown', callback: (e) => {
                             // Prevent loss of focus
                             e.preventDefault();
 
                             this.cached.selectedIndex = i + firstIndex;
                             this.insertSelectedCompletion();
-                        };
-                        emoteRow.addEventListener(listener.name, listener.callback);
-                        this.listeners.push(listener);
+                        } }
+                        emoteRow.addEventListener(mouseDownListener.name, mouseDownListener.callback);
+                        this.listeners.push(mouseDownListener);
                         autocompleteInnerDiv.append(emoteRow);
 
                         const emoteSelector = document.createElement('div');
@@ -521,17 +520,17 @@ let EmoteReplacer = (() => {
                     if (textArea === undefined) return;
                     
                     this.removeListeners();
-                    let listener = { element: textArea, name: 'keydown', callback: (e) => { this.browseCompletions(e) } };
-                    textArea.addEventListener(listener.name, listener.callback);
-                    this.listeners.push(listener);
-                    listener.name = 'wheel';
-                    listener.callback = (e) => { this.scrollCompletions(e) };
-                    textArea.addEventListener(listener.name, listener.callback);
-                    this.listeners.push(listener);
-                    listener.name = 'blur';
-                    listener.callback = (_e) => { this.destroyCompletions() };
-                    textArea.addEventListener(listener.name, listener.callback);
-                    this.listeners.push(listener);
+                    const keydownListener = { element: textArea, name: 'keydown', callback: (e) => { this.browseCompletions(e) } };
+                    textArea.addEventListener(keydownListener.name, keydownListener.callback);
+                    this.listeners.push(keydownListener);
+                    
+                    const wheelListener = { element: textArea, name: 'wheel', callback: (e) => { this.scrollCompletions(e) } };
+                    textArea.addEventListener(wheelListener.name, wheelListener.callback);
+                    this.listeners.push(wheelListener);
+
+                    const blurListener = { element: textArea, name: 'blur', callback: (_e) => { this.destroyCompletions() } };
+                    textArea.addEventListener(blurListener.name, blurListener.callback);
+                    this.listeners.push(blurListener);
                 }
 
                 removeListeners() {
