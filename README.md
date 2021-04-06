@@ -1,5 +1,6 @@
 # BetterDiscord EmoteReplacer
-Check for known emote names and replace them with an embedded image
+Check for known emote names and replace them with an embedded image of the emote.  
+Also supports modifiers similar to BetterDiscord's emotes.
 
 # Usage
 Install BetterDiscord from here  
