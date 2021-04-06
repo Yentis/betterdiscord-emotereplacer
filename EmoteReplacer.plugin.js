@@ -5,7 +5,7 @@
  * @source https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js
  */
 
-let EmoteReplacer = (() => {
+module.exports = (() => {
     const config = {
         info: {
             name: 'EmoteReplacer',
@@ -15,14 +15,14 @@ let EmoteReplacer = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.5.3',
+            version: '1.5.4',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes.',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
 			title: 'Changes',
-            items: ['Update description', 'Add module.exports', 'Move refresh button to settings', 'Fix autocomplete event handlers sometimes being added twice.']
+            items: ['Fix fallback when ZeresPluginLibrary is not installed', 'Update description', 'Add module.exports', 'Move refresh button to settings', 'Fix autocomplete event handlers sometimes being added twice.']
 		}],
         defaultConfig: [{
                 type: 'slider',
@@ -59,7 +59,7 @@ let EmoteReplacer = (() => {
         main: 'index.js'
     };
 
-    return !ZeresPluginLibrary ? class {
+    return !window.ZeresPluginLibrary ? class {
         constructor() {this._config = config;}
         getName() {return config.info.name;}
         getAuthor() {return config.info.authors.map(a => a.name).join(', ');}
@@ -1111,5 +1111,3 @@ let EmoteReplacer = (() => {
         return plugin(Plugin, Api);
     })(ZeresPluginLibrary.buildPlugin(config));
 })();
-
-module.exports = EmoteReplacer;
