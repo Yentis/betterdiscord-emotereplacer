@@ -15,14 +15,14 @@ let EmoteReplacer = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.4.10',
+            version: '1.5.0',
             description: 'Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
 			title: 'Changes',
-            items: ['Fix autocomplete event handlers sometimes being added twice.']
+            items: ['Move refresh button to settings', 'Fix autocomplete event handlers sometimes being added twice.']
 		}],
         defaultConfig: [{
                 type: 'slider',
@@ -81,7 +81,7 @@ let EmoteReplacer = (() => {
         stop() {}
     } : (([Plugin, Api]) => {
         const plugin = (Plugin, Api) => {
-            const {DiscordSelectors, DiscordClassModules, Logger, PluginUpdater, EmulatedTooltip} = Api;
+            const {DiscordSelectors, DiscordClassModules, Logger, PluginUpdater} = Api;
             const Buffer = require('buffer').Buffer;
 
             const Uploader = BdApi.findModuleByProps('instantBatchUpload');
@@ -179,7 +179,6 @@ let EmoteReplacer = (() => {
                         
                         if (this.getTextAreaField()) {
                             this.addListeners();
-                            this.addRefresh();
                         }
                     }).catch(err => Logger.warn('Failed to get emote names and/or modifiers', err));
 
@@ -328,7 +327,6 @@ let EmoteReplacer = (() => {
 
                     if (elem.querySelector(DiscordSelectors.Textarea.textArea)) {
                         this.addListeners();
-                        this.addRefresh();
                     }
                 }
 
@@ -338,6 +336,17 @@ let EmoteReplacer = (() => {
 
                 getSettingsPanel() {
                     const panel = this.buildSettingsPanel();
+
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.classList.add('bd-button');
+                    button.textContent = 'Refresh emote list';
+
+                    const listener = { element: button, name: 'click', callback: (_e) => { this.onRefreshClick() } };
+                    button.addEventListener(listener.name, listener.callback);
+                    this.listeners.push(listener);
+
+                    panel.element.append(button);
                     panel.addListener(this.updateSettings.bind(this));
                     return panel.getElement();
                 }
@@ -481,28 +490,6 @@ let EmoteReplacer = (() => {
                             element.classList.remove(curClassItem);
                         }
                     }
-                }
-
-                addRefresh() {
-                    if (document.getElementById(refreshEmotes)) return;
-
-                    const refreshButtonContainer = document.createElement('div');
-                    refreshButtonContainer.id = refreshEmotes;
-                    this.addClasses(refreshButtonContainer, DiscordClassModules.Textarea.buttonContainer);
-                    const listener = { element: refreshButtonContainer, name: 'click', callback: (_e) => { this.onRefreshClick() } };
-                    refreshButtonContainer.addEventListener(listener.name, listener.callback);
-                    this.listeners.push(listener);
-                    new EmulatedTooltip(refreshButtonContainer, 'Refresh emote list');
-                    document.querySelector(DiscordSelectors.Textarea.buttons).prepend(refreshButtonContainer);
-
-                    const refreshButton = document.createElement('button');
-                    refreshButton.ariaLabel = 'Refresh emote list';
-                    refreshButton.type = 'button';
-                    this.addClasses(refreshButton, DiscordClassModules.Textarea.button);
-                    refreshButton.textContent = '↻';
-                    refreshButtonContainer.append(refreshButton);
-
-                    this.button = refreshButtonContainer;
                 }
 
                 onRefreshClick() {
