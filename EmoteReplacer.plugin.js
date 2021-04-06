@@ -15,14 +15,14 @@ let EmoteReplacer = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.5.0',
+            version: '1.5.1',
             description: 'Enables different types of formatting in standard Discord chat. Support Server: bit.ly/ZeresServer',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
 			title: 'Changes',
-            items: ['Move refresh button to settings', 'Fix autocomplete event handlers sometimes being added twice.']
+            items: ['Add module.exports', 'Move refresh button to settings', 'Fix autocomplete event handlers sometimes being added twice.']
 		}],
         defaultConfig: [{
                 type: 'slider',
@@ -1122,3 +1122,5 @@ let EmoteReplacer = (() => {
         return plugin(Plugin, Api);
     })(ZeresPluginLibrary.buildPlugin(config));
 })();
+
+module.exports = EmoteReplacer;
