@@ -15,47 +15,28 @@ module.exports = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.5.4',
-            description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes.',
+            version: '1.6.0',
+            description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
 			title: 'Changes',
-            items: ['Fix fallback when ZeresPluginLibrary is not installed', 'Update description', 'Add module.exports', 'Move refresh button to settings', 'Fix autocomplete event handlers sometimes being added twice.']
+            items: ['Added custom emote menu to settings, you can now add your own emotes.']
 		}],
         defaultConfig: [{
-                type: 'slider',
-                id: 'emoteSize',
-                name: 'Emote Size',
-                note: 'The size of emotes. (default 48)',
-                min: 32,
-                max: 128,
-                value: 48,
-                units: 'px',
-                markers: [32, 48, 64, 96, 128]
-            }, {
-                type: 'slider',
-                id: 'autocompleteEmoteSize',
-                name: 'Autocomplete Emote Size',
-                note: 'The size of emotes in the autocomplete window. (default 15)',
-                min: 15,
-                max: 64,
-                value: 15,
-                units: 'px',
-                markers: [15, 32, 48, 64]
-            }, {
-                type: 'slider',
-                id: 'autocompleteItems',
-                name: 'Autocomplete Items',
-                note: 'The amount of emotes shown in the autocomplete window. (default 10)',
-                min: 1,
-                max: 25,
-                value: 10,
-                units: ' items',
-                markers: [1, 5, 10, 15, 20, 25]
-            }
-        ],
+			id: 'emoteSize',
+			value: 48
+		}, {
+			id: 'autocompleteEmoteSize',
+			value: 15
+		}, {
+			id: 'autocompleteItems',
+			value: 10
+		}, {
+			id: 'customEmotes',
+			value: {}
+		}],
         main: 'index.js'
     };
 
@@ -81,7 +62,7 @@ module.exports = (() => {
         stop() {}
     } : (([Plugin, Api]) => {
         const plugin = (Plugin, Api) => {
-            const {DiscordSelectors, Logger, PluginUpdater} = Api;
+            const { DiscordSelectors, Logger, PluginUpdater, Settings, PluginUtilities } = Api;
             const Buffer = require('buffer').Buffer;
 
             const Uploader = BdApi.findModuleByProps('instantBatchUpload');
@@ -157,11 +138,16 @@ module.exports = (() => {
                     await BdApi.linkJS('pica', '//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@058ee1d1d00933e2a55545e9830d67549a8e354a/pica.js');
                     this.injectGifUtils();
 
+                    const customEmotes = {};
+                    Object.keys(this.settings.customEmotes).forEach((key) => {
+                        customEmotes[this.getPrefixedName(key)] = this.settings.customEmotes[key];
+                    });
+
                     Promise.all([
                         this.getEmoteNames(),
                         this.getModifiers()
                     ]).then(results => {
-                        this.emoteNames = results[0];
+                        this.emoteNames = Object.assign(results[0], customEmotes)
                         this.modifiers = results[1];
                         
                         if (this.getTextAreaField()) {
@@ -266,7 +252,8 @@ module.exports = (() => {
 
                             foundEmote.content = content;
                             this.fetchBlobAndUpload(foundEmote)
-                            .catch(() => {
+                            .catch((error) => {
+                                BdApi.showToast(error.message, { type: 'error' });
                                 if (content === '') return;
                                 
                                 message.content = content;
@@ -319,20 +306,153 @@ module.exports = (() => {
                 }
 
                 getSettingsPanel() {
-                    const panel = this.buildSettingsPanel();
+                    const settings = [];
 
-                    const button = document.createElement('button');
-                    button.type = 'button';
-                    button.classList.add('bd-button');
-                    button.textContent = 'Refresh emote list';
+                    this.pushRegularSettings(settings);
 
-                    const listener = { element: button, name: 'click', callback: (_e) => { this.onRefreshClick() } };
-                    button.addEventListener(listener.name, listener.callback);
-                    this.listeners.push(listener);
+                    let emoteName;
+                    const emoteNameTextbox = new Settings.Textbox(
+                        null,
+                        'Emote name',
+                        null,
+                        (val) => { emoteName = val; }
+                    );
 
-                    panel.element.append(button);
-                    panel.addListener(this.updateSettings.bind(this));
-                    return panel.getElement();
+                    let imageUrl;
+                    const imageUrlTextbox = new Settings.Textbox(
+                        null,
+                        'Image URL',
+                        null,
+                        (val) => { imageUrl = val; }
+                    );
+
+                    const addButton = document.createElement('button');
+                    addButton.type = 'button';
+                    addButton.classList.add('bd-button');
+                    addButton.textContent = 'Add';
+                    const addSettingField = new Settings.SettingField(null, null, null, addButton);
+
+                    const customEmotesContainer = document.createElement('div');
+                    const addListener = { element: addButton, name: 'click', callback: (_e) => {
+                        if (!emoteName) {
+                            BdApi.showToast('No emote name entered!', { type: 'error' });
+                            return;
+                        }
+                        if (!imageUrl) {
+                            BdApi.showToast('No image URL entered!', { type: 'error' });
+                            return;
+                        }
+                        if (!imageUrl.endsWith('.gif') && !imageUrl.endsWith('.png')) {
+                            BdApi.showToast('Image URL must end with .gif or .png!', { type: 'error' });
+                            return;
+                        }
+
+                        this.settings.customEmotes[emoteName] = imageUrl;
+                        this.emoteNames[this.getPrefixedName(emoteName)] = imageUrl;
+                        emoteNameTextbox.getElement().querySelector('input').value = '';
+                        imageUrlTextbox.getElement().querySelector('input').value = '';
+                        PluginUtilities.saveSettings(this.getName(), this.settings);
+                        BdApi.showToast(`Emote ${emoteName} has been saved!`, { type: 'success' });
+
+                        customEmotesContainer.append(this.createCustomEmoteContainer(emoteName, customEmotesContainer));
+                    } };
+                    addButton.addEventListener(addListener.name, addListener.callback);
+                    this.listeners.push(addListener);
+
+                    Object.keys(this.settings.customEmotes).forEach((key) => {
+                        customEmotesContainer.append(this.createCustomEmoteContainer(key, customEmotesContainer));
+                    });
+
+                    const customEmoteGroup = new Settings.SettingGroup('Custom emotes');
+                    customEmoteGroup.append(emoteNameTextbox, imageUrlTextbox, addSettingField, customEmotesContainer);
+                    settings.push(customEmoteGroup);
+
+                    const refreshButton = document.createElement('button');
+                    refreshButton.type = 'button';
+                    refreshButton.classList.add('bd-button');
+                    refreshButton.textContent = 'Refresh emote list';
+                    const refreshSettingField = new Settings.SettingField(null, null, null, refreshButton);
+
+                    const refreshListener = { element: refreshButton, name: 'click', callback: (_e) => { this.onRefreshClick() } };
+                    refreshButton.addEventListener(refreshListener.name, refreshListener.callback);
+                    this.listeners.push(refreshListener);
+                    settings.push(refreshSettingField);
+
+                    return Settings.SettingPanel
+                        .build((_) => PluginUtilities.saveSettings(this.getName(), this.settings), ...settings);
+                }
+
+                pushRegularSettings(settings) {
+                    settings.push(new Settings.Slider(
+                        'Emote Size',
+                        'The size of emotes. (default 48)',
+                        32,
+                        128,
+                        48,
+                        (val) => { this.settings.emoteSize = Math.round(val); },
+                        { units: 'px', markers: [32, 48, 64, 96, 128] }
+                    ));
+
+                    settings.push(new Settings.Slider(
+                        'Autocomplete Emote Size',
+                        'The size of emotes in the autocomplete window. (default 15)',
+                        15,
+                        64,
+                        15,
+                        (val) => { this.settings.autocompleteEmoteSize = Math.round(val); },
+                        { units: 'px', markers: [15, 32, 48, 64] }
+                    ));
+
+                    settings.push(new Settings.Slider(
+                        'Autocomplete Items',
+                        'The amount of emotes shown in the autocomplete window. (default 10)',
+                        1,
+                        25,
+                        10,
+                        (val) => { this.settings.autocompleteItems = Math.round(val); },
+                        { units: 'items', markers: [1, 5, 10, 15, 20, 25] }
+                    ));
+                }
+
+                createCustomEmoteContainer(emoteName, container) {
+                    const customEmoteContainer = document.createElement('div');
+                    customEmoteContainer.style.display = 'flex';
+
+                    const containerImage = document.createElement('img');
+                    containerImage.src = this.settings.customEmotes[emoteName];
+                    containerImage.alt = emoteName;
+                    containerImage.title = emoteName;
+                    containerImage.style.minWidth = `${Math.round(this.settings.autocompleteEmoteSize)}px`;
+                    containerImage.style.minHeight = `${Math.round(this.settings.autocompleteEmoteSize)}px`;
+                    containerImage.style.width = `${Math.round(this.settings.autocompleteEmoteSize)}px`;
+                    containerImage.style.height = `${Math.round(this.settings.autocompleteEmoteSize)}px`;
+                    containerImage.style.marginRight = '0.5rem';
+                    customEmoteContainer.append(containerImage);
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.type = 'button';
+                    deleteButton.classList.add('bd-button', 'bd-button-danger');
+                    deleteButton.innerHTML = '<svg class="" fill="#FFFFFF" viewBox="0 0 24 24" style="width: 20px; height: 20px;"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"></path><path fill="none" d="M0 0h24v24H0z"></path></svg>';
+                    customEmoteContainer.append(deleteButton);
+
+                    const deleteListener = { element: deleteButton, name: 'click', callback: (_e) => {
+                        delete this.settings.customEmotes[emoteName];
+                        delete this.emoteNames[this.getPrefixedName(emoteName)];
+                        PluginUtilities.saveSettings(this.getName(), this.settings);
+                        BdApi.showToast(`Emote ${emoteName} has been deleted!`, { type: 'success' });
+
+                        container.querySelector(`#${emoteName}`).remove();
+                    } };
+                    deleteButton.addEventListener(deleteListener.name, deleteListener.callback);
+                    this.listeners.push(deleteListener);
+
+                    const existingEmote = new Settings.SettingField(emoteName, this.settings.customEmotes[emoteName], null, customEmoteContainer, { noteOnTop: true });
+                    existingEmote.getElement().id = emoteName;
+                    return existingEmote.getElement();
+                }
+
+                getPrefixedName(name) {
+                    return `yent${name.substring(0, 1).toUpperCase()}${name.substring(1)}`
                 }
 
                 updateSettings(group, id, value) {}
@@ -442,6 +562,8 @@ module.exports = (() => {
                             containerImage.src = url;
                             containerImage.alt = name;
                             containerImage.title = name;
+                            containerImage.style.minWidth = `${Math.round(this.settings.autocompleteEmoteSize)}px`;
+                            containerImage.style.minHeight = `${Math.round(this.settings.autocompleteEmoteSize)}px`;
                             containerImage.style.width = `${Math.round(this.settings.autocompleteEmoteSize)}px`;
                             containerImage.style.height = `${Math.round(this.settings.autocompleteEmoteSize)}px`;
                             this.addClasses(containerImage, this.localClassModules.Autocomplete.emojiImage);
@@ -872,25 +994,25 @@ module.exports = (() => {
                     let url = emote.url, name = emote.name, commands = emote.commands ? emote.commands : [];
                     emote.channel = SelectedChannelStore.getChannelId();
 
-                    if (url.endsWith('.gif')) {
+                    if (url.endsWith('.gif') || this.findCommand(commands, this.getGifModifiers())) {
                         return this.getMetaAndModifyGif(emote);
-                    } else {
-                        if (this.findCommand(commands, this.getGifModifiers())) {
-                            return this.getMetaAndModifyGif(emote);
-                        } else {
-                            return new Promise((resolve, reject) => {
-                                fetch(url)
-                                .then(res => res.blob())
-                                .then(blob => {
-                                    this.compress(blob, commands, (resultBlob) => {
-                                        this.uploadFile(resultBlob, name + '.png', emote);
-                                        resolve();
-                                    });
-                                })
-                                .catch(err => reject(err));
-                            })
-                        }
                     }
+
+                    return new Promise((resolve, reject) => {
+                        fetch(url)
+                        .then(res => res.blob())
+                        .then(blob => {
+                            if (!blob.type.startsWith('image')) {
+                                throw Error('Emote URL was not an image');
+                            }
+                            
+                            this.compress(blob, commands, (resultBlob) => {
+                                this.uploadFile(resultBlob, name + '.png', emote);
+                                resolve();
+                            });
+                        })
+                        .catch(reject);
+                    });
                 }
 
                 findCommand(commands, names) {
@@ -908,22 +1030,24 @@ module.exports = (() => {
                 }
 
                 getMetaAndModifyGif(emote){
-                    return new Promise((resolve) => {
+                    return new Promise((resolve, reject) => {
                         let url = emote.url, commands = emote.commands;
                         let image = new Image();
                         image.onload = async () => {
                             this.addResizeCommand(commands, image);
 
                             try {
-                                const b64Buffer = await window.EmoteReplacer.GifUtils.modifyGif({url: url, options: commands, gifsiclePath: this.gifsicle})
-                                if (b64Buffer.length === 0) throw Error('Result buffer was empty')
+                                const b64Buffer = await window.EmoteReplacer.GifUtils.modifyGif({url: url, options: commands, gifsiclePath: this.gifsicle});
+                                if (b64Buffer.length === 0) throw Error('Failed to process gif');
                                 this.uploadFile(this.b64toBlob(b64Buffer, 'image/gif'), emote.name + '.gif', emote);
-                            } catch (error) {
-                                BdApi.showToast('Failed to process gif, ignoring emote.', {type: 'error'});
-                                Logger.warn('Failed to modify gif', error);
-                            }
 
-                            resolve();
+                                resolve();
+                            } catch (error) {
+                                reject(Error('Failed to process gif'));
+                            }
+                        };
+                        image.onerror = () => {
+                            reject(Error('Failed to load image'));
                         };
                         image.src = url;
                     })
