@@ -15,14 +15,14 @@ module.exports = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.6.0',
+            version: '1.7.0',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
 			title: 'Changes',
-            items: ['Added custom emote menu to settings, you can now add your own emotes.']
+            items: ['Added settings for requiring a prefix and setting a custom prefix. This is on by default, requiring ; as the prefix.', 'Added custom emote menu to settings, you can now add your own emotes.']
 		}],
         defaultConfig: [{
 			id: 'emoteSize',
@@ -36,7 +36,13 @@ module.exports = (() => {
 		}, {
 			id: 'customEmotes',
 			value: {}
-		}],
+		}, {
+            id: 'requirePrefix',
+            value: true
+        }, {
+            id: 'prefix',
+            value: ';'
+        }],
         main: 'index.js'
     };
 
@@ -71,8 +77,6 @@ module.exports = (() => {
             const FlexFirst = BdApi.findModuleByProps('flex', 'flexCenter');
             const FlexSecond = BdApi.findModuleByProps('flex', 'flexChild');
 
-            const shouldCompleteEmote = RegExp.prototype.test.bind(/(?:^|\s)\w{2,}$/);
-            const shouldCompleteCommand = RegExp.prototype.test.bind(/((?<!\/)\b(?:yent[A-Z]|:)\w*\b:)(\w*)$/);
             const baseGifsicleUrl = 'https://raw.githubusercontent.com/imagemin/gifsicle-bin/v4.0.1/vendor/';
 
             return class EmoteReplacer extends Plugin {
@@ -139,15 +143,21 @@ module.exports = (() => {
                     this.injectGifUtils();
 
                     const customEmotes = {};
-                    Object.keys(this.settings.customEmotes).forEach((key) => {
-                        customEmotes[this.getPrefixedName(key)] = this.settings.customEmotes[key];
+                    Object.keys(this.settings.customEmotes).forEach((emoteName) => {
+                        customEmotes[this.getPrefixedName(emoteName)] = this.settings.customEmotes[emoteName];
                     });
 
                     Promise.all([
                         this.getEmoteNames(),
                         this.getModifiers()
                     ]).then(results => {
-                        this.emoteNames = Object.assign(results[0], customEmotes)
+                        const standardNames = {};
+                        Object.keys(results[0]).forEach((emoteName) => {
+                            const prefixedName = this.getPrefixedName(emoteName);
+                            standardNames[prefixedName] = results[0][emoteName];
+                        });
+
+                        this.emoteNames = { ...standardNames, ...customEmotes };
                         this.modifiers = results[1];
                         
                         if (this.getTextAreaField()) {
@@ -279,7 +289,7 @@ module.exports = (() => {
     
                         // If an emote match is impossible, don't override default behavior.
                         // This allows other completion types (like usernames or channels) to work as usual.
-                        if (!shouldCompleteEmote(draft) && !shouldCompleteCommand(draft)) {
+                        if (!this.shouldCompleteEmote(draft) && !this.shouldCompleteCommand(draft)) {
                             this.destroyCompletions();
                             return;
                         }
@@ -321,7 +331,7 @@ module.exports = (() => {
                     let imageUrl;
                     const imageUrlTextbox = new Settings.Textbox(
                         null,
-                        'Image URL',
+                        'Image URL (must end with .gif or .png, 128px recommended)',
                         null,
                         (val) => { imageUrl = val; }
                     );
@@ -344,6 +354,10 @@ module.exports = (() => {
                         }
                         if (!imageUrl.endsWith('.gif') && !imageUrl.endsWith('.png')) {
                             BdApi.showToast('Image URL must end with .gif or .png!', { type: 'error' });
+                            return;
+                        }
+                        if (this.emoteNames[this.getPrefixedName(emoteName)]) {
+                            BdApi.showToast('Emote name already exists!', { type: 'error' });
                             return;
                         }
 
@@ -412,6 +426,44 @@ module.exports = (() => {
                         (val) => { this.settings.autocompleteItems = Math.round(val); },
                         { units: 'items', markers: [1, 5, 10, 15, 20, 25] }
                     ));
+
+                    settings.push(new Settings.Switch(
+                        'Require prefix',
+                        'If this is enabled, the autocomplete list will not be shown unless the prefix is also typed.',
+                        this.settings.requirePrefix,
+                        (checked) => { this.settings.requirePrefix = checked; }
+                    ));
+
+                    settings.push(new Settings.Textbox(
+                        'Prefix',
+                        'The prefix to check against for the above setting. It is recommended to use a single character not in use by other chat functionality, other prefixes may cause issues.',
+                        this.settings.prefix,
+                        _.debounce((val) => {
+                            if (val === this.settings.prefix) return;
+
+                            const previousPrefix = this.settings.prefix;
+                            this.settings.prefix = val;
+                            PluginUtilities.saveSettings(this.getName(), this.settings);
+    
+                            const previousEmoteNames = Object.assign({}, this.emoteNames);
+                            this.emoteNames = {};
+    
+                            Object.keys(previousEmoteNames).forEach((emoteName) => {
+                                const prefixedName = this.getPrefixedName(emoteName.replace(previousPrefix, ''));
+                                this.emoteNames[prefixedName] = previousEmoteNames[emoteName];
+                            });
+                        }, 2000)
+                    ));
+                }
+
+                shouldCompleteEmote(input) {
+                    const prefix = this.settings.requirePrefix ? this.escapeRegExp(this.settings.prefix) : '';
+                    return new RegExp("(?:^|\\s)" + prefix + "\\w{2,}$").test(input);
+                }
+
+                shouldCompleteCommand(input) {
+                    const prefix = this.settings.requirePrefix ? this.escapeRegExp(this.settings.prefix) : '';
+                    return new RegExp("((?<!\\/)(?:" + prefix + "[A-Z]|:)\\w*\\b:)(\\w*)$").test(input);
                 }
 
                 createCustomEmoteContainer(emoteName, container) {
@@ -452,7 +504,11 @@ module.exports = (() => {
                 }
 
                 getPrefixedName(name) {
-                    return `yent${name.substring(0, 1).toUpperCase()}${name.substring(1)}`
+                    if (name.toLowerCase().startsWith(this.settings.prefix)) {
+                        name = name.replace(this.settings.prefix, '');
+                    }
+
+                    return `${this.settings.prefix}${name}`
                 }
 
                 updateSettings(group, id, value) {}
@@ -469,12 +525,12 @@ module.exports = (() => {
                     const channelTextArea = this.getTextAreaContainer();
                     const oldAutoComplete = channelTextArea.querySelectorAll(`.${this.getName()}`);
 
-                    const isEmote = shouldCompleteEmote(this.draft);
+                    const isEmote = this.shouldCompleteEmote(this.draft);
 
                     for (const autoComplete of oldAutoComplete) {
                         autoComplete.remove();
                     }
-                    if ((!shouldCompleteEmote(this.draft) && !shouldCompleteCommand(this.draft)) || !this.prepareCompletions()) {
+                    if ((!this.shouldCompleteEmote(this.draft) && !this.shouldCompleteCommand(this.draft)) || !this.prepareCompletions()) {
                         return;
                     }
 
@@ -699,7 +755,7 @@ module.exports = (() => {
                 }
 
                 browseCompletions(e) {
-                    if (!shouldCompleteEmote(this.draft) && !shouldCompleteCommand(this.draft)) {
+                    if (!this.shouldCompleteEmote(this.draft) && !this.shouldCompleteCommand(this.draft)) {
                         return;
                     }
 
@@ -795,7 +851,7 @@ module.exports = (() => {
                 }
 
                 insertSelectedCompletion() {
-                    const {completions, matchStart, matchText, selectedIndex} = this.cached;
+                    const {completions, matchText, selectedIndex} = this.cached;
 
                     if (completions === undefined) {
                         return;
@@ -839,10 +895,10 @@ module.exports = (() => {
                     const {candidateText: lastText} = this.cached;
 
                     if (lastText !== candidateText) {
-                        if (shouldCompleteEmote(candidateText)) {
+                        if (this.shouldCompleteEmote(candidateText)) {
                             const {completions, matchText, matchStart} = this.getCompletionsEmote(candidateText);
                             this.cached = {candidateText, completions, matchText, matchStart, selectedIndex: 0, windowOffset: 0};
-                        } else if (shouldCompleteCommand(candidateText)) {
+                        } else if (this.shouldCompleteCommand(candidateText)) {
                             const {completions, matchText, matchStart} = this.getCompletionsCommands(candidateText);
                             this.cached = {candidateText, completions, matchText, matchStart, selectedIndex: 0, windowOffset: 0};
                         }
@@ -853,7 +909,8 @@ module.exports = (() => {
                 }
 
                 getCompletionsEmote(text) {
-                    const match = text.match(/(^|\s)(\w{2,})$/);
+                    const prefix = this.settings.requirePrefix ? this.escapeRegExp(this.settings.prefix) : '';
+                    const match = text.match(new RegExp("(^|\\s)(" + prefix + "\\w{2,})$"));
                     if (match === null) {
                         return {completions: [], matchText: null, matchStart: -1};
                     }
@@ -865,19 +922,27 @@ module.exports = (() => {
                         }
                     }
 
+                    const matchText = match[2];
                     const completions = emoteArray
                         .filter((emote) => {
-                            if (emote[0].toLowerCase().search(match[2]) !== -1){
+                            const matchWithoutPrefix = matchText.startsWith(this.settings.prefix) ? matchText.replace(this.settings.prefix, '') : matchText;
+                            if (emote[0].toLowerCase().search(matchWithoutPrefix) !== -1){
                                 return emote;
                             }
                         });
-                    const matchText = match[2], matchStart = match.index + match[1].length;
+                    const matchStart = match.index + match[1].length;
 
                     return {completions, matchText, matchStart};
                 }
 
+                escapeRegExp(input) {
+                    return input.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                }
+
                 getCompletionsCommands(text) {
-                    const match = text.match(/((?<!\/)\b(yent[A-Z]|:)\w*\b:)(\w*)$/);
+                    const prefix = this.settings.requirePrefix ? this.escapeRegExp(this.settings.prefix) : '';
+                    const regex = new RegExp("((?<!\\/)(" + prefix + "[A-Z]|:)\\w*\\b:)(\\w*)$");
+                    const match = text.match(regex);
                     if (match === null) {
                         return {completions: [], matchText: null, matchStart: -1};
                     }
@@ -923,7 +988,7 @@ module.exports = (() => {
 
                     for (let key in this.emoteNames) {
                         if (this.emoteNames.hasOwnProperty(key)) {
-                            let regex = new RegExp('(?<!\\/)\\b' + key + '\\b', 'g');
+                            let regex = new RegExp('(?<!\\/)' + key + '\\b', 'g');
                             let matches = value.match(regex);
                             let command = value.match(regexCommand);
 
