@@ -1104,6 +1104,7 @@ module.exports = (() => {
                         let image = new Image();
                         image.onload = async () => {
                             this.addResizeCommand(commands, image);
+                            BdApi.showToast('Processing gif...', {type: 'info'});
 
                             try {
                                 const buffer = await window.EmoteReplacer.GifUtils.modifyGif({url: url, options: commands, gifsiclePath: this.gifsicle});
