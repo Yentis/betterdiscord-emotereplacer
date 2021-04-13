@@ -12,12 +12,16 @@ And the plugin: https://raw.githubusercontent.com/Yentis/betterdiscord-emoterepl
 (Rightclick -> Save as...)
 
 Open Discord -> Settings -> Plugins -> Open plugin folder and place the 2 plugins there.  
-Enable them in the Plugins menu and hit Ctrl + R.
+Enable them in the Plugins menu and hit Ctrl + R.  
+
+Custom emotes can be added and prefix can be changed through the settings menu.  
+Begin typing emote names as you would regular Discord emotes:  
+![Preview](https://i.imgur.com/iGB4ZAQ.png)  
 
 # Resources
 Gif utils code: https://github.com/Yentis/emotereplacer-gifutils  
 List of emotes: https://yentis.github.io/emotes  
-Want to add an emote? Send me a message on Discord.
+Want to add a standard emote? Send me a message on Discord.  
 Yentis#5218
 
 # Modifiers
