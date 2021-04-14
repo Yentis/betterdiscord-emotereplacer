@@ -15,7 +15,7 @@ module.exports = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.7.2',
+            version: '1.7.3',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
@@ -23,11 +23,11 @@ module.exports = (() => {
         changelog: [{
             title: 'Changes',
             items: [
+				'Fix gifs crashing Discord on 32-bit systems',
                 'Fix patches being applied in the constructor',
                 'Fix reply target being lost when sending an emote',
                 'Fix crash on certain emotes when processing the rainbow modifier',
-                'Fix slider settings always showing the same initial value',
-                'Added settings for requiring a prefix and setting a custom prefix. This is on by default, requiring ; as the prefix.'
+                'Fix slider settings always showing the same initial value'
             ]
         }],
         defaultConfig: [{
@@ -187,21 +187,21 @@ module.exports = (() => {
                             gifsicleUrl = `${baseGifsicleUrl}macos/gifsicle`;
                             break;
                         case 'linux':
-                            if (process.arch === 'x86') {
+                            if (process.arch === 'x32') {
                                 gifsicleUrl = `${baseGifsicleUrl}linux/x86/gifsicle`;
                             } else {
                                 gifsicleUrl = `${baseGifsicleUrl}linux/x64/gifsicle`;
                             }
                             break;
                         case 'freebsd':
-                            if (process.arch === 'x86') {
+                            if (process.arch === 'x32') {
                                 gifsicleUrl = `${baseGifsicleUrl}freebsd/x86/gifsicle`;
                             } else {
                                 gifsicleUrl = `${baseGifsicleUrl}freebsd/x64/gifsicle`;
                             }
                             break;
                         case 'win32':
-                            if (process.arch === 'x86') {
+                            if (process.arch === 'x32') {
                                 gifsicleUrl = `${baseGifsicleUrl}win/x86/gifsicle.exe`;
                             } else {
                                 gifsicleUrl = `${baseGifsicleUrl}win/x64/gifsicle.exe`;
