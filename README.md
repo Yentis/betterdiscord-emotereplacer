@@ -47,9 +47,9 @@ Yentis#5218
 .rain-\<option\> - Add a rain effect to the emote. Option can be: left empty, glitter.
 
 **Examples:**  
-yentDogSmug.flip  
-yentKrisDance.speed-5  
-yentKannaDance.rotate-90
+;yentDogSmug.flip  
+;yentKrisDance.speed-5  
+;yentKannaDance.rotate-90
 
 # Extra Features
 Size - Emotes can be 32 to 128px large, with 48 being the normal emote size.  
