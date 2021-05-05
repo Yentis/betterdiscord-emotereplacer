@@ -16,6 +16,7 @@ Enable them in the Plugins menu and hit Ctrl + R.
 
 Custom emotes can be added and prefix can be changed through the settings menu.  
 Begin typing emote names as you would regular Discord emotes **with ; instead of :**  
+
 ![Preview](https://i.imgur.com/iGB4ZAQ.png)  
 You can also use any existing Discord emotes along with whatever modifiers you like.  
 Just type them as usual and they will be sent as an image if you don't currently have nitro.
