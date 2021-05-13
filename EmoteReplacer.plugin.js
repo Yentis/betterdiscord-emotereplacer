@@ -15,26 +15,24 @@ module.exports = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.9.0',
+            version: '1.9.1',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
+			title: '1.9.1',
+			items: [
+				'Fix nitro emojis containing ~ not working',
+				'Fix some custom emoji URLs failing to fetch'
+			]
+		}, {
 			title: '1.9.0',
 			items: [
 				'You can now select Nitro emojis from the emoji picker menu',
 				'Fixed issue with wrong custom emoji being sent in some cases'
 			]
-		}, {
-            title: '1.8.0',
-            items: [
-				'IMPORTANT: You must now use . instead of : when using modifiers, this is to prevent conflicts with Discord emotes.',
-				'NEW: You can now use all emotes from every server!',
-				'Improve autocomplete responsiveness',
-				'Fix some gif glitches'
-            ]
-        }],
+		}],
         defaultConfig: [{
             id: 'emoteSize',
             value: 48
@@ -249,8 +247,14 @@ module.exports = (() => {
                 const invalidEmojisCount = message.invalidEmojis.length;
                 if (invalidEmojisCount > 0) {
                     const emoji = message.invalidEmojis[invalidEmojisCount - 1];
-                    const emojiText = `<${emoji.animated ? 'a' : ''}${emoji.allNamesString}${emoji.id}>`;
-                    discordEmotes[emojiText] = { name: emoji.name, url: emoji.url.replace('?v=1', '') };
+                    const emojiName = emoji.originalName || emoji.name;
+                    const allNamesString = emoji.allNamesString.replace(emoji.name, emojiName);
+                    const emojiText = `<${emoji.animated ? 'a' : ''}${allNamesString}${emoji.id}>`;
+
+                    discordEmotes[emojiText] = {
+                        name: emojiName,
+                        url: emoji.url.replace('?v=1', '')
+                    };
                 }
 
                 let content = message.content;
@@ -1096,19 +1100,31 @@ module.exports = (() => {
             }
 
             return new Promise((resolve, reject) => {
-                fetch(url)
-                    .then(res => res.blob())
-                    .then(blob => {
-                        if (!blob.type.startsWith('image')) {
-                            throw Error('Emote URL was not an image');
-                        }
+                require('https').get(url, (res) => {
+                    const contentType = res.headers['content-type'] || '';
+                    if (!contentType.startsWith('image')) {
+                        throw Error('Emote URL was not an image');
+                    }
+                    const size = res.headers['content-length'] || 0;
+                    if (size === 0) {
+                        throw Error('Emote URL did not contain data');
+                    }
+                    const data = [];
 
-                        this.compress(blob, commands, (resultBlob) => {
+                    res.on('data', (chunk) => {
+                        data.push(chunk);
+                    });
+
+                    res.on('end', () => {
+                        const buffer = Buffer.concat(data);
+                        this.compress(new Blob([buffer], { type: contentType }), commands, (resultBlob) => {
                             this.uploadFile(resultBlob, name + '.png', emote);
                             resolve();
                         });
-                    })
-                    .catch(reject);
+                    });
+                }).on('error', (error) => {
+                    reject(error);
+                });
             });
         }
 
