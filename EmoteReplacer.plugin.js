@@ -15,12 +15,17 @@ module.exports = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.9.2',
+            version: '1.9.3',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
+			title: '1.9.3',
+			items: [
+				'Fix messages with standard discord emotes not sending'
+			]
+		}, {
 			title: '1.9.2',
 			items: [
 				'You can now use modifiers when sending emotes with nitro or when sending from the emote\'s original server',
@@ -31,12 +36,6 @@ module.exports = (() => {
 			items: [
 				'Fix nitro emojis containing ~ not working',
 				'Fix some custom emoji URLs failing to fetch'
-			]
-		}, {
-			title: '1.9.0',
-			items: [
-				'You can now select Nitro emojis from the emoji picker menu',
-				'Fixed issue with wrong custom emoji being sent in some cases'
 			]
 		}],
         defaultConfig: [{
@@ -291,6 +290,9 @@ module.exports = (() => {
             } else if (message.validNonShortcutEmojis?.length > 0) {
                 const count = message.validNonShortcutEmojis.length;
                 emoji = message.validNonShortcutEmojis[count - 1];
+
+                // Ignore built-in emotes
+                if (emoji.managed) return {};
                 validEmoji = true;
             } else return {};
 
@@ -305,6 +307,7 @@ module.exports = (() => {
             };
 
             const foundEmote = this.getTextPos(message.content, result);
+            if (!foundEmote) return {};
             // Only parse valid emojis if they contain commands
             if (validEmoji && foundEmote.commands.length === 0) return {};
 
