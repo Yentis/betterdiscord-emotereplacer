@@ -15,12 +15,18 @@ module.exports = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.9.1',
+            version: '1.9.2',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
+			title: '1.9.2',
+			items: [
+				'You can now use modifiers when sending emotes with nitro or when sending from the emote\'s original server',
+				'Remove redundant "Uploading..." toast'
+			]
+		},{
 			title: '1.9.1',
 			items: [
 				'Fix nitro emojis containing ~ not working',
@@ -243,19 +249,7 @@ module.exports = (() => {
             if (!message) return callDefault(...args);
 
             try {
-                const discordEmotes = {};
-                const invalidEmojisCount = message.invalidEmojis.length;
-                if (invalidEmojisCount > 0) {
-                    const emoji = message.invalidEmojis[invalidEmojisCount - 1];
-                    const emojiName = emoji.originalName || emoji.name;
-                    const allNamesString = emoji.allNamesString.replace(emoji.name, emojiName);
-                    const emojiText = `<${emoji.animated ? 'a' : ''}${allNamesString}${emoji.id}>`;
-
-                    discordEmotes[emojiText] = {
-                        name: emojiName,
-                        url: emoji.url.replace('?v=1', '')
-                    };
-                }
+                const discordEmotes = this.getTargetEmoteFromMessage(message);
 
                 let content = message.content;
                 let foundEmote = this.getTextPos(content, { ...this.emoteNames, ...discordEmotes });
@@ -285,6 +279,36 @@ module.exports = (() => {
             } catch (err) {
                 Logger.warn('Error in onSendMessage', err);
             }
+        }
+
+        getTargetEmoteFromMessage(message) {
+            let emoji;
+            let validEmoji = false;
+
+            if (message.invalidEmojis?.length > 0) {
+                const count = message.invalidEmojis.length;
+                emoji = message.invalidEmojis[count - 1];
+            } else if (message.validNonShortcutEmojis?.length > 0) {
+                const count = message.validNonShortcutEmojis.length;
+                emoji = message.validNonShortcutEmojis[count - 1];
+                validEmoji = true;
+            } else return {};
+
+            const emojiName = emoji.originalName || emoji.name;
+            const allNamesString = emoji.allNamesString.replace(emoji.name, emojiName);
+            const emojiText = `<${emoji.animated ? 'a' : ''}${allNamesString}${emoji.id}>`;
+
+            const result = {};
+            result[emojiText] = {
+                name: emojiName,
+                url: emoji.url.replace('?v=1', '')
+            };
+
+            const foundEmote = this.getTextPos(message.content, result);
+            // Only parse valid emojis if they contain commands
+            if (validEmoji && foundEmote.commands.length === 0) return {};
+
+            return result;
         }
 
         onChangeDraft(args) {
@@ -1219,7 +1243,6 @@ module.exports = (() => {
             // 5 = spoiler
             // 6 = filename
 
-            BdApi.showToast('Uploading...', { type: 'info' });
             Uploader.upload(
                 emote.channel,
                 new File([fileData], fullName),
