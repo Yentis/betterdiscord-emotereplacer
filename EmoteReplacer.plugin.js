@@ -15,12 +15,18 @@ module.exports = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.9.3',
+            version: '1.9.4',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
+			title: '1.9.4',
+			items: [
+				'Fix message content after emote with modifiers being removed',
+				'Prevent crash on broken emote URLs'
+			]
+		}, {
 			title: '1.9.3',
 			items: [
 				'Fix messages with standard discord emotes not sending'
@@ -30,12 +36,6 @@ module.exports = (() => {
 			items: [
 				'You can now use modifiers when sending emotes with nitro or when sending from the emote\'s original server',
 				'Remove redundant "Uploading..." toast'
-			]
-		},{
-			title: '1.9.1',
-			items: [
-				'Fix nitro emojis containing ~ not working',
-				'Fix some custom emoji URLs failing to fetch'
 			]
 		}],
         defaultConfig: [{
@@ -265,7 +265,7 @@ module.exports = (() => {
                         await this.pendingUpload;
                         return;
                     } catch (error) {
-                        BdApi.showToast(error.message, { type: 'error' });
+                        BdApi.showToast(error.message || error, { type: 'error' });
                         if (content === '') return;
 
                         message.content = content;
@@ -789,7 +789,7 @@ module.exports = (() => {
                     if (httpRequest.readyState !== XMLHttpRequest.DONE) return;
                     const status = httpRequest.status;
                     if (status !== 0 && (status < 200 || status >= 400)) {
-                        reject(httpRequest.statusText);
+                        reject(new Error(httpRequest.statusText));
                         return;
                     }
 
@@ -820,7 +820,7 @@ module.exports = (() => {
                     if (httpRequest.readyState !== XMLHttpRequest.DONE) return;
                     const status = httpRequest.status;
                     if (status !== 0 && (status < 200 || status >= 400)) {
-                        reject(httpRequest.statusText);
+                        reject(new Error(httpRequest.statusText));
                         return;
                     }
 
@@ -1070,13 +1070,15 @@ module.exports = (() => {
                     };
 
                     if (command) {
-                        let commands = command[0].substring(1, command[0].length).split('.');
-                        emote.commands = commands.map(command => {
-                            let split = command.split('-');
+                        let commands = command[0].split('.');
+                        emote.commands = commands
+                            .filter((command) => command !== key)
+                            .map(command => {
+                                let split = command.split('-');
 
-                            return [split[0], split[1] || null];
-                        });
-                        emote.nameAndCommand = emote.nameAndCommand + command[0];
+                                return [split[0], split[1] || null];
+                            });
+                        emote.nameAndCommand = command[0];
                     }
 
                     let beforeEmote = value.substring(0, pos);
@@ -1130,11 +1132,13 @@ module.exports = (() => {
                 require('https').get(url, (res) => {
                     const contentType = res.headers['content-type'] || '';
                     if (!contentType.startsWith('image')) {
-                        throw Error('Emote URL was not an image');
+                        reject(new Error('Emote URL was not an image'));
+                        return;
                     }
                     const size = res.headers['content-length'] || 0;
                     if (size === 0) {
-                        throw Error('Emote URL did not contain data');
+                        reject(new Error('Emote URL did not contain data'));
+                        return;
                     }
                     const data = [];
 
@@ -1188,7 +1192,7 @@ module.exports = (() => {
                     }
                 };
                 image.onerror = () => {
-                    reject(Error('Failed to load image'));
+                    reject(new Error('Failed to load image'));
                 };
                 image.src = url;
             })
