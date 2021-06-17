@@ -15,12 +15,17 @@ module.exports = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.9.4',
+            version: '1.9.5',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
+			title: '1.9.5',
+			items: [
+				'Fix modifier autocomplete menu not showing'
+			]
+		}, {
 			title: '1.9.4',
 			items: [
 				'Fix message content after emote with modifiers being removed',
@@ -30,12 +35,6 @@ module.exports = (() => {
 			title: '1.9.3',
 			items: [
 				'Fix messages with standard discord emotes not sending'
-			]
-		}, {
-			title: '1.9.2',
-			items: [
-				'You can now use modifiers when sending emotes with nitro or when sending from the emote\'s original server',
-				'Remove redundant "Uploading..." toast'
 			]
 		}],
         defaultConfig: [{
@@ -543,9 +542,13 @@ module.exports = (() => {
             return new RegExp("(?:^|\\s)" + prefix + "\\w{2,}$").test(input);
         }
 
-        shouldCompleteCommand(input) {
+        getRegexCommand() {
             const prefix = this.settings.requirePrefix ? this.escapeRegExp(this.settings.prefix) : '';
-            return new RegExp("((?<!\\/)(?:" + prefix + "[A-Z]|:)\\w*\\b:)(\\w*)$").test(input);
+            return new RegExp("((?<!\\/)(?:" + prefix + "|<)[\\w:>]*\\.)([\\w\\.-]*)$");
+        }
+
+        shouldCompleteCommand(input) {
+            return this.getRegexCommand().test(input);
         }
 
         createCustomEmoteContainer(emoteName, container) {
@@ -784,51 +787,55 @@ module.exports = (() => {
 
         getEmoteNames() {
             return new Promise((resolve, reject) => {
-                const httpRequest = new XMLHttpRequest();
-                httpRequest.onreadystatechange = (() => {
-                    if (httpRequest.readyState !== XMLHttpRequest.DONE) return;
-                    const status = httpRequest.status;
-                    if (status !== 0 && (status < 200 || status >= 400)) {
-                        reject(new Error(httpRequest.statusText));
-                        return;
-                    }
+                require('https').get('https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/emotes.json', (res) => {
+                    let data = '';
 
-                    const data = httpRequest.response;
-                    const emoteNames = {};
+                    res.on('data', (chunk) => {
+                        data += chunk;
+                    });
 
-                    for (let key in data) {
-                        if (data.hasOwnProperty(key)) {
-                            let split = data[key].split('.');
+                    res.on('end', () => {
+                        if (res.statusCode !== 0 && (res.statusCode < 200 || res.statusCode >= 400)) {
+                            reject(new Error(res.statusMessage));
+                            return;
+                        }
+
+                        const emoteNames = JSON.parse(data);
+                        Object.keys(emoteNames).forEach((key) => {
+                            let split = emoteNames[key].split('.');
                             let name = split[0];
 
                             emoteNames[name] = 'https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/images/' + key + '.' + split[1];
-                        }
-                    }
+                        });
 
-                    resolve(emoteNames);
+                        resolve(emoteNames);
+                    });
+                }).on('error', (error) => {
+                    reject(error);
                 });
-                httpRequest.responseType = 'json';
-                httpRequest.open('GET', 'https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/emotes.json');
-                httpRequest.send();
             });
         }
 
         getModifiers() {
             return new Promise((resolve, reject) => {
-                const httpRequest = new XMLHttpRequest();
-                httpRequest.onreadystatechange = (() => {
-                    if (httpRequest.readyState !== XMLHttpRequest.DONE) return;
-                    const status = httpRequest.status;
-                    if (status !== 0 && (status < 200 || status >= 400)) {
-                        reject(new Error(httpRequest.statusText));
-                        return;
-                    }
+                require('https').get('https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/modifiers.json', (res) => {
+                    let data = '';
 
-                    resolve(httpRequest.response);
+                    res.on('data', (chunk) => {
+                        data += chunk;
+                    });
+
+                    res.on('end', () => {
+                        if (res.statusCode !== 0 && (res.statusCode < 200 || res.statusCode >= 400)) {
+                            reject(new Error(res.statusMessage));
+                            return;
+                        }
+
+                        resolve(JSON.parse(data));
+                    });
+                }).on('error', (error) => {
+                    reject(error);
                 });
-                httpRequest.responseType = 'json';
-                httpRequest.open('GET', 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/modifiers.json');
-                httpRequest.send();
             });
         }
 
@@ -945,7 +952,7 @@ module.exports = (() => {
                 return;
             }
 
-            for (let i = 0; i < matchText.length; i++) {
+            for (let i = 0; i < matchText?.length || 0; i++) {
                 document.execCommand('delete');
             }
 
@@ -1028,12 +1035,12 @@ module.exports = (() => {
         }
 
         getCompletionsCommands(text) {
-            const prefix = this.settings.requirePrefix ? this.escapeRegExp(this.settings.prefix) : '';
-            const regex = new RegExp("((?<!\\/)(" + prefix + "[A-Z]|:)\\w*\\b:)(\\w*)$");
+            const regex = this.getRegexCommand();
             const match = text.match(regex);
             if (match === null) {
                 return { completions: [], matchText: null, matchStart: -1 };
             }
+            const commandPart = match[2].substring(match[2].lastIndexOf('.') + 1);
 
             let commandArray = [];
             this.modifiers.forEach((modifier, index) => {
@@ -1041,8 +1048,10 @@ module.exports = (() => {
             });
 
             const completions = commandArray
-                .filter((command) => match[3] === '' || command[0].toLowerCase().search(match[3]) !== -1);
-            const matchText = match[3], matchStart = match.index + match[1].length;
+                .filter((command) => {
+                    return commandPart === '' || command[0].toLowerCase().search(commandPart) !== -1
+                });
+            const matchText = commandPart, matchStart = match.index + match[0].length;
 
             return { completions, matchText, matchStart };
         }
