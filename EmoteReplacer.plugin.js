@@ -1,6 +1,7 @@
 /**
  * @name EmoteReplacer
  * @authorId 68834122860077056
+ * @version 1.9.6
  * @website https://github.com/Yentis/betterdiscord-emotereplacer
  * @source https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js
  */
@@ -15,12 +16,18 @@ module.exports = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.9.5',
+            version: '1.9.6',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
+			title: '1.9.6',
+			items: [
+				'Fix emote refresh not working properly',
+				'Allow using Enter to autocomplete custom emotes'
+			]
+		}, {
 			title: '1.9.5',
 			items: [
 				'Fix modifier autocomplete menu not showing'
@@ -30,11 +37,6 @@ module.exports = (() => {
 			items: [
 				'Fix message content after emote with modifiers being removed',
 				'Prevent crash on broken emote URLs'
-			]
-		}, {
-			title: '1.9.3',
-			items: [
-				'Fix messages with standard discord emotes not sending'
 			]
 		}],
         defaultConfig: [{
@@ -154,22 +156,11 @@ module.exports = (() => {
             await BdApi.linkJS('pica', '//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@058ee1d1d00933e2a55545e9830d67549a8e354a/pica.js');
             this.injectGifUtils();
 
-            const customEmotes = {};
-            Object.keys(this.settings.customEmotes).forEach((emoteName) => {
-                customEmotes[this.getPrefixedName(emoteName)] = this.settings.customEmotes[emoteName];
-            });
-
             Promise.all([
                 this.getEmoteNames(),
                 this.getModifiers()
             ]).then(results => {
-                const standardNames = {};
-                Object.keys(results[0]).forEach((emoteName) => {
-                    const prefixedName = this.getPrefixedName(emoteName);
-                    standardNames[prefixedName] = results[0][emoteName];
-                });
-
-                this.emoteNames = { ...standardNames, ...customEmotes };
+                this.setEmoteNames(results[0]);
                 this.modifiers = results[1];
 
                 if (this.getTextAreaField()) {
@@ -750,7 +741,7 @@ module.exports = (() => {
             BdApi.showToast('Reloading emote database...', { type: 'info' });
             this.getEmoteNames()
                 .then((names) => {
-                    this.emoteNames = names;
+                    this.setEmoteNames(names);
                     BdApi.showToast('Emote database reloaded!', { type: 'success' });
                 });
         }
@@ -816,6 +807,21 @@ module.exports = (() => {
             });
         }
 
+        setEmoteNames(emoteNames) {
+            const customEmotes = {};
+            Object.keys(this.settings.customEmotes).forEach((emoteName) => {
+                customEmotes[this.getPrefixedName(emoteName)] = this.settings.customEmotes[emoteName];
+            });
+
+            const standardNames = {};
+            Object.keys(emoteNames).forEach((emoteName) => {
+                const prefixedName = this.getPrefixedName(emoteName);
+                standardNames[prefixedName] = emoteNames[emoteName];
+            });
+
+            this.emoteNames = { ...standardNames, ...customEmotes };
+        }
+
         getModifiers() {
             return new Promise((resolve, reject) => {
                 require('https').get('https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/modifiers.json', (res) => {
@@ -860,6 +866,8 @@ module.exports = (() => {
             switch (e.which) {
                 // Tab
                 case 9:
+                // Enter
+                case 13:
                     if (!this.prepareCompletions()) {
                         break;
                     }
