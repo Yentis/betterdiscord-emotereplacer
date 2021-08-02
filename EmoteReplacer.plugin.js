@@ -1,7 +1,7 @@
 /**
  * @name EmoteReplacer
  * @authorId 68834122860077056
- * @version 1.9.6
+ * @version 1.9.7
  * @website https://github.com/Yentis/betterdiscord-emotereplacer
  * @source https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js
  */
@@ -16,12 +16,17 @@ module.exports = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.9.6',
+            version: '1.9.7',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
+			title: '1.9.7',
+			items: [
+				'Fix custom emote autocomplete window position'
+			]
+		}, {
 			title: '1.9.6',
 			items: [
 				'Fix emote refresh not working properly',
@@ -31,12 +36,6 @@ module.exports = (() => {
 			title: '1.9.5',
 			items: [
 				'Fix modifier autocomplete menu not showing'
-			]
-		}, {
-			title: '1.9.4',
-			items: [
-				'Fix message content after emote with modifiers being removed',
-				'Prevent crash on broken emote URLs'
 			]
 		}],
         defaultConfig: [{
@@ -110,12 +109,14 @@ module.exports = (() => {
             super();
 
             const Autocomplete = BdApi.findModuleByProps('autocomplete');
+            const horizontalAutocomplete = BdApi.findModuleByProps('autocomplete', 'horizontalAutocomplete')
 
             this.DiscordClassModules = {
                 Autocomplete: {
                     ...Autocomplete,
                     autocomplete: [
-                        BdApi.findModuleByProps('autocomplete', 'horizontalAutocomplete').autocomplete,
+                        horizontalAutocomplete.autocomplete,
+                        horizontalAutocomplete.autocompleteAttached,
                         Autocomplete.autocomplete
                     ].join(' ')
                 },
