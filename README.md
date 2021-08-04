@@ -24,8 +24,6 @@ Just type them as usual and they will be sent as an image if you don't currently
 # Resources
 Gif utils code: https://github.com/Yentis/emotereplacer-gifutils  
 List of emotes: https://yentis.github.io/emotes  
-Want to add an emote that everyone using the plugin will be able to see? Send me a message on Discord.  
-Yentis#5218
 
 # Modifiers
 **Modifiers can be chained!**  
