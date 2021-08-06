@@ -1,7 +1,7 @@
 /**
  * @name EmoteReplacer
  * @authorId 68834122860077056
- * @version 1.9.7
+ * @version 1.9.8
  * @website https://github.com/Yentis/betterdiscord-emotereplacer
  * @source https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js
  */
@@ -16,12 +16,17 @@ module.exports = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.9.7',
+            version: '1.9.8',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
+			title: '1.9.8',
+			items: [
+				'Fix plugin not starting'
+			]
+		}, {
 			title: '1.9.7',
 			items: [
 				'Fix custom emote autocomplete window position'
@@ -31,11 +36,6 @@ module.exports = (() => {
 			items: [
 				'Fix emote refresh not working properly',
 				'Allow using Enter to autocomplete custom emotes'
-			]
-		}, {
-			title: '1.9.5',
-			items: [
-				'Fix modifier autocomplete menu not showing'
 			]
 		}],
         defaultConfig: [{
@@ -108,20 +108,22 @@ module.exports = (() => {
         constructor() {
             super();
 
-            const Autocomplete = BdApi.findModuleByProps('autocomplete');
-            const horizontalAutocomplete = BdApi.findModuleByProps('autocomplete', 'horizontalAutocomplete')
+            const Autocomplete = BdApi.findModuleByProps('autocomplete', 'autocompleteInner');
+            const autocompleteAttached = BdApi.findModuleByProps('autocomplete', 'autocompleteAttached')
+            const Wrapper = BdApi.findModuleByProps('wrapper', 'base')
+            const Size = BdApi.findModuleByProps('size12')
 
             this.DiscordClassModules = {
                 Autocomplete: {
                     ...Autocomplete,
                     autocomplete: [
-                        horizontalAutocomplete.autocomplete,
-                        horizontalAutocomplete.autocompleteAttached,
-                        Autocomplete.autocomplete
+                        autocompleteAttached?.autocomplete,
+                        autocompleteAttached?.autocompleteAttached,
+                        Autocomplete?.autocomplete
                     ].join(' ')
                 },
-                Wrapper: BdApi.findModuleByProps('wrapper', 'base'),
-                Size: BdApi.findModuleByProps('size12')
+                Wrapper,
+                Size
             };
 
             window.EmoteReplacer = {};
