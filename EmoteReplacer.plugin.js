@@ -1,7 +1,7 @@
 /**
  * @name EmoteReplacer
  * @authorId 68834122860077056
- * @version 1.9.9
+ * @version 1.10.0
  * @website https://github.com/Yentis/betterdiscord-emotereplacer
  * @source https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js
  */
@@ -16,12 +16,17 @@ module.exports = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.9.9',
+            version: '1.10.0',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
+			title: '1.10.0',
+			items: [
+				'Add setting for choosing the emote resize method'
+			]
+		}, {
 			title: '1.9.9',
 			items: [
 				'Fix gifs not working on Linux'
@@ -55,6 +60,9 @@ module.exports = (() => {
         }, {
             id: 'prefix',
             value: ';'
+        }, {
+            id: 'resizeMethod',
+            value: 'smallest'
         }]
     };
 
@@ -528,6 +536,20 @@ module.exports = (() => {
                     });
                 }, 2000)
             ));
+
+            settings.push(new Settings.Dropdown(
+                'Resize Method',
+                'How emotes will be scaled down to fit your selected emote size',
+                this.settings.resizeMethod,
+                [ {
+                    label: 'Scale down smallest side',
+                    value: 'smallest'
+                }, {
+                    label: 'Scale down largest side',
+                    value: 'largest'
+                } ],
+                (val) => { this.settings.resizeMethod = val; }
+            ));
         }
 
         shouldCompleteEmote(input) {
@@ -590,8 +612,6 @@ module.exports = (() => {
 
             return `${this.settings.prefix}${name}`
         }
-
-        updateSettings(group, id, value) { }
 
         getTextAreaContainer = () => {
             return document.querySelector(DiscordSelectors.Textarea.channelTextArea);
@@ -1218,11 +1238,7 @@ module.exports = (() => {
         }
 
         addResizeCommand(commands, image) {
-            let scaleFactor, sizeSetting = this.getEmoteSize(commands);
-
-            if (image.width < image.height) {
-                scaleFactor = sizeSetting / image.width;
-            } else scaleFactor = sizeSetting / image.height;
+            const scaleFactor = this.getScaleFactor(image, commands);
 
             let wideCommand = this.findCommand(commands, ['wide']);
             if (wideCommand) {
@@ -1231,6 +1247,23 @@ module.exports = (() => {
             }
 
             commands.push(['resize', scaleFactor]);
+        }
+
+        getScaleFactor(image, commands) {
+            const size = this.getEmoteSize(commands);
+            let scaleFactor;
+
+            if (this.settings.resizeMethod === 'largest') {
+                if (image.width > image.height) {
+                    scaleFactor = size / image.width;
+                } else scaleFactor = size / image.height;
+            } else {
+                if (image.width < image.height) {
+                    scaleFactor = size / image.width;
+                } else scaleFactor = size / image.height;
+            }
+
+            return scaleFactor;
         }
 
         getEmoteSize(commands) {
@@ -1301,11 +1334,7 @@ module.exports = (() => {
 
         applyScaling(image, commands) {
             return new Promise((resolve) => {
-                let scaleFactor;
-                let size = this.getEmoteSize(commands);
-                if (image.width < image.height) {
-                    scaleFactor = size / image.width;
-                } else scaleFactor = size / image.height;
+                const scaleFactor = this.getScaleFactor(image, commands);
 
                 let canvas = document.createElement('canvas');
                 canvas.width = image.width;
