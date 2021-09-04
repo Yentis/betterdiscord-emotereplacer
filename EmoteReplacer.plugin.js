@@ -1,7 +1,7 @@
 /**
  * @name EmoteReplacer
  * @authorId 68834122860077056
- * @version 1.10.0
+ * @version 1.10.1
  * @website https://github.com/Yentis/betterdiscord-emotereplacer
  * @source https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js
  */
@@ -16,30 +16,16 @@ module.exports = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.10.0',
+            version: '1.10.1',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
         },
         changelog: [{
-			title: '1.10.0',
+			title: 'Fixed',
+			type: 'fixed',
 			items: [
-				'Add setting for choosing the emote resize method'
-			]
-		}, {
-			title: '1.9.9',
-			items: [
-				'Fix gifs not working on Linux'
-			]
-		}, {
-			title: '1.9.8',
-			items: [
-				'Fix plugin not starting'
-			]
-		}, {
-			title: '1.9.7',
-			items: [
-				'Fix custom emote autocomplete window position'
+				'Wrong gifsicle binary being downloaded on 32-bit systems. If you were not able to post animated emotes before, remove "gifsicle.exe" from your plugins folder and restart Discord.'
 			]
 		}],
         defaultConfig: [{
@@ -189,24 +175,18 @@ module.exports = (() => {
                     gifsicleUrl = `${baseGifsicleUrl}macos/${binFilename}`;
                     break;
                 case 'linux':
-                    if (process.arch === 'x32') {
-                        gifsicleUrl = `${baseGifsicleUrl}${process.platform}/x86/${binFilename}`;
-                    } else {
-                        gifsicleUrl = `${baseGifsicleUrl}${process.platform}/x64/${binFilename}`;
-                    }
-                    break;
                 case 'freebsd':
-                    if (process.arch === 'x32') {
-                        gifsicleUrl = `${baseGifsicleUrl}${process.platform}/x86/${binFilename}`;
-                    } else {
+                    if (this.arch(fs) === 'x64') {
                         gifsicleUrl = `${baseGifsicleUrl}${process.platform}/x64/${binFilename}`;
+                    } else {
+                        gifsicleUrl = `${baseGifsicleUrl}${process.platform}/x86/${binFilename}`;
                     }
                     break;
                 case 'win32':
-                    if (process.arch === 'x32') {
-                        gifsicleUrl = `${baseGifsicleUrl}win/x86/${binFilename}`;
-                    } else {
+                    if (this.arch(fs) === 'x64') {
                         gifsicleUrl = `${baseGifsicleUrl}win/x64/${binFilename}`;
+                    } else {
+                        gifsicleUrl = `${baseGifsicleUrl}win/x86/${binFilename}`;
                     }
                     break;
                 default:
@@ -227,6 +207,41 @@ module.exports = (() => {
                     Logger.warn('Failed to get Gifsicle', err);
                 });
             }
+        }
+
+        // https://github.com/feross/arch
+        arch(fs) {
+            // The running binary is 64-bit, so the OS is clearly 64-bit.
+            if (process.arch === 'x64') return 'x64'
+          
+            // On Windows, the most reliable way to detect a 64-bit OS from within a 32-bit
+            // app is based on the presence of a WOW64 file: %SystemRoot%\SysNative.
+            // See: https://twitter.com/feross/status/776949077208510464
+            if (process.platform === 'win32') {
+                let useEnv = false
+                try {
+                    useEnv = !!(process.env.SystemRoot && fs.statSync(process.env.SystemRoot))
+                } catch (err) {}
+            
+                const sysRoot = useEnv ? process.env.SystemRoot : 'C:\\Windows'
+            
+                // If %SystemRoot%\SysNative exists, we are in a WOW64 FS Redirected application.
+                let isWOW64 = false
+                try {
+                    isWOW64 = !!fs.statSync(require('path').join(sysRoot, 'sysnative'))
+                } catch (err) {}
+            
+                return isWOW64 ? 'x64' : 'x86'
+            }
+          
+            // On Linux, use the `getconf` command to get the architecture.
+            if (process.platform === 'linux') {
+                const output = require('child_process').execSync('getconf LONG_BIT', { encoding: 'utf8' })
+                return output === '64\n' ? 'x64' : 'x86'
+            }
+
+            // If none of the above, assume the architecture is 32-bit.
+            return 'x86'
         }
 
         onStop() {
