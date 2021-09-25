@@ -1,12 +1,12 @@
 /**
  * @name EmoteReplacer
  * @authorId 68834122860077056
- * @version 1.10.1
+ * @version 1.11.0
  * @website https://github.com/Yentis/betterdiscord-emotereplacer
  * @source https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js
  */
 
-module.exports = (() => {
+ module.exports = (() => {
     const config = {
         info: {
             name: 'EmoteReplacer',
@@ -16,7 +16,7 @@ module.exports = (() => {
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.10.1',
+            version: '1.11.0',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
@@ -25,9 +25,22 @@ module.exports = (() => {
 			title: 'Fixed',
 			type: 'fixed',
 			items: [
-				'Wrong gifsicle binary being downloaded on 32-bit systems. If you were not able to post animated emotes before, remove "gifsicle.exe" from your plugins folder and restart Discord.'
+                'Animated emotes being posted as PNGs instead of GIFs',
+                'Emotes disabled due to expired server boost could not be used'
 			]
-		}],
+		}, {
+            title: 'Improved',
+            type: 'improved',
+            items: [
+                'Disable plugin in channels where images cannot be sent'
+            ]
+        }, {
+            title: 'Added',
+            type: 'added',
+            items: [
+                'Modifier autocomplete window now has usage info'
+            ]
+        }],
         defaultConfig: [{
             id: 'emoteSize',
             value: 48
@@ -86,7 +99,12 @@ module.exports = (() => {
     const Buffer = require('buffer').Buffer;
 
     const Uploader = BdApi.findModuleByProps('instantBatchUpload');
+    const ChannelStore = BdApi.findModuleByProps('getChannel');
     const SelectedChannelStore = BdApi.findModuleByProps('getChannelId', 'getVoiceChannelId');
+    const Dispatcher = BdApi.findModuleByProps('dispatch');
+    const Permissions = BdApi.findModuleByProps('getChannelPermissions');
+    const DiscordPermissions = BdApi.findModuleByProps('Permissions', 'ActivityTypes', 'StatusTypes').Permissions;
+
 
     const baseGifsicleUrl = 'https://raw.githubusercontent.com/imagemin/gifsicle-bin/v4.0.1/vendor/';
 
@@ -97,6 +115,10 @@ module.exports = (() => {
         draft = '';
         modifiers = [];
         emoteNames = null;
+        canAttach = false;
+
+        onMessagesLoaded = null;
+        onChannelSelect = null;
 
         constructor() {
             super();
@@ -147,6 +169,8 @@ module.exports = (() => {
                 (_, _2, original) => this.onEmojiSearch(original)
             );
 
+            const userId = await this.getUserId();
+            this.initChannelSubscription(userId);
             this.enableLockedEmojis();
 
             await BdApi.linkJS('pica', '//cdn.jsdelivr.net/gh/yentis/betterdiscord-emotereplacer@058ee1d1d00933e2a55545e9830d67549a8e354a/pica.js');
@@ -246,6 +270,14 @@ module.exports = (() => {
 
         onStop() {
             Patcher.unpatchAll();
+            if (this.onMessagesLoaded) {
+                Dispatcher.unsubscribe('LOAD_MESSAGES_SUCCESS', this.onMessagesLoaded);
+                this.onMessagesLoaded = null;
+            }
+            if (this.onChannelSelect) {
+                Dispatcher.unsubscribe('CHANNEL_SELECT', this.onChannelSelect);
+                this.onChannelSelect = null;
+            }
 
             this.removeListeners();
             BdApi.unlinkJS('pica');
@@ -256,6 +288,7 @@ module.exports = (() => {
             this.emoteNames = null;
             this.modifiers = null;
             this.pendingUpload = null;
+            this.canAttach = false;
         }
 
         async onSendMessage(args, callDefault) {
@@ -267,26 +300,29 @@ module.exports = (() => {
 
                 let content = message.content;
                 let foundEmote = this.getTextPos(content, { ...this.emoteNames, ...discordEmotes });
+                if (!foundEmote) return callDefault(...args);
+                if (!this.canAttach) {
+                    BdApi.showToast('This channel does not allow sending images!', { type: 'error' });
+                    return callDefault(...args);
+                }
 
-                if (foundEmote) {
-                    content = content.substring(0, foundEmote.pos) + content.substring(foundEmote.pos + foundEmote.nameAndCommand.length);
-                    content.trim();
+                content = content.substring(0, foundEmote.pos) + content.substring(foundEmote.pos + foundEmote.nameAndCommand.length);
+                content.trim();
 
-                    foundEmote.content = content;
-                    this.pendingUpload = true;
+                foundEmote.content = content;
+                this.pendingUpload = true;
 
-                    try {
-                        this.pendingUpload = this.fetchBlobAndUpload(foundEmote);
-                        await this.pendingUpload;
-                        return;
-                    } catch (error) {
-                        BdApi.showToast(error.message || error, { type: 'error' });
-                        if (content === '') return;
+                try {
+                    this.pendingUpload = this.fetchBlobAndUpload(foundEmote);
+                    await this.pendingUpload;
+                    return;
+                } catch (error) {
+                    BdApi.showToast(error.message || error, { type: 'error' });
+                    if (content === '') return;
 
-                        message.content = content;
-                    } finally {
-                        this.pendingUpload = null;
-                    }
+                    message.content = content;
+                } finally {
+                    this.pendingUpload = null;
                 }
 
                 return callDefault(...args);
@@ -308,7 +344,7 @@ module.exports = (() => {
 
                 // Ignore built-in emotes
                 if (emoji.managed) return {};
-                validEmoji = true;
+                validEmoji = emoji.available;
             } else return {};
 
             const emojiName = emoji.originalName || emoji.name;
@@ -318,7 +354,7 @@ module.exports = (() => {
             const result = {};
             result[emojiText] = {
                 name: emojiName,
-                url: emoji.url.replace('?v=1', '')
+                url: emoji.url.split('?')[0]
             };
 
             const foundEmote = this.getTextPos(message.content, result);
@@ -330,6 +366,8 @@ module.exports = (() => {
         }
 
         onChangeDraft(args) {
+            if (!this.canAttach) return;
+
             const draft = args[1];
             if (draft === undefined) return;
             this.draft = draft;
@@ -363,8 +401,57 @@ module.exports = (() => {
         }
 
         onEmojiSearch(result) {
+            if (!this.canAttach) return;
+
             result.unlocked.push(...result.locked);
             result.locked = [];
+        }
+
+        getUserId() {
+            return new Promise((resolve) => {
+                const getCurrentUser = BdApi.findModuleByProps('getCurrentUser').getCurrentUser;
+                let user = getCurrentUser();
+
+                if (user) {
+                    const userId = user.id;
+                    this.setCanAttach(SelectedChannelStore.getChannelId(), userId);
+
+                    resolve(userId);
+                    return;
+                }
+
+                // Not fully booted yet, wait for channel messages to load
+                this.onMessagesLoaded = (data) => {
+                    user = getCurrentUser();
+                    const userId = user.id;
+                    this.setCanAttach(data.channelId, userId);
+
+                    if (this.onMessagesLoaded) {
+                        Dispatcher.unsubscribe('LOAD_MESSAGES_SUCCESS', this.onMessagesLoaded);
+                        this.onMessagesLoaded = null;
+                    }
+
+                    resolve(userId);
+                };
+                Dispatcher.subscribe('LOAD_MESSAGES_SUCCESS', this.onMessagesLoaded);
+            });
+        }
+
+        initChannelSubscription(userId) {
+            this.onChannelSelect = (data) => {
+                this.setCanAttach(data.channelId, userId);
+            };
+            Dispatcher.subscribe('CHANNEL_SELECT', this.onChannelSelect);
+        }
+
+        setCanAttach(channelId, userId) {
+            const channel = ChannelStore.getChannel(channelId);
+            if (!channel.guild_id) {
+                this.canAttach = true;
+                return;
+            }
+
+            this.canAttach = Permissions.can(DiscordPermissions.ATTACH_FILES, channel, userId);
         }
 
         enableLockedEmojis() {
@@ -375,9 +462,11 @@ module.exports = (() => {
                 EmojiStore,
                 'getEmojiUnavailableReason',
                 (_, _2, result) => {
-                    if (result === EmojiDisabledReasons.PREMIUM_LOCKED) {
-                        result = null;
-                    }
+                    if (
+                        (result === EmojiDisabledReasons.PREMIUM_LOCKED ||
+                         result === EmojiDisabledReasons.GUILD_SUBSCRIPTION_UNAVAILABLE) &&
+                        this.canAttach
+                    ) { result = null; }
 
                     return result;
                 }
@@ -682,7 +771,7 @@ module.exports = (() => {
 
             for (let i = 0; i < matchList.length; i++) {
                 const name = matchList[i][0];
-                const url = matchList[i][1];
+                const data = matchList[i][1];
 
                 const emoteRow = document.createElement('div');
                 this.addClasses(emoteRow, this.DiscordClassModules.Autocomplete.autocompleteRowVertical, this.DiscordClassModules.Autocomplete.autocompleteRowVerticalSmall);
@@ -734,7 +823,7 @@ module.exports = (() => {
                     emoteContainer.append(containerIcon);
 
                     const containerImage = document.createElement('img');
-                    containerImage.src = url;
+                    containerImage.src = data;
                     containerImage.alt = name;
                     containerImage.title = name;
                     containerImage.style.minWidth = `${Math.round(this.settings.autocompleteEmoteSize)}px`;
@@ -748,8 +837,24 @@ module.exports = (() => {
                 const containerContent = document.createElement('div');
                 containerContent.style.color = 'var(--interactive-active)';
                 this.addClasses(containerContent, this.DiscordClassModules.Autocomplete.autocompleteRowContentPrimary);
-                containerContent.textContent = name;
                 emoteContainer.append(containerContent);
+
+                if (isEmote || !data.info) {
+                    containerContent.textContent = name;
+                } else {
+                    containerContent.style.display = 'flex';
+                    containerContent.style.flexDirection = 'column';
+
+                    const containerContentName = document.createElement('span');
+                    containerContentName.style.paddingBottom = '0.5em';
+                    containerContentName.textContent = name;
+                    containerContent.append(containerContentName);
+
+                    const containerContentInfo = document.createElement('span');
+                    containerContentInfo.style.color = 'var(--interactive-normal)';
+                    containerContentInfo.textContent = data.info;
+                    containerContent.append(containerContentInfo);
+                }
             }
         }, 250)
 
@@ -1002,14 +1107,13 @@ module.exports = (() => {
             }
 
             let selectedCompletion = completions[selectedIndex];
-            let suffix = '-';
+            let suffix = ' ';
             if (selectedCompletion[1].arguments) {
-                selectedCompletion[1].arguments.forEach(argument => {
-                    if (argument === '') {
-                        suffix = ' '
-                    }
+                const argumentOptional = selectedCompletion[1].arguments.some((argument) => {
+                    return argument === '';
                 });
-            } else suffix = ' ';
+                if (!argumentOptional) suffix = '-';
+            }
             selectedCompletion[0] += suffix;
 
             document.execCommand('insertText', false, selectedCompletion[0]);
@@ -1085,18 +1189,19 @@ module.exports = (() => {
             if (match === null) {
                 return { completions: [], matchText: null, matchStart: -1 };
             }
-            const commandPart = match[2].substring(match[2].lastIndexOf('.') + 1);
 
+            const commandPart = match[2].substring(match[2].lastIndexOf('.') + 1);
             let commandArray = [];
             this.modifiers.forEach((modifier, index) => {
                 commandArray.push([modifier.name, this.modifiers[index]]);
             });
 
-            const completions = commandArray
-                .filter((command) => {
-                    return commandPart === '' || command[0].toLowerCase().search(commandPart) !== -1
-                });
-            const matchText = commandPart, matchStart = match.index + match[0].length;
+            const completions = commandArray.filter((command) => {
+                return commandPart === '' || command[0].toLowerCase().search(commandPart) !== -1
+            });
+
+            const matchText = commandPart;
+            const matchStart = match.index + match[0].length;
 
             return { completions, matchText, matchStart };
         }
