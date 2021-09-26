@@ -1,7 +1,7 @@
 /**
  * @name EmoteReplacer
  * @authorId 68834122860077056
- * @version 1.11.0
+ * @version 1.11.1
  * @website https://github.com/Yentis/betterdiscord-emotereplacer
  * @source https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js
  */
@@ -16,7 +16,7 @@
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.11.0',
+            version: '1.11.1',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
@@ -445,8 +445,13 @@
         }
 
         setCanAttach(channelId, userId) {
+            if (!channelId) {
+                this.canAttach = true;
+                return;
+            }
+
             const channel = ChannelStore.getChannel(channelId);
-            if (!channel.guild_id) {
+            if (!channel?.guild_id) {
                 this.canAttach = true;
                 return;
             }
