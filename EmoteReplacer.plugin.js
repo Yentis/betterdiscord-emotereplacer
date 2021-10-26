@@ -1,7 +1,7 @@
 /**
  * @name EmoteReplacer
  * @authorId 68834122860077056
- * @version 1.11.1
+ * @version 1.11.2
  * @website https://github.com/Yentis/betterdiscord-emotereplacer
  * @source https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js
  */
@@ -16,7 +16,7 @@
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.11.1',
+            version: '1.11.2',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
@@ -25,6 +25,9 @@
 			title: 'Fixed',
 			type: 'fixed',
 			items: [
+				'----------1.11.2----------',
+				'Plugin not starting',
+				'----------1.11.0----------',
                 'Animated emotes being posted as PNGs instead of GIFs',
                 'Emotes disabled due to expired server boost could not be used'
 			]
@@ -32,12 +35,14 @@
             title: 'Improved',
             type: 'improved',
             items: [
+				'----------1.11.0----------',
                 'Disable plugin in channels where images cannot be sent'
             ]
         }, {
             title: 'Added',
             type: 'added',
             items: [
+				'----------1.11.0----------',
                 'Modifier autocomplete window now has usage info'
             ]
         }],
@@ -99,12 +104,11 @@
     const Buffer = require('buffer').Buffer;
 
     const Uploader = BdApi.findModuleByProps('instantBatchUpload');
-    const ChannelStore = BdApi.findModuleByProps('getChannel');
+    const ChannelStore = BdApi.findModuleByProps('getChannel', 'hasChannel');
     const SelectedChannelStore = BdApi.findModuleByProps('getChannelId', 'getVoiceChannelId');
-    const Dispatcher = BdApi.findModuleByProps('dispatch');
+    const Dispatcher = BdApi.findModuleByProps('dispatch', 'dirtyDispatch');
     const Permissions = BdApi.findModuleByProps('getChannelPermissions');
     const DiscordPermissions = BdApi.findModuleByProps('Permissions', 'ActivityTypes', 'StatusTypes').Permissions;
-
 
     const baseGifsicleUrl = 'https://raw.githubusercontent.com/imagemin/gifsicle-bin/v4.0.1/vendor/';
 
@@ -123,7 +127,7 @@
         constructor() {
             super();
 
-            const Autocomplete = BdApi.findModuleByProps('autocomplete', 'autocompleteInner');
+            const Autocomplete = BdApi.findModuleByProps('autocomplete', 'autocompleteInner', 'autocompleteRowVertical');
             const autocompleteAttached = BdApi.findModuleByProps('autocomplete', 'autocompleteAttached')
             const Wrapper = BdApi.findModuleByProps('wrapper', 'base')
             const Size = BdApi.findModuleByProps('size12')
