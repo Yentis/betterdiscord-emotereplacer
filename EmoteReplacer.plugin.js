@@ -1,7 +1,7 @@
 /**
  * @name EmoteReplacer
  * @authorId 68834122860077056
- * @version 1.11.2
+ * @version 1.11.3
  * @website https://github.com/Yentis/betterdiscord-emotereplacer
  * @source https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js
  */
@@ -16,7 +16,7 @@
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.11.2',
+            version: '1.11.3',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
@@ -25,6 +25,8 @@
 			title: 'Fixed',
 			type: 'fixed',
 			items: [
+				'----------1.11.3----------',
+				'Animated modifiers not working on regular emotes',
 				'----------1.11.2----------',
 				'Plugin not starting',
 				'----------1.11.0----------',
@@ -42,6 +44,8 @@
             title: 'Added',
             type: 'added',
             items: [
+				'----------1.11.3----------',
+				'New setting "Show standard custom emotes"',
 				'----------1.11.0----------',
                 'Modifier autocomplete window now has usage info'
             ]
@@ -67,6 +71,9 @@
         }, {
             id: 'resizeMethod',
             value: 'smallest'
+        }, {
+            id: 'showStandardEmotes',
+            value: true
         }]
     };
 
@@ -356,9 +363,12 @@
             const emojiText = `<${emoji.animated ? 'a' : ''}${allNamesString}${emoji.id}>`;
 
             const result = {};
+            const url = emoji.url.split('?')[0]
+            const extensionIndex = url.lastIndexOf('.')
+
             result[emojiText] = {
                 name: emojiName,
-                url: emoji.url.split('?')[0]
+                url: url.substring(extensionIndex) === '.webp' ? `${url.substring(0, extensionIndex)}.png` : url
             };
 
             const foundEmote = this.getTextPos(message.content, result);
@@ -582,7 +592,7 @@
             refreshButton.textContent = 'Refresh emote list';
             const refreshSettingField = new Settings.SettingField(null, null, null, refreshButton);
 
-            const refreshListener = { element: refreshButton, name: 'click', callback: (_e) => { this.onRefreshClick() } };
+            const refreshListener = { element: refreshButton, name: 'click', callback: (_e) => { this.refreshEmotes() } };
             refreshButton.addEventListener(refreshListener.name, refreshListener.callback);
             this.listeners.push(refreshListener);
             settings.push(refreshSettingField);
@@ -627,6 +637,16 @@
                 'If this is enabled, the autocomplete list will not be shown unless the prefix is also typed.',
                 this.settings.requirePrefix,
                 (checked) => { this.settings.requirePrefix = checked; }
+            ));
+
+            settings.push(new Settings.Switch(
+                'Show standard custom emotes',
+                'If this is enabled, the standard custom emotes will be visible.',
+                this.settings.showStandardEmotes,
+                (checked) => {
+                    this.settings.showStandardEmotes = checked;
+                    this.refreshEmotes();
+                }
             ));
 
             settings.push(new Settings.Textbox(
@@ -887,7 +907,7 @@
             }
         }
 
-        onRefreshClick() {
+        refreshEmotes() {
             this.emoteNames = null;
             BdApi.showToast('Reloading emote database...', { type: 'info' });
             this.getEmoteNames()
@@ -929,6 +949,11 @@
 
         getEmoteNames() {
             return new Promise((resolve, reject) => {
+                if (!this.settings.showStandardEmotes) {
+                    resolve({});
+                    return;
+                }
+
                 require('https').get('https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/emotes.json', (res) => {
                     let data = '';
 
