@@ -14,7 +14,7 @@ And the plugin: https://raw.githubusercontent.com/Yentis/betterdiscord-emoterepl
 Open Discord -> Settings -> Plugins -> Open plugin folder and place the 2 plugins there.  
 Enable them in the Plugins menu and hit Ctrl + R.  
 
-Custom emotes can be added and prefix can be changed through the settings menu.  
+Custom emotes can be added and the prefix can be changed through the settings menu.  
 Begin typing emote names as you would regular Discord emotes **with ; instead of :**  
 
 ![Preview](https://i.imgur.com/iGB4ZAQ.png)  
