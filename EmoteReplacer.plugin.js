@@ -1436,14 +1436,14 @@
             // 5 = spoiler
             // 6 = filename
 
-            Uploader.upload(
-                emote.channel,
-                new File([fileData], fullName),
-                0,
-                { content: emote.content, invalidEmojis: [], tts: false },
-                emote.spoiler,
-                fullName
-            );
+            Uploader.upload({
+                channelId: emote.channel,
+                file: new File([fileData], fullName),
+                draftType: 0,
+                message: { content: emote.content, invalidEmojis: [], tts: false, channel_id: emote.channel },
+                hasSpoiler: emote.spoiler,
+                filename: fullName,
+            });
         }
 
         compress(originalFile, commands, callback) {
