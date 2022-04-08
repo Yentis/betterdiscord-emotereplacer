@@ -1,7 +1,7 @@
 /**
  * @name EmoteReplacer
  * @authorId 68834122860077056
- * @version 1.11.4
+ * @version 1.11.5
  * @website https://github.com/Yentis/betterdiscord-emotereplacer
  * @source https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js
  */
@@ -16,7 +16,7 @@
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.11.4',
+            version: '1.11.5',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
@@ -25,7 +25,7 @@
 			title: 'Fixed',
 			type: 'fixed',
 			items: [
-				'Autocomplete not working for custom emotes & modifiers'
+				'Upload not working due to Discord changes. (Thanks rmanky)'
 			]
 		}],
         defaultConfig: [{
@@ -1429,13 +1429,6 @@
         }
 
         uploadFile(fileData, fullName, emote) {
-            // 1 = channel ID
-            // 2 = File
-            // 3 = no idea, this is usually 0
-            // 4 = message
-            // 5 = spoiler
-            // 6 = filename
-
             Uploader.upload({
                 channelId: emote.channel,
                 file: new File([fileData], fullName),
