@@ -1440,7 +1440,9 @@
                 channelId: emote.channel,
                 file: new File([fileData], fullName),
                 draftType: 0,
-                message: { content: emote.content, invalidEmojis: [], tts: false, filename: fullName },
+                message: { content: emote.content, invalidEmojis: [], tts: false, channel_id: emote.channel },
+                hasSpoiler: 0,
+                filename: fullName,
             });
         }
 
