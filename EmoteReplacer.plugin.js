@@ -1441,7 +1441,7 @@
                 file: new File([fileData], fullName),
                 draftType: 0,
                 message: { content: emote.content, invalidEmojis: [], tts: false, channel_id: emote.channel },
-                hasSpoiler: 0,
+                hasSpoiler: emote.spoiler,
                 filename: fullName,
             });
         }
