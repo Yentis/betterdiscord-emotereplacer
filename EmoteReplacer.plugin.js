@@ -1,7 +1,7 @@
 /**
  * @name EmoteReplacer
  * @authorId 68834122860077056
- * @version 1.11.5
+ * @version 1.11.6
  * @website https://github.com/Yentis/betterdiscord-emotereplacer
  * @source https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js
  */
@@ -16,7 +16,7 @@
                 github_username: 'Yentis',
                 twitter_username: 'yentis178'
             }],
-            version: '1.11.5',
+            version: '1.11.6',
             description: 'Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord\'s emotes. Standard emotes: https://yentis.github.io/emotes/',
             github: 'https://github.com/Yentis/betterdiscord-emotereplacer',
             github_raw: 'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js'
@@ -25,7 +25,7 @@
 			title: 'Fixed',
 			type: 'fixed',
 			items: [
-				'Upload not working due to Discord changes. (Thanks rmanky)'
+				'Custom emote menu not listing emotes.'
 			]
 		}],
         defaultConfig: [{
@@ -783,19 +783,25 @@
                 const data = matchList[i][1];
 
                 const emoteRow = document.createElement('div');
-                this.addClasses(emoteRow, this.DiscordClassModules.Autocomplete.autocompleteRowVertical, this.DiscordClassModules.Autocomplete.autocompleteRowVerticalSmall);
+                emoteRow.setAttribute('aria-disabled', 'false');
+                this.addClasses(
+                    emoteRow,
+                    this.DiscordClassModules.Autocomplete.clickable,
+                    this.DiscordClassModules.Autocomplete.autocompleteRowVertical,
+                    this.DiscordClassModules.Autocomplete.autocompleteRowVerticalSmall
+                );
 
                 const mouseEnterListener = {
                     element: emoteRow, name: 'mouseenter', callback: (_e) => {
                         this.cached.selectedIndex = i + firstIndex;
 
                         for (const child of titleRow.parentElement.children) {
+                            child.setAttribute('aria-selected', 'false');
+
                             for (const nestedChild of child.children) {
-                                this.removeClasses(nestedChild, this.DiscordClassModules.Autocomplete.selected);
-                                this.addClasses(nestedChild, this.DiscordClassModules.Autocomplete.base, this.DiscordClassModules.Autocomplete.selectable);
+                                this.addClasses(nestedChild, this.DiscordClassModules.Autocomplete.base);
                             }
                         }
-                        this.addClasses(emoteSelector, this.DiscordClassModules.Autocomplete.selected);
                     }
                 };
                 emoteRow.addEventListener(mouseEnterListener.name, mouseEnterListener.callback);
@@ -815,11 +821,11 @@
                 autocompleteInnerDiv.append(emoteRow);
 
                 const emoteSelector = document.createElement('div');
-                this.addClasses(emoteSelector, this.DiscordClassModules.Autocomplete.base, this.DiscordClassModules.Autocomplete.selectable);
+                this.addClasses(emoteSelector, this.DiscordClassModules.Autocomplete.base);
                 emoteRow.append(emoteSelector);
 
                 if (i + firstIndex === selectedIndex) {
-                    this.addClasses(emoteSelector, this.DiscordClassModules.Autocomplete.selected);
+                    emoteRow.setAttribute('aria-selected', 'true');
                 }
 
                 const emoteContainer = document.createElement('div');
@@ -869,6 +875,7 @@
 
         addClasses(element, ...classes) {
             for (const curClass of classes) {
+                if (!curClass) continue;
                 const split = curClass.split(' ');
 
                 for (const curClassItem of split) {
@@ -879,6 +886,7 @@
 
         removeClasses(element, ...classes) {
             for (const curClass of classes) {
+                if (!curClass) continue;
                 const split = curClass.split(' ');
 
                 for (const curClassItem of split) {
