@@ -1,0 +1,3 @@
+/node_modules
+# ignore js files in case of manual typescript compilation by the user
+/src/**/*.js
