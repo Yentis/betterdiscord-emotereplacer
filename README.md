@@ -22,7 +22,6 @@ You can also use any existing Discord emotes along with whatever modifiers you l
 Just type them as usual and they will be sent as an image if you don't currently have nitro.
 
 # Resources
-Gif utils code: https://github.com/Yentis/emotereplacer-gifutils  
 List of emotes: https://yentis.github.io/emotes  
 
 # Modifiers
