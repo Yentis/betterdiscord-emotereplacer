@@ -1,5 +1,5 @@
-import { IncomingMessage } from 'http'
 import https from 'https'
+import { Stream } from 'stream'
 
 export function httpsGetPromise (url: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -25,7 +25,7 @@ export function httpsGetPromise (url: string): Promise<string> {
   })
 }
 
-export function httpsGetStream (url: string): Promise<IncomingMessage> {
+export function httpsGetStream (url: string): Promise<Stream> {
   return new Promise((resolve, reject) => {
     https.get(url, (res) => {
       resolve(res)
