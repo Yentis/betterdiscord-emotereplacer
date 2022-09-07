@@ -69,9 +69,9 @@ export class EmoteReplacerPlugin implements Plugin {
   }
 
   private showChangelogIfNeeded (zeresPluginLibrary: ZeresPluginLibrary): void {
-    const currentVersionInfo = BdApi.loadData(
+    const currentVersionInfo = (BdApi.loadData(
       this.meta.name, CURRENT_VERSION_INFO_KEY
-    ) as CurrentVersionInfo
+    ) as CurrentVersionInfo) ?? {}
 
     if (
       currentVersionInfo.hasShownChangelog !== true ||

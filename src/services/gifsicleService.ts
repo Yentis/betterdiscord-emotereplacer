@@ -1,13 +1,7 @@
-import arch from 'libraries/arch'
-import { BASE_GIFSICLE_URL } from 'pluginConstants'
 import { BaseService } from './baseService'
-import fs from 'fs'
-import https from 'https'
 import { Logger } from 'utils/logger'
 import { Command, GifCommands, SpecialCommand } from 'interfaces/gifData'
-import Gifsicle from 'libraries/gifiscle'
-import { Stream } from 'stream'
-import toStream from 'libraries/buffer-to-stream'
+import gifsicle from 'gifsicle-wasm-browser'
 import {
   infiniteEmote,
   rainbowEmote,
@@ -23,56 +17,8 @@ import * as PromiseUtils from 'utils/promiseUtils'
 let Buffer: BufferConstructor
 
 export class GifsicleService extends BaseService {
-  gifsiclePath: string | undefined
-
   public async start (): Promise<void> {
     Buffer = (await import('buffer')).Buffer
-
-    this.tryDownloadGifsicle()
-  }
-
-  private tryDownloadGifsicle (): void {
-    const binFilename = process.platform === 'win32' ? 'gifsicle.exe' : 'gifsicle'
-    const gifsiclePath = BdApi.Plugins.folder + '/' + binFilename
-
-    let gifsicleUrl
-    switch (process.platform) {
-      case 'darwin':
-        gifsicleUrl = `${BASE_GIFSICLE_URL}macos/${binFilename}`
-        break
-      case 'linux':
-      case 'freebsd':
-        if (arch() === 'x64') {
-          gifsicleUrl = `${BASE_GIFSICLE_URL}${process.platform}/x64/${binFilename}`
-        } else {
-          gifsicleUrl = `${BASE_GIFSICLE_URL}${process.platform}/x86/${binFilename}`
-        }
-        break
-      case 'win32':
-        if (arch() === 'x64') {
-          gifsicleUrl = `${BASE_GIFSICLE_URL}win/x64/${binFilename}`
-        } else {
-          gifsicleUrl = `${BASE_GIFSICLE_URL}win/x86/${binFilename}`
-        }
-        break
-      default:
-        return
-    }
-
-    this.gifsiclePath = gifsiclePath
-    if (!fs.existsSync(gifsiclePath)) {
-      const file = fs.createWriteStream(gifsiclePath)
-      https.get(gifsicleUrl, (response) => {
-        response.pipe(file)
-        file.on('finish', () => {
-          file.close()
-          fs.chmodSync(gifsiclePath, '0777')
-        })
-      }).on('error', (err) => {
-        fs.unlink(gifsiclePath, () => { /* Do nothing */ })
-        Logger.warn('Failed to get Gifsicle', err)
-      })
-    }
   }
 
   public async modifyGif (url: string, options: (string | undefined)[][]): Promise<Buffer> {
@@ -222,7 +168,7 @@ export class GifsicleService extends BaseService {
     options: Command[],
     _retryCount = 0
   ): Promise<Buffer> {
-    if (data.length === 0 || this.gifsiclePath === undefined) {
+    if (data.length === 0) {
       return Buffer.concat([])
     }
     let retryCount = _retryCount
@@ -237,32 +183,42 @@ export class GifsicleService extends BaseService {
       }
     })
 
-    const gifProcessor = new Gifsicle(this.gifsiclePath, gifsicleParams)
-    let readStream: Stream
+    let buffer: ArrayBuffer
 
     if (Buffer.isBuffer(data)) {
-      readStream = toStream(data)
+      buffer = data.buffer
     } else {
-      readStream = await PromiseUtils.httpsGetStream(data)
+      const buffers: Uint8Array[] = []
+      const stream = await PromiseUtils.httpsGetStream(data)
+
+      buffer = await new Promise((resolve, reject) => {
+        stream
+          .on('data', (chunk: Uint8Array) => {
+            buffers.push(chunk)
+          })
+          .on('error', (err) => reject(err))
+          .on('end', () => resolve(Buffer.concat(buffers).buffer))
+      })
     }
 
-    const buffers: Uint8Array[] = []
-    return new Promise((resolve, reject) => {
-      readStream
-        .pipe(gifProcessor)
-        .on('data', (chunk: Uint8Array) => {
-          buffers.push(chunk)
-        })
-        .on('error', (err) => reject(err))
-        .on('end', () => {
-          if (buffers.length === 0 && retryCount < 5) {
-            retryCount++
-            resolve(this.doModification(data, options, retryCount))
-          } else {
-            resolve(Buffer.concat(buffers))
-          }
-        })
+    const output = await gifsicle.run({
+      input: [{
+        file: buffer,
+        name: '1.gif'
+      }],
+      command: [`${gifsicleParams.join(' ')} 1.gif -o /out/out.gif`]
     })
+
+    const result = output[0]
+    if (!result) return Buffer.from([])
+
+    const arrayBuffer = await result.arrayBuffer()
+    if (arrayBuffer.byteLength === 0 && retryCount < 5) {
+      retryCount++
+      return this.doModification(data, options, retryCount)
+    } else {
+      return Buffer.from(arrayBuffer)
+    }
   }
 
   private getCommandIndex (
@@ -376,6 +332,6 @@ export class GifsicleService extends BaseService {
   }
 
   public stop (): void {
-    this.gifsiclePath = undefined
+    // Do nothing
   }
 }

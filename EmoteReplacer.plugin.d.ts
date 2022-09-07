@@ -356,9 +356,7 @@ declare class AttachService extends BaseService {
     stop(): void;
 }
 declare class GifsicleService extends BaseService {
-    gifsiclePath: string | undefined;
     start(): Promise<void>;
-    private tryDownloadGifsicle;
     modifyGif(url: string, options: (string | undefined)[][]): Promise<Buffer>;
     private getCommands;
     private processCommands;

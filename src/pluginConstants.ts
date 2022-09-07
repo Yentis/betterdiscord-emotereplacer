@@ -2,23 +2,16 @@ export const PLUGIN_CHANGELOG = [{
   title: 'Improved',
   type: 'improved',
   items: [
-    'Unobfuscate gif util code',
-    'Embed all external JS',
-    'Remove deprecated API usage',
-    'Don\'t add property to global object',
-    'Various code improvements'
+    'Removed reliance on Gifsicle binaries, ' +
+    'you may now remove the gifsicle file in your plugin folder'
   ]
 }, {
   title: 'Fixed',
   type: 'fixed',
   items: [
-    'Unable to select resize method in settings',
-    'Autocomplete for custom emotes not working if text is capitalized'
+    'Plugin not starting properly on first install'
   ]
 }]
-
-export const BASE_GIFSICLE_URL = 'https://raw.githubusercontent.com/imagemin/gifsicle-bin' +
-  '/v4.0.1/vendor/'
 
 export const SETTINGS_KEY = 'settings'
 export const CURRENT_VERSION_INFO_KEY = 'currentVersionInfo'
