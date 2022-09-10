@@ -15,8 +15,7 @@ import { Pica } from 'pica'
 // @ts-ignore
 import pica from 'libraries/pica/index'
 import { GifsicleService } from './gifsicleService'
-
-let Buffer: BufferConstructor
+import { Buffer } from 'pluginConstants'
 
 export class SendMessageService extends BaseService {
   emoteService!: EmoteService
@@ -27,7 +26,7 @@ export class SendMessageService extends BaseService {
 
   picaInstance!: Pica
 
-  public async start (
+  public start (
     emoteService: EmoteService,
     attachService: AttachService,
     modulesService: ModulesService,
@@ -40,7 +39,6 @@ export class SendMessageService extends BaseService {
     this.settingsService = settingsService
     this.gifsicleService = gifsicleService
 
-    Buffer = (await import('buffer')).Buffer
     this.picaInstance = pica()
 
     BdApi.Patcher.instead(
@@ -49,6 +47,8 @@ export class SendMessageService extends BaseService {
       'sendMessage',
       (_, args, original: unknown) => this.onSendMessage(args, original)
     )
+
+    return Promise.resolve()
   }
 
   private async onSendMessage (

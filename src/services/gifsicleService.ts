@@ -13,12 +13,11 @@ import {
   wiggleEmote
 } from 'utils/modifierUtils'
 import * as PromiseUtils from 'utils/promiseUtils'
-
-let Buffer: BufferConstructor
+import { Buffer, setBuffer } from 'pluginConstants'
 
 export class GifsicleService extends BaseService {
   public async start (): Promise<void> {
-    Buffer = (await import('buffer')).Buffer
+    setBuffer((await import('buffer')).Buffer)
   }
 
   public async modifyGif (url: string, options: (string | undefined)[][]): Promise<Buffer> {
