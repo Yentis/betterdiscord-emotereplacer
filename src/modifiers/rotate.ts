@@ -1,4 +1,4 @@
-import Jimp from 'jimp'
+import Jimp from 'jimp/browser/lib/jimp'
 import GIFEncoder from 'libraries/gifencoder/gifencoder'
 import { SpecialCommand } from 'interfaces/gifData'
 import {

@@ -1,17 +1,17 @@
 import { Stream } from 'stream'
-import Jimp from 'jimp'
+import Jimp from 'jimp/browser/lib/jimp'
 import GIFEncoder from 'libraries/gifencoder/gifencoder'
-import toStream from 'libraries/buffer-to-stream'
 import { SpecialCommand } from 'interfaces/gifData'
 import { Gif, GifUtil, GifFrame, GifCodec } from 'gifwrap'
 import * as PromiseUtils from 'utils/promiseUtils'
+import { Buffer } from 'pluginConstants'
 
 export async function getBuffer (data: string | Buffer | Stream): Promise<Buffer> {
   const buffers: Uint8Array[] = []
   let readStream: Stream
 
   if (Buffer.isBuffer(data)) {
-    readStream = toStream(data)
+    return data
   } else if (typeof (data) === 'string') {
     readStream = await PromiseUtils.httpsGetStream(data)
   } else {
@@ -31,7 +31,7 @@ export async function getBuffer (data: string | Buffer | Stream): Promise<Buffer
 
 export async function getGifFromBuffer (data: string | Buffer): Promise<Gif> {
   const buffer = await getBuffer(data)
-  const gif = await GifUtil.read(buffer, new GifCodec())
+  const gif = await new GifCodec().decodeGif(buffer)
 
   if (gif.frames.length > 200) {
     throw Error('Image too large, advanced modifiers not supported!')

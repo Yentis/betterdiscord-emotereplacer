@@ -15,6 +15,7 @@ import stream from 'stream'
 import NeuQuant from './neuquant'
 import LZWEncoder from './lzwencoder'
 import ByteArray from './bytearray'
+import { Buffer } from 'pluginConstants'
 
 interface CanvasImageData {
   // eslint-disable-next-line no-unused-vars
@@ -322,14 +323,8 @@ export default class GIFEncoder {
     actually deferred until the next frame is received so that timing
     data can be inserted.  Invoking finish() flushes all frames.
   */
-  addFrame (
-    imageData: CanvasImageData | Buffer
-  ): void {
-    if (Buffer.isBuffer(imageData)) {
-      this.image = imageData
-    } else {
-      this.image = imageData.getImageData(0, 0, this.width, this.height).data
-    }
+  addFrame (imageData: Buffer): void {
+    this.image = imageData
 
     this.getImagePixels() // convert to correct format if necessary
     this.analyzePixels() // build color table & map pixels

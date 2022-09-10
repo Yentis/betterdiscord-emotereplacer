@@ -25,3 +25,8 @@ export const DEFAULT_SETTINGS = {
   resizeMethod: 'smallest',
   showStandardEmotes: true
 }
+
+export let Buffer: BufferConstructor
+export function setBuffer (buffer: BufferConstructor) {
+  Buffer = buffer
+}
