@@ -1,32 +1,18 @@
-import { Stream } from 'stream'
-import Jimp from 'jimp/browser/lib/jimp'
+import Jimp from 'jimp'
 import GIFEncoder from 'libraries/gifencoder/gifencoder'
 import { SpecialCommand } from 'interfaces/gifData'
 import { Gif, GifUtil, GifFrame, GifCodec } from 'gifwrap'
 import * as PromiseUtils from 'utils/promiseUtils'
 import { Buffer } from 'pluginConstants'
 
-export async function getBuffer (data: string | Buffer | Stream): Promise<Buffer> {
-  const buffers: Uint8Array[] = []
-  let readStream: Stream
-
+export async function getBuffer (data: string | Buffer): Promise<Buffer> {
   if (Buffer.isBuffer(data)) {
     return data
   } else if (typeof (data) === 'string') {
-    readStream = await PromiseUtils.httpsGetStream(data)
+    return PromiseUtils.httpsGetBuffer(data)
   } else {
-    readStream = data
+    return Buffer.from([])
   }
-
-  return new Promise((resolve, reject) => {
-    readStream.on('data', (chunk: Uint8Array) => {
-      buffers.push(chunk)
-    }).on('end', () => {
-      resolve(Buffer.concat(buffers))
-    }).on('error', (error) => {
-      reject(error)
-    })
-  })
 }
 
 export async function getGifFromBuffer (data: string | Buffer): Promise<Gif> {

@@ -64,10 +64,10 @@ export class EmoteService extends BaseService {
       return {}
     }
 
-    const data = await PromiseUtils.httpsGetPromise(
+    const data = await PromiseUtils.httpsGetBuffer(
       'https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/emotes.json'
     )
-    const emoteNames = JSON.parse(data) as Record<string, string>
+    const emoteNames = JSON.parse(data.toString()) as Record<string, string>
 
     Object.keys(emoteNames).forEach((key) => {
       const split = emoteNames[key]?.split('.')
@@ -98,10 +98,10 @@ export class EmoteService extends BaseService {
   }
 
   private async getModifiers (): Promise<Modifier[]> {
-    const data = await PromiseUtils.httpsGetPromise(
+    const data = await PromiseUtils.httpsGetBuffer(
       'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/modifiers.json'
     )
-    return JSON.parse(data) as Modifier[]
+    return JSON.parse(data.toString()) as Modifier[]
   }
 
   public getPrefixedName (name: string): string {

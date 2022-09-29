@@ -1,10 +1,14 @@
-import Jimp from 'jimp/browser/lib/jimp'
 import GIFEncoder from 'libraries/gifencoder/gifencoder'
 import {
-  getGifFromBuffer, getBuffer, setEncoderProperties, preparePNGVariables
+  getGifFromBuffer, setEncoderProperties, preparePNGVariables
 } from 'utils/gifUtils'
 import { SpecialCommand } from 'interfaces/gifData'
 import { GifFrame, GifUtil } from 'gifwrap'
+import JimpType from 'jimp'
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import JimpImport from 'libraries/jimp'
+const Jimp = JimpImport as typeof JimpType
 
 function greatestCommonDenominator (a: number, b: number): number {
   return !b ? a : greatestCommonDenominator(b, a % b)
@@ -89,34 +93,32 @@ export async function createShakingGIF (options: SpecialCommand): Promise<Buffer
 
   const encoder = new GIFEncoder(inputGif.width, inputGif.height)
 
-  return new Promise((resolve, reject) => {
-    getBuffer(encoder.createReadStream()).then((buffer) => resolve(buffer)).catch(reject)
-    setEncoderProperties(encoder, delay * 10)
+  setEncoderProperties(encoder, delay * 10)
 
-    for (let i = 0; i < frames.length; i++) {
-      state += incrValue
-      if (state >= interval) {
-        state -= interval
-        // Shift dx, dy, sx, sy
-        offsets <<= 1
-        if (offsets > 16) offsets -= 15 // remove first one (-16) and add it on the right (+1)
-        dx = offsets >> 3
-        dy = (offsets >> 2) & 1
-        sx = (offsets >> 1) & 1
-        sy = offsets & 1
-      }
-      // Shake frame
-      const shakenFrame = new Jimp(inputGif.width, inputGif.height, 0x00)
-      shakenFrame.blit(
-        new Jimp(frames[i]?.bitmap),
-        dx, dy, sx, sy,
-        inputGif.width - 1, inputGif.height - 1
-      )
-      encoder.addFrame(shakenFrame.bitmap.data)
+  for (let i = 0; i < frames.length; i++) {
+    state += incrValue
+    if (state >= interval) {
+      state -= interval
+      // Shift dx, dy, sx, sy
+      offsets <<= 1
+      if (offsets > 16) offsets -= 15 // remove first one (-16) and add it on the right (+1)
+      dx = offsets >> 3
+      dy = (offsets >> 2) & 1
+      sx = (offsets >> 1) & 1
+      sy = offsets & 1
     }
+    // Shake frame
+    const shakenFrame = new Jimp(inputGif.width, inputGif.height, 0x00)
+    shakenFrame.blit(
+      new Jimp(frames[i]?.bitmap),
+      dx, dy, sx, sy,
+      inputGif.width - 1, inputGif.height - 1
+    )
+    encoder.addFrame(shakenFrame.bitmap.data)
+  }
 
-    encoder.finish()
-  })
+  encoder.finish()
+  return encoder.getAndResetBuffer()
 }
 
 export async function createShakingPNG (options: SpecialCommand): Promise<Buffer> {
@@ -130,31 +132,29 @@ export async function createShakingPNG (options: SpecialCommand): Promise<Buffer
   } = preparePNGVariables(options, image.bitmap)
   image.resize(width, height)
 
-  return new Promise((resolve, reject) => {
-    getBuffer(encoder.createReadStream()).then((buffer) => resolve(buffer)).catch(reject)
-    setEncoderProperties(encoder, options.value * 10)
+  setEncoderProperties(encoder, options.value * 10)
 
-    for (let i = 0; i < 4; i++) {
-      const frame = new Jimp(width, height, 0x00)
-      switch (i) {
-        case 0:
-          frame.blit(new Jimp(image.bitmap), 0, 0, 1, 1, width - 1, height - 1)
-          break
-        case 1:
-          frame.blit(new Jimp(image.bitmap), 0, 1, 1, 0, width - 1, height - 1)
-          break
-        case 2:
-          frame.blit(new Jimp(image.bitmap), 1, 1, 0, 0, width - 1, height - 1)
-          break
-        case 3:
-          frame.blit(new Jimp(image.bitmap), 1, 0, 0, 1, width - 1, height - 1)
-          break
-        default:
-          break
-      }
-      encoder.addFrame(frame.bitmap.data)
+  for (let i = 0; i < 4; i++) {
+    const frame = new Jimp(width, height, 0x00)
+    switch (i) {
+      case 0:
+        frame.blit(new Jimp(image.bitmap), 0, 0, 1, 1, width - 1, height - 1)
+        break
+      case 1:
+        frame.blit(new Jimp(image.bitmap), 0, 1, 1, 0, width - 1, height - 1)
+        break
+      case 2:
+        frame.blit(new Jimp(image.bitmap), 1, 1, 0, 0, width - 1, height - 1)
+        break
+      case 3:
+        frame.blit(new Jimp(image.bitmap), 1, 0, 0, 1, width - 1, height - 1)
+        break
+      default:
+        break
     }
+    encoder.addFrame(frame.bitmap.data)
+  }
 
-    encoder.finish()
-  })
+  encoder.finish()
+  return encoder.getAndResetBuffer()
 }

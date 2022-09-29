@@ -1,9 +1,13 @@
-import Jimp from 'jimp/browser/lib/jimp'
 import GIFEncoder from 'libraries/gifencoder/gifencoder'
 import { SpecialCommand } from 'interfaces/gifData'
 import {
-  getGifFromBuffer, getBuffer, setEncoderProperties, alignGif, preparePNGVariables
+  getGifFromBuffer, setEncoderProperties, alignGif, preparePNGVariables
 } from 'utils/gifUtils'
+import JimpType from 'jimp'
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import JimpImport from 'libraries/jimp'
+const Jimp = JimpImport as typeof JimpType
 
 function prepareWiggleVariables (margin: number, height: number) {
   const shiftSize = Math.max(1, margin / 6)
@@ -41,12 +45,12 @@ function shiftWiggleStep (
   return [shift, left]
 }
 
-function getWiggledFrameData (oldFrame: Jimp, _shift: number, _left: boolean, options: {
+function getWiggledFrameData (oldFrame: JimpType, _shift: number, _left: boolean, options: {
   stripeHeight: number,
   shiftSize: number,
   width: number,
   margin: number
-}): Jimp['bitmap'] {
+}): JimpType['bitmap'] {
   const newFrame = new Jimp(options.width, oldFrame.bitmap.height)
   let shift = _shift
   let left = _left
@@ -63,38 +67,36 @@ export async function createWigglingGIF (options: SpecialCommand): Promise<Buffe
   const inputGif = await getGifFromBuffer(options.buffer)
   const encoder = new GIFEncoder(inputGif.width, inputGif.height)
 
-  return new Promise((resolve, reject) => {
-    getBuffer(encoder.createReadStream()).then(resolve).catch(reject)
-    setEncoderProperties(encoder)
+  setEncoderProperties(encoder)
 
-    const width = inputGif.width + 2 * Math.floor((inputGif.width * options.value * 0.1) / 15)
-    const margin = width - inputGif.width
+  const width = inputGif.width + 2 * Math.floor((inputGif.width * options.value * 0.1) / 15)
+  const margin = width - inputGif.width
 
-    const wiggleVariables = prepareWiggleVariables(margin, inputGif.height)
-    const { shiftSize, interval, stripeHeight } = wiggleVariables
-    let { shift, left } = wiggleVariables
-    const frames = alignGif(inputGif.frames, interval)
+  const wiggleVariables = prepareWiggleVariables(margin, inputGif.height)
+  const { shiftSize, interval, stripeHeight } = wiggleVariables
+  let { shift, left } = wiggleVariables
+  const frames = alignGif(inputGif.frames, interval)
 
-    frames.forEach((frame) => {
-      encoder.setDelay(frame.delayCentisecs * 10)
-      const wiggledBitmap = getWiggledFrameData(
-        new Jimp(frame.bitmap),
-        shift,
-        left,
-        {
-          stripeHeight,
-          shiftSize,
-          width: inputGif.width,
-          margin
-        }
-      )
-      encoder.addFrame(wiggledBitmap.data);
-      // Set initial wiggle offset for next frame
-      [shift, left] = shiftWiggleStep(shift, left, margin, shiftSize)
-    })
-
-    encoder.finish()
+  frames.forEach((frame) => {
+    encoder.setDelay(frame.delayCentisecs * 10)
+    const wiggledBitmap = getWiggledFrameData(
+      new Jimp(frame.bitmap),
+      shift,
+      left,
+      {
+        stripeHeight,
+        shiftSize,
+        width: inputGif.width,
+        margin
+      }
+    )
+    encoder.addFrame(wiggledBitmap.data);
+    // Set initial wiggle offset for next frame
+    [shift, left] = shiftWiggleStep(shift, left, margin, shiftSize)
   })
+
+  encoder.finish()
+  return encoder.getAndResetBuffer()
 }
 
 export async function createWigglingPNG (options: SpecialCommand): Promise<Buffer> {
@@ -115,23 +117,21 @@ export async function createWigglingPNG (options: SpecialCommand): Promise<Buffe
   const { shiftSize, interval, stripeHeight } = wiggleVariables
   let { shift, left } = wiggleVariables
 
-  return new Promise((resolve, reject) => {
-    getBuffer(encoder.createReadStream()).then(resolve).catch(reject)
-    setEncoderProperties(encoder, 80)
+  setEncoderProperties(encoder, 80)
 
-    for (let i = 0; i < interval; i++) {
-      // Wiggle frame
-      const wiggledBitmap = getWiggledFrameData(image, shift, left, {
-        stripeHeight,
-        shiftSize,
-        width,
-        margin
-      })
-      encoder.addFrame(wiggledBitmap.data);
-      // Set initial wiggle offset for next frame
-      [shift, left] = shiftWiggleStep(shift, left, margin, shiftSize)
-    }
+  for (let i = 0; i < interval; i++) {
+    // Wiggle frame
+    const wiggledBitmap = getWiggledFrameData(image, shift, left, {
+      stripeHeight,
+      shiftSize,
+      width,
+      margin
+    })
+    encoder.addFrame(wiggledBitmap.data);
+    // Set initial wiggle offset for next frame
+    [shift, left] = shiftWiggleStep(shift, left, margin, shiftSize)
+  }
 
-    encoder.finish()
-  })
+  encoder.finish()
+  return encoder.getAndResetBuffer()
 }

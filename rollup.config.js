@@ -41,7 +41,6 @@ export default {
         'https',
         'http',
         'lodash',
-        'stream',
         'events'
     ],
     plugins: [

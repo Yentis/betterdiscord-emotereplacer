@@ -65,7 +65,11 @@ export class ModulesService extends BaseService {
       }, {
         filter: BdApi.Webpack.Filters.byProps('getChannelPermissions')
       }, {
-        filter: BdApi.Webpack.Filters.byProps('Permissions', 'ActivityTypes', 'StatusTypes')
+        filter: (module: Record<string, string>) => {
+          return Object.entries(module).some(([key, value]) => {
+            return key.includes('CREATE_INSTANT_INVITE') && typeof value === 'bigint'
+          })
+        }
       }, {
         filter: BdApi.Webpack.Filters.byProps('dispatch', 'subscribe')
       }, {
