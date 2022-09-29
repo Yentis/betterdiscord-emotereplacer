@@ -1,10 +1,14 @@
-import Jimp from 'jimp/browser/lib/jimp'
 import GIFEncoder from 'libraries/gifencoder/gifencoder'
 import { SpecialCommand } from 'interfaces/gifData'
 import {
-  getGifFromBuffer, getBuffer, setEncoderProperties, alignGif, preparePNGVariables
+  getGifFromBuffer, setEncoderProperties, alignGif, preparePNGVariables
 } from 'utils/gifUtils'
 import { JimpBitmap } from 'gifwrap'
+import JimpType from 'jimp'
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import JimpImport from 'libraries/jimp'
+const Jimp = JimpImport as typeof JimpType
 
 // r, g, b in [0, 255] ~ h, s, l in [0, 1]
 function rgb2hsl (_r: number, _g: number, _b: number): [number, number, number] {
@@ -131,23 +135,21 @@ export async function createRainbowGIF (options: SpecialCommand): Promise<Buffer
   const inputGif = await getGifFromBuffer(options.buffer)
   const encoder = new GIFEncoder(inputGif.width, inputGif.height)
 
-  return new Promise((resolve, reject) => {
-    getBuffer(encoder.createReadStream()).then((buffer) => resolve(buffer)).catch(reject)
-    setEncoderProperties(encoder)
+  setEncoderProperties(encoder)
 
-    const interval = 32 * options.value
-    const frames = alignGif(inputGif.frames, interval)
-    const randomBlack = Math.random()
-    const randomWhite = Math.random()
+  const interval = 32 * options.value
+  const frames = alignGif(inputGif.frames, interval)
+  const randomBlack = Math.random()
+  const randomWhite = Math.random()
 
-    frames.forEach((frame, index) => {
-      encoder.setDelay(frame.delayCentisecs * 10)
-      shiftColors(frame.bitmap, (index % interval) / interval, randomBlack, randomWhite)
-      encoder.addFrame(frame.bitmap.data)
-    })
-
-    encoder.finish()
+  frames.forEach((frame, index) => {
+    encoder.setDelay(frame.delayCentisecs * 10)
+    shiftColors(frame.bitmap, (index % interval) / interval, randomBlack, randomWhite)
+    encoder.addFrame(frame.bitmap.data)
   })
+
+  encoder.finish()
+  return encoder.getAndResetBuffer()
 }
 
 export async function createRainbowPNG (options: SpecialCommand): Promise<Buffer> {
@@ -161,20 +163,18 @@ export async function createRainbowPNG (options: SpecialCommand): Promise<Buffer
   } = preparePNGVariables(options, image.bitmap)
   image.resize(width, height)
 
-  return new Promise((resolve, reject) => {
-    getBuffer(encoder.createReadStream()).then((buffer) => resolve(buffer)).catch(reject)
-    setEncoderProperties(encoder, options.value * 10)
+  setEncoderProperties(encoder, options.value * 10)
 
-    const amountFrames = 32 // arbitrary
-    const interval = 1 / amountFrames // hue shift per step
-    const randomBlack = Math.random()
-    const randomWhite = Math.random()
+  const amountFrames = 32 // arbitrary
+  const interval = 1 / amountFrames // hue shift per step
+  const randomBlack = Math.random()
+  const randomWhite = Math.random()
 
-    for (let i = 0; i < amountFrames; i++) {
-      shiftColors(image.bitmap, interval, randomBlack, randomWhite)
-      encoder.addFrame(image.bitmap.data)
-    }
+  for (let i = 0; i < amountFrames; i++) {
+    shiftColors(image.bitmap, interval, randomBlack, randomWhite)
+    encoder.addFrame(image.bitmap.data)
+  }
 
-    encoder.finish()
-  })
+  encoder.finish()
+  return encoder.getAndResetBuffer()
 }

@@ -68,7 +68,7 @@ export class AttachService extends BaseService {
       return
     }
 
-    const attachFilesPermission = this.modulesService.discordPermissions.Permissions.ATTACH_FILES
+    const attachFilesPermission = this.modulesService.discordPermissions.ATTACH_FILES
     this.canAttach = this.modulesService.permissions.can(attachFilesPermission, channel, userId)
   }
 

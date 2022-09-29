@@ -1,26 +1,7 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-nocheck
-/* eslint-disable */
-/*
-  GIFEncoder.js
-
-  Authors
-  Kevin Weiner (original Java version - kweiner@fmsware.com)
-  Thibault Imbert (AS3 version - bytearray.org)
-  Johan Nordberg (JS version - code@johan-nordberg.com)
-  Eugene Ware (node.js streaming version - eugene@noblesmaurai.com)
-*/
-
-import stream from 'stream'
 import NeuQuant from './neuquant'
 import LZWEncoder from './lzwencoder'
 import ByteArray from './bytearray'
 import { Buffer } from 'pluginConstants'
-
-interface CanvasImageData {
-  // eslint-disable-next-line no-unused-vars
-  getImageData: (sx: number, sy: number, sw: number, sh: number) => { data: Uint8ClampedArray }
-}
 
 export default class GIFEncoder {
   // image size
@@ -62,7 +43,7 @@ export default class GIFEncoder {
 
   started = false // started encoding
 
-  readStreams: stream.Readable[] = []
+  private buffers: Uint8Array[] = []
 
   out = new ByteArray()
 
@@ -71,25 +52,16 @@ export default class GIFEncoder {
     this.height = ~~height
   }
 
-  createReadStream (_readStream?: stream.Readable): stream.Readable {
-    let readStream = _readStream
-    if (readStream === undefined) {
-      readStream = new stream.Readable()
-      // eslint-disable-next-line no-underscore-dangle
-      readStream._read = () => { /* Do nothing */ }
-    }
-
-    this.readStreams.push(readStream)
-    return readStream
+  getAndResetBuffer (): Buffer {
+    const buffer = Buffer.concat(this.buffers)
+    this.buffers = []
+    return buffer
   }
 
   emit (): void {
-    if (this.readStreams.length === 0 || !this.out.data.length) return
+    if (this.buffers.length === 0 || !this.out.data.length) return
 
-    this.readStreams.forEach((rs) => {
-      rs.push(Buffer.from(this.out.data))
-    })
-
+    this.buffers.push(Uint8Array.from(this.out.data))
     this.out.data = []
   }
 
@@ -118,8 +90,15 @@ export default class GIFEncoder {
     for (let i = 0; i < h; i++) {
       for (let j = 0; j < w; j++) {
         const b = (i * w * 4) + j * 4
+
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         this.pixels[count++] = data[b]
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         this.pixels[count++] = data[b + 1]
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         this.pixels[count++] = data[b + 2]
       }
     }
@@ -140,11 +119,19 @@ export default class GIFEncoder {
 
     for (let i = 0; i < len;) {
       const index = i / 3
+
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       const dr = r - (this.colorTab[i++] & 0xff)
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       const dg = g - (this.colorTab[i++] & 0xff)
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       const db = b - (this.colorTab[i++] & 0xff)
       const d = dr * dr + dg * dg + db * db
-      if (this.usedEntry[index] && (d < dmin)) {
+
+      if ((this.usedEntry[index] ?? false) && (d < dmin)) {
         dmin = d
         minpos = index
       }
@@ -171,8 +158,14 @@ export default class GIFEncoder {
     let k = 0
     for (let j = 0; j < nPix; j++) {
       const index = imgq.lookupRGB(
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         this.pixels[k++] & 0xff,
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         this.pixels[k++] & 0xff,
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         this.pixels[k++] & 0xff
       )
       this.usedEntry[index] = true
@@ -404,19 +397,13 @@ export default class GIFEncoder {
   }
 
   end (): void {
-    if (this.readStreams.length === null) return
-
+    if (this.buffers.length === null) return
     this.emit()
-    this.readStreams.forEach((readStream) => {
-      readStream.push(null)
-    })
-
-    this.readStreams = []
   }
 
   /*
-    Adds final trailer to the GIF stream, if you don't call the finish method
-    the GIF stream will not be valid.
+    Adds final trailer to the GIF buffer, if you don't call the finish method
+    the GIF buffer will not be valid.
   */
   finish (): void {
     this.out.writeByte(0x3b) // gif trailer

@@ -1,9 +1,13 @@
-import Jimp from 'jimp/browser/lib/jimp'
 import GIFEncoder from 'libraries/gifencoder/gifencoder'
 import { SpecialCommand } from 'interfaces/gifData'
 import {
-  getGifFromBuffer, getBuffer, setEncoderProperties, alignGif, preparePNGVariables
+  getGifFromBuffer, setEncoderProperties, alignGif, preparePNGVariables
 } from 'utils/gifUtils'
+import JimpType from 'jimp'
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import JimpImport from 'libraries/jimp'
+const Jimp = JimpImport as typeof JimpType
 
 function prepareSpinVariables (
   delay: number,
@@ -31,39 +35,37 @@ export async function createSpinningGIF (options: SpecialCommand): Promise<Buffe
   const max = Math.max(inputGif.width, inputGif.height)
   const encoder = new GIFEncoder(max, max)
 
-  return new Promise((resolve, reject) => {
-    getBuffer(encoder.createReadStream()).then((buffer) => resolve(buffer)).catch(reject)
-    setEncoderProperties(encoder)
+  setEncoderProperties(encoder)
 
-    const {
-      degrees,
-      interval,
-      margin
-    } = prepareSpinVariables(
-      inputGif.frames[0]?.delayCentisecs ?? 0, // assuming all frames have the same delay
-      (200 * options.value) / 8, // 100cs per rotation -> 1 rotation per second
-      options.name === 'spinrev',
-      inputGif.width,
-      inputGif.height
-    )
+  const {
+    degrees,
+    interval,
+    margin
+  } = prepareSpinVariables(
+    inputGif.frames[0]?.delayCentisecs ?? 0, // assuming all frames have the same delay
+    (200 * options.value) / 8, // 100cs per rotation -> 1 rotation per second
+    options.name === 'spinrev',
+    inputGif.width,
+    inputGif.height
+  )
 
-    const frames = alignGif(inputGif.frames, interval)
-    for (let i = 0; i < frames.length; i++) {
-      encoder.setDelay((frames[i]?.delayCentisecs ?? 0) * 10)
-      const adjustedImg = new Jimp(max, max)
+  const frames = alignGif(inputGif.frames, interval)
+  for (let i = 0; i < frames.length; i++) {
+    encoder.setDelay((frames[i]?.delayCentisecs ?? 0) * 10)
+    const adjustedImg = new Jimp(max, max)
 
-      if (inputGif.width > inputGif.height) {
-        adjustedImg.blit(new Jimp(frames[i]?.bitmap), 0, margin)
-      } else {
-        adjustedImg.blit(new Jimp(frames[i]?.bitmap), margin, 0)
-      }
-
-      adjustedImg.rotate((i * degrees) % 360, false)
-      encoder.addFrame(adjustedImg.bitmap.data)
+    if (inputGif.width > inputGif.height) {
+      adjustedImg.blit(new Jimp(frames[i]?.bitmap), 0, margin)
+    } else {
+      adjustedImg.blit(new Jimp(frames[i]?.bitmap), margin, 0)
     }
 
-    encoder.finish()
-  })
+    adjustedImg.rotate((i * degrees) % 360, false)
+    encoder.addFrame(adjustedImg.bitmap.data)
+  }
+
+  encoder.finish()
+  return encoder.getAndResetBuffer()
 }
 
 export async function createSpinningPNG (options: SpecialCommand): Promise<Buffer> {
@@ -96,15 +98,14 @@ export async function createSpinningPNG (options: SpecialCommand): Promise<Buffe
     ? resizedImage.blit(image, 0, margin)
     : resizedImage.blit(image, margin, 0)
 
-  return new Promise((resolve, reject) => {
-    getBuffer(encoder.createReadStream()).then((buffer) => resolve(buffer)).catch(reject)
-    setEncoderProperties(encoder, options.value * 10)
+  setEncoderProperties(encoder, options.value * 10)
 
-    for (let i = 0; i < interval; i++) {
-      const rotatedImage = new Jimp(resizedImage.bitmap)
-      rotatedImage.rotate(i * degrees, false)
-      encoder.addFrame(rotatedImage.bitmap.data)
-    }
-    encoder.finish()
-  })
+  for (let i = 0; i < interval; i++) {
+    const rotatedImage = new Jimp(resizedImage.bitmap)
+    rotatedImage.rotate(i * degrees, false)
+    encoder.addFrame(rotatedImage.bitmap.data)
+  }
+
+  encoder.finish()
+  return encoder.getAndResetBuffer()
 }

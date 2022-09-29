@@ -187,17 +187,7 @@ export class GifsicleService extends BaseService {
     if (Buffer.isBuffer(data)) {
       buffer = data.buffer
     } else {
-      const buffers: Uint8Array[] = []
-      const stream = await PromiseUtils.httpsGetStream(data)
-
-      buffer = await new Promise((resolve, reject) => {
-        stream
-          .on('data', (chunk: Uint8Array) => {
-            buffers.push(chunk)
-          })
-          .on('error', (err) => reject(err))
-          .on('end', () => resolve(Buffer.concat(buffers).buffer))
-      })
+      buffer = await PromiseUtils.httpsGetBuffer(data)
     }
 
     const output = await gifsicle.run({

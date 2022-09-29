@@ -1,13 +1,13 @@
 import https from 'https'
-import { Stream } from 'stream'
+import { Buffer } from 'pluginConstants'
 
-export function httpsGetPromise (url: string): Promise<string> {
+export function httpsGetBuffer (url: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     https.get(url, (res) => {
-      let data = ''
+      const buffers: Uint8Array[] = []
 
-      res.on('data', (chunk) => {
-        data += chunk
+      res.on('data', (chunk: Uint8Array) => {
+        buffers.push(chunk)
       })
 
       res.on('end', () => {
@@ -17,18 +17,8 @@ export function httpsGetPromise (url: string): Promise<string> {
           return
         }
 
-        resolve(data)
+        resolve(Buffer.concat(buffers))
       })
-    }).on('error', (error) => {
-      reject(error)
-    })
-  })
-}
-
-export function httpsGetStream (url: string): Promise<Stream> {
-  return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      resolve(res)
     }).on('error', (error) => {
       reject(error)
     })

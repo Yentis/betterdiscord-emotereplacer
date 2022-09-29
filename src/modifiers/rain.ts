@@ -1,9 +1,13 @@
-import Jimp from 'jimp/browser/lib/jimp'
 import GIFEncoder from 'libraries/gifencoder/gifencoder'
 import { SpecialCommand } from 'interfaces/gifData'
 import {
-  getGifFromBuffer, getBuffer, setEncoderProperties, preparePNGVariables
+  getGifFromBuffer, setEncoderProperties, preparePNGVariables
 } from 'utils/gifUtils'
+import JimpType from 'jimp'
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import JimpImport from 'libraries/jimp'
+const Jimp = JimpImport as typeof JimpType
 
 function resetDrop (delay: number) {
   let speed = Math.random()
@@ -128,28 +132,26 @@ export async function createRainingGIF (options: SpecialCommand): Promise<Buffer
   const inputGif = await getGifFromBuffer(options.buffer)
   const encoder = new GIFEncoder(inputGif.width, inputGif.height)
 
-  return new Promise((resolve, reject) => {
-    getBuffer(encoder.createReadStream()).then((buffer) => resolve(buffer)).catch(reject)
-    setEncoderProperties(encoder)
+  setEncoderProperties(encoder)
 
-    const { frames } = inputGif
-    const glitter = options.value === 1
-    const rainGenerator = rainImageGenerator(
-      inputGif.width,
-      inputGif.height,
-      glitter,
-      frames[0]?.delayCentisecs ?? 0
-    )
+  const { frames } = inputGif
+  const glitter = options.value === 1
+  const rainGenerator = rainImageGenerator(
+    inputGif.width,
+    inputGif.height,
+    glitter,
+    frames[0]?.delayCentisecs ?? 0
+  )
 
-    frames.forEach((frame) => {
-      encoder.setDelay(frame.delayCentisecs * 10)
-      const jimpFrame = new Jimp(frame.bitmap)
-      jimpFrame.blit(rainGenerator.next(), 0, 0)
-      encoder.addFrame(jimpFrame.bitmap.data)
-    })
-
-    encoder.finish()
+  frames.forEach((frame) => {
+    encoder.setDelay(frame.delayCentisecs * 10)
+    const jimpFrame = new Jimp(frame.bitmap)
+    jimpFrame.blit(rainGenerator.next(), 0, 0)
+    encoder.addFrame(jimpFrame.bitmap.data)
   })
+
+  encoder.finish()
+  return encoder.getAndResetBuffer()
 }
 
 export async function createRainingPNG (options: SpecialCommand): Promise<Buffer> {
@@ -164,20 +166,18 @@ export async function createRainingPNG (options: SpecialCommand): Promise<Buffer
   image.resize(width, height)
   const delay = 8
 
-  return new Promise((resolve, reject) => {
-    getBuffer(encoder.createReadStream()).then(resolve).catch(reject)
-    setEncoderProperties(encoder, delay * 10)
+  setEncoderProperties(encoder, delay * 10)
 
-    const interval = 12
-    const glitter = options.value === 1
-    const rainGenerator = rainImageGenerator(width, height, glitter, delay)
+  const interval = 12
+  const glitter = options.value === 1
+  const rainGenerator = rainImageGenerator(width, height, glitter, delay)
 
-    for (let i = 0; i < interval; i++) {
-      const img = new Jimp(image.bitmap)
-      img.blit(rainGenerator.next(), 0, 0)
-      encoder.addFrame(img.bitmap.data)
-    }
+  for (let i = 0; i < interval; i++) {
+    const img = new Jimp(image.bitmap)
+    img.blit(rainGenerator.next(), 0, 0)
+    encoder.addFrame(img.bitmap.data)
+  }
 
-    encoder.finish()
-  })
+  encoder.finish()
+  return encoder.getAndResetBuffer()
 }
