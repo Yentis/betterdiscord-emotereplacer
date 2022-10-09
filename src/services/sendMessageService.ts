@@ -8,14 +8,12 @@ import { ModulesService } from './modulesService'
 import { Logger } from 'utils/logger'
 import * as PromiseUtils from 'utils/promiseUtils'
 import { SettingsService } from './settingsService'
-import https from 'https'
 import { Pica } from 'pica'
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import pica from 'libraries/pica/index'
 import { GifsicleService } from './gifsicleService'
-import { Buffer } from 'pluginConstants'
 
 export class SendMessageService extends BaseService {
   emoteService!: EmoteService
@@ -240,7 +238,7 @@ export class SendMessageService extends BaseService {
     }
   }
 
-  private fetchBlobAndUpload (emote: InternalEmote): Promise<void> {
+  private async fetchBlobAndUpload (emote: InternalEmote): Promise<void> {
     const url = emote.url, name = emote.name, commands = emote.commands
     emote.channel = this.modulesService.selectedChannelStore.getChannelId()
 
@@ -248,42 +246,14 @@ export class SendMessageService extends BaseService {
       return this.getMetaAndModifyGif(emote)
     }
 
-    return new Promise<void>((resolve, reject) => {
-      https.get(url, (res) => {
-        const contentType = res.headers['content-type'] ?? ''
-        if (!contentType.startsWith('image')) {
-          reject(new Error('Emote URL was not an image'))
-          return
-        }
+    const buffer = await PromiseUtils.httpsGetBuffer(url)
+    const resultBlob = (await this.compress(new Blob([buffer]), commands)) ?? new Blob([])
+    if (resultBlob.size === 0) throw new Error('Emote URL did not contain data')
 
-        const size = res.headers['content-length'] ?? 0
-        if (size === 0) {
-          reject(new Error('Emote URL did not contain data'))
-          return
-        }
-
-        const data: Uint8Array[] = []
-
-        res.on('data', (chunk: Uint8Array) => {
-          data.push(chunk)
-        })
-
-        res.on('end', () => {
-          const buffer = Buffer.concat(data)
-
-          this.compress(new Blob([buffer], { type: contentType }), commands).then((resultBlob) => {
-            this.uploadFile({
-              fileData: resultBlob ?? new Blob([]),
-              fullName: name + '.png',
-              emote
-            })
-
-            resolve()
-          }).catch(reject)
-        })
-      }).on('error', (error) => {
-        reject(error)
-      })
+    this.uploadFile({
+      fileData: resultBlob,
+      fullName: name + '.png',
+      emote
     })
   }
 

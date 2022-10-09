@@ -29,7 +29,7 @@ function onGetEmojiUnavailableReason (
   attachService: AttachService,
   modulesService: ModulesService
 ): unknown {
-  const EmojiDisabledReasons = modulesService.discordConstants.EmojiDisabledReasons
+  const EmojiDisabledReasons = modulesService.emojiDisabledReasons
 
   if (
     (result === EmojiDisabledReasons.PREMIUM_LOCKED ||
