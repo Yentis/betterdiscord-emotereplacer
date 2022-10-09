@@ -49,20 +49,6 @@ export class EmoteReplacerPlugin implements Plugin {
 
   private async doStart (): Promise<void> {
     const zeresPluginLibrary = (window as unknown as BdWindow).ZeresPluginLibrary
-    zeresPluginLibrary.PluginUpdater.checkForUpdate(
-      this.meta.name,
-      this.meta.version,
-      this.meta.source
-    )
-
-    // 2 Hours
-    this.updateInterval = setInterval(() => {
-      zeresPluginLibrary.PluginUpdater.checkForUpdate(
-        this.meta.name,
-        this.meta.version,
-        this.meta.source
-      )
-    }, 1000 * 60 * 60 * 2)
 
     this.showChangelogIfNeeded(zeresPluginLibrary)
     await this.startServicesAndPatches()

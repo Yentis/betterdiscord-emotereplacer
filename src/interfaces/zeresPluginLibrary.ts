@@ -71,10 +71,6 @@ export default interface ZeresPluginLibrary {
     showChangelogModal: (title: string, version: string, changelog: Changelog[]) => void
   }
 
-  PluginUpdater: {
-    checkForUpdate: (name: string, version: string, raw: string) => void
-  }
-
   Settings: {
     SettingPanel: {
       build: (

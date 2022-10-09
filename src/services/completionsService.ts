@@ -211,7 +211,7 @@ export class CompletionsService extends BaseService {
     selectedCompletion.name += suffix
 
     const newDraft = curDraft.substring(0, curDraft.length - matchTextLength)
-    this.modulesService.componentDispatcher.ComponentDispatch.dispatch(
+    this.modulesService.componentDispatcher.dispatch(
       'INSERT_TEXT',
       { plainText: newDraft + selectedCompletion.name }
     )

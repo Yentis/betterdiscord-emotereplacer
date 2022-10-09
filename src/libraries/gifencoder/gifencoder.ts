@@ -59,7 +59,7 @@ export default class GIFEncoder {
   }
 
   emit (): void {
-    if (this.buffers.length === 0 || !this.out.data.length) return
+    if (!this.out.data.length) return
 
     this.buffers.push(Uint8Array.from(this.out.data))
     this.out.data = []

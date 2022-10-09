@@ -7,10 +7,16 @@ export default function deletePendingReplyPatch (
   attachService: AttachService,
   modulesService: ModulesService
 ): void {
+  const functionName = modulesService.pendingReplyDispatcher.key
+  if (functionName === undefined) {
+    Logger.warn('Pending reply function name not found')
+    return
+  }
+
   BdApi.Patcher.instead(
     pluginName,
-    modulesService.deletePendingReply,
-    'deletePendingReply',
+    modulesService.pendingReplyDispatcher.module,
+    functionName as never,
     (_, args, original) => onDeletePendingReply(args, original, attachService)
   )
 }

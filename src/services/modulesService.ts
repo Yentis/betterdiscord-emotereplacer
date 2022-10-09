@@ -1,8 +1,8 @@
 import ChannelStore from 'interfaces/modules/channelStore'
 import Classes, { AutocompleteAttached } from 'interfaces/modules/classes'
 import ComponentDispatcher from 'interfaces/modules/componentDispatcher'
-import { DeletePendingReply } from 'interfaces/modules/deletePendingReply'
-import DiscordConstants from 'interfaces/modules/discordConstants'
+import { PendingReplyDispatcher } from 'interfaces/modules/pendingReplyDispatcher'
+import EmojiDisabledReasons from 'interfaces/modules/emojiDisabledReasons'
 import DiscordPermissions from 'interfaces/modules/discordPermissions'
 import Dispatcher from 'interfaces/modules/dispatcher'
 import Draft from 'interfaces/modules/draft'
@@ -24,10 +24,10 @@ export class ModulesService extends BaseService {
   discordPermissions!: DiscordPermissions
   dispatcher!: Dispatcher
   componentDispatcher!: ComponentDispatcher
-  deletePendingReply!: DeletePendingReply
+  pendingReplyDispatcher: PendingReplyDispatcher = {}
   emojiStore!: EmojiStore
   emojiSearch!: EmojiSearch
-  discordConstants!: DiscordConstants
+  emojiDisabledReasons!: EmojiDisabledReasons
   userStore!: UserStore
   messageStore!: MessageStore
   classes!: Classes
@@ -42,10 +42,10 @@ export class ModulesService extends BaseService {
       discordPermissions,
       dispatcher,
       componentDispatcher,
-      deletePendingReply,
+      pendingReplyModule,
       emojiStore,
       emojiSearch,
-      discordConstants,
+      emojiDisabledReasons,
       userStore,
       messageStore,
       TextArea,
@@ -65,23 +65,40 @@ export class ModulesService extends BaseService {
       }, {
         filter: BdApi.Webpack.Filters.byProps('getChannelPermissions')
       }, {
-        filter: (module: Record<string, string>) => {
-          return Object.entries(module).some(([key, value]) => {
-            return key.includes('CREATE_INSTANT_INVITE') && typeof value === 'bigint'
-          })
-        }
+        filter: (module: Record<string, unknown>) => {
+          return typeof module.CREATE_INSTANT_INVITE === 'bigint'
+        },
+        searchExports: true
       }, {
         filter: BdApi.Webpack.Filters.byProps('dispatch', 'subscribe')
       }, {
-        filter: BdApi.Webpack.Filters.byProps('ComponentDispatch')
+        filter: (module: Record<string, unknown>) => {
+          if (module.dispatchToLastSubscribed !== undefined) {
+            const componentDispatcher = (module as unknown) as ComponentDispatcher
+            return componentDispatcher.emitter.listeners('SHAKE_APP').length > 0
+          }
+
+          return false
+        },
+        searchExports: true
       }, {
-        filter: BdApi.Webpack.Filters.byProps('deletePendingReply')
+        filter: (module: Record<string, (() => string) | undefined>) => {
+          const deletePendingReply = Object.entries(module).find(([_key, value]) => {
+            if (!(typeof value === 'function')) return false
+            const valueString: string = value.toString()
+            return valueString.includes('DELETE_PENDING_REPLY')
+          })
+
+          if (deletePendingReply) this.pendingReplyDispatcher.key = deletePendingReply[0]
+          return !!deletePendingReply
+        }
       }, {
         filter: BdApi.Webpack.Filters.byProps('getEmojiUnavailableReason')
       }, {
         filter: BdApi.Webpack.Filters.byProps('getDisambiguatedEmojiContext')
       }, {
-        filter: BdApi.Webpack.Filters.byProps('EmojiDisabledReasons')
+        filter: BdApi.Webpack.Filters.byProps('PREMIUM_LOCKED'),
+        searchExports: true
       }, {
         filter: BdApi.Webpack.Filters.byProps('getCurrentUser')
       }, {
@@ -110,10 +127,10 @@ export class ModulesService extends BaseService {
       DiscordPermissions,
       Dispatcher,
       ComponentDispatcher,
-      DeletePendingReply,
+      Record<string, unknown>,
       EmojiStore,
       EmojiSearch,
-      DiscordConstants,
+      EmojiDisabledReasons,
       UserStore,
       MessageStore,
       Classes['TextArea'],
@@ -131,9 +148,9 @@ export class ModulesService extends BaseService {
     this.discordPermissions = discordPermissions
     this.dispatcher = dispatcher
     this.componentDispatcher = componentDispatcher
-    this.deletePendingReply = deletePendingReply
+    this.pendingReplyDispatcher.module = pendingReplyModule
     this.emojiSearch = emojiSearch
-    this.discordConstants = discordConstants
+    this.emojiDisabledReasons = emojiDisabledReasons
     this.emojiStore = emojiStore
     this.userStore = userStore
     this.messageStore = messageStore

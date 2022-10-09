@@ -182,17 +182,17 @@ export class GifsicleService extends BaseService {
       }
     })
 
-    let buffer: ArrayBuffer
+    let buffer: Buffer
 
     if (Buffer.isBuffer(data)) {
-      buffer = data.buffer
+      buffer = data
     } else {
       buffer = await PromiseUtils.httpsGetBuffer(data)
     }
 
     const output = await gifsicle.run({
       input: [{
-        file: buffer,
+        file: buffer.buffer,
         name: '1.gif'
       }],
       command: [`${gifsicleParams.join(' ')} 1.gif -o /out/out.gif`]

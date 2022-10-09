@@ -1,5 +1,6 @@
 export default interface ComponentDispatcher {
-  ComponentDispatch: {
-    dispatch: (dispatchType: string, data: unknown) => void
+  dispatch: (dispatchType: string, data: unknown) => void
+  emitter: {
+    listeners: (listenerType: string) => unknown[]
   }
 }
