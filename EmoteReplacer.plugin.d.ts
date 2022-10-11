@@ -89,9 +89,6 @@ interface ZeresPluginLibrary {
     Modals: {
         showChangelogModal: (title: string, version: string, changelog: Changelog[]) => void;
     };
-    PluginUpdater: {
-        checkForUpdate: (name: string, version: string, raw: string) => void;
-    };
     Settings: {
         SettingPanel: {
             build: (onChange: (value: unknown) => void, ...settings: (SettingsField | SettingGroup)[]) => HTMLElement;
@@ -144,23 +141,21 @@ interface Classes {
     };
 }
 interface ComponentDispatcher {
-    ComponentDispatch: {
-        dispatch: (dispatchType: string, data: unknown) => void;
+    dispatch: (dispatchType: string, data: unknown) => void;
+    emitter: {
+        listeners: (listenerType: string) => unknown[];
     };
 }
-interface DeletePendingReply {
-    deletePendingReply: unknown;
+interface PendingReplyDispatcher {
+    key?: string;
+    module?: Record<string, unknown>;
 }
-interface DiscordConstants {
-    EmojiDisabledReasons: {
-        GUILD_SUBSCRIPTION_UNAVAILABLE: number;
-        PREMIUM_LOCKED: number;
-    };
+interface EmojiDisabledReasons {
+    GUILD_SUBSCRIPTION_UNAVAILABLE: number;
+    PREMIUM_LOCKED: number;
 }
 interface DiscordPermissions {
-    Permissions: {
-        ATTACH_FILES: bigint;
-    };
+    ATTACH_FILES: bigint;
 }
 interface Dispatcher {
     subscribe: <T>(event: string, callback: (data: T) => void) => void;
@@ -231,10 +226,10 @@ declare class ModulesService extends BaseService {
     discordPermissions: DiscordPermissions;
     dispatcher: Dispatcher;
     componentDispatcher: ComponentDispatcher;
-    deletePendingReply: DeletePendingReply;
+    pendingReplyDispatcher: PendingReplyDispatcher;
     emojiStore: EmojiStore;
     emojiSearch: EmojiSearch;
-    discordConstants: DiscordConstants;
+    emojiDisabledReasons: EmojiDisabledReasons;
     userStore: UserStore;
     messageStore: MessageStore;
     classes: Classes;

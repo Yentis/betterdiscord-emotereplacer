@@ -2,14 +2,17 @@ export const PLUGIN_CHANGELOG = [{
   title: 'Improved',
   type: 'improved',
   items: [
-    'Removed reliance on Gifsicle binaries, ' +
-    'you may now remove the gifsicle file in your plugin folder'
+    'Removed update checking as this is now built-in'
   ]
 }, {
   title: 'Fixed',
   type: 'fixed',
   items: [
-    'Plugin not starting properly on first install'
+    'Use browser version of Jimp',
+    'Remove node module usage',
+    'Fix all broken webpack filters',
+    'Fix emote uploading',
+    'Fix GIF processing'
   ]
 }]
 
