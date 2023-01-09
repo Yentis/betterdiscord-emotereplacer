@@ -141,7 +141,7 @@ interface Classes {
     };
 }
 interface ComponentDispatcher {
-    dispatch: (dispatchType: string, data: unknown) => void;
+    dispatch: (dispatchType: string, data?: unknown) => void;
     emitter: {
         listeners: (listenerType: string) => unknown[];
     };
@@ -202,20 +202,29 @@ interface Message {
     invalidEmojis?: Emoji[];
     validNonShortcutEmojis?: Emoji[];
 }
+interface Upload {
+    spoiler: boolean;
+}
 interface Uploader {
-    upload: (options: {
+    uploadFiles: (options: {
         channelId: string;
-        file: File;
+        uploads: Upload[];
         draftType: number;
-        message: Message;
-        hasSpoiler: boolean;
-        filename: string;
+        parsedMessage: Message;
     }) => void;
 }
 interface UserStore {
     getCurrentUser: () => {
         id: string;
     } | undefined;
+}
+interface CloudUploader {
+    n: {
+        new (fileData: {
+            file: File;
+            platform: number;
+        }, channelId: string): Upload;
+    };
 }
 declare class ModulesService extends BaseService {
     selectedChannelStore: SelectedChannelStore;
@@ -233,6 +242,7 @@ declare class ModulesService extends BaseService {
     userStore: UserStore;
     messageStore: MessageStore;
     classes: Classes;
+    cloudUploader: CloudUploader;
     start(): Promise<void>;
     stop(): void;
 }

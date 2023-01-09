@@ -1,6 +1,7 @@
 import Cached from 'interfaces/cached'
 import { Listener } from 'interfaces/listener'
 import ScrollOptions from 'interfaces/scrollOptions'
+import { delay } from 'utils/promiseUtils'
 import { BaseService } from './baseService'
 import { EmoteService } from './emoteService'
 import { HtmlService } from './htmlService'
@@ -105,7 +106,7 @@ export class CompletionsService extends BaseService {
         // Prevent adding a tab or line break to text
         event.preventDefault()
 
-        this.insertSelectedCompletion()
+        this.insertSelectedCompletion().catch(console.error)
         break
 
       // Up
@@ -183,7 +184,7 @@ export class CompletionsService extends BaseService {
     return (completions !== undefined && completions.length !== 0)
   }
 
-  private insertSelectedCompletion (): void {
+  private async insertSelectedCompletion (): Promise<void> {
     const { completions, matchText, selectedIndex } = this.cached ?? {}
     const curDraft = this.draft
     const matchTextLength = matchText?.length ?? 0
@@ -193,6 +194,7 @@ export class CompletionsService extends BaseService {
     }
 
     this.modulesService.draft.clearDraft(this.modulesService.selectedChannelStore.getChannelId(), 0)
+    await delay(0)
 
     const selectedCompletion = completions[selectedIndex]
     if (!selectedCompletion) return
@@ -211,12 +213,13 @@ export class CompletionsService extends BaseService {
     selectedCompletion.name += suffix
 
     const newDraft = curDraft.substring(0, curDraft.length - matchTextLength)
+    this.destroyCompletions()
+
+    await delay(0)
     this.modulesService.componentDispatcher.dispatch(
       'INSERT_TEXT',
       { plainText: newDraft + selectedCompletion.name }
     )
-
-    this.destroyCompletions()
   }
 
   public destroyCompletions (): void {
@@ -352,7 +355,7 @@ export class CompletionsService extends BaseService {
 
           if (!this.cached) this.cached = {}
           this.cached.selectedIndex = index + firstIndex
-          this.insertSelectedCompletion()
+          this.insertSelectedCompletion().catch(console.error)
         }
       }
       emoteRow.addEventListener(mouseDownListener.name, mouseDownListener.callback)

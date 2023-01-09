@@ -395,13 +395,18 @@ export class SendMessageService extends BaseService {
       return
     }
 
-    this.modulesService.uploader.upload({
+    // eslint-disable-next-line new-cap
+    const upload = new this.modulesService.cloudUploader.n(
+      { file: new File([fileData], fullName), platform: 1 },
+      channelId
+    )
+    upload.spoiler = emote.spoiler
+
+    this.modulesService.uploader.uploadFiles({
       channelId,
-      file: new File([fileData], fullName),
+      uploads: [upload],
       draftType: 0,
-      message: { content, invalidEmojis: [], tts: false, channel_id: channelId },
-      hasSpoiler: emote.spoiler,
-      filename: fullName
+      parsedMessage: { content, invalidEmojis: [], tts: false, channel_id: channelId }
     })
   }
 
