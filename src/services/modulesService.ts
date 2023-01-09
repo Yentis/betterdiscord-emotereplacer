@@ -86,14 +86,18 @@ export class ModulesService extends BaseService {
         searchExports: true
       }, {
         filter: (module: Record<string, (() => string) | undefined>) => {
-          const deletePendingReply = Object.entries(module).find(([_key, value]) => {
-            if (!(typeof value === 'function')) return false
-            const valueString: string = value.toString()
-            return valueString.includes('DELETE_PENDING_REPLY')
+          Object.entries(module).forEach(([key, value]) => {
+            if (!(typeof value === 'function')) return
+            const valueString = value.toString()
+
+            if (valueString.includes('DELETE_PENDING_REPLY')) {
+              this.pendingReplyDispatcher.deletePendingReplyKey = key
+            } else if (valueString.includes('CREATE_PENDING_REPLY')) {
+              this.pendingReplyDispatcher.createPendingReplyKey = key
+            }
           })
 
-          if (deletePendingReply) this.pendingReplyDispatcher.key = deletePendingReply[0]
-          return !!deletePendingReply
+          return this.pendingReplyDispatcher.deletePendingReplyKey !== undefined
         }
       }, {
         filter: BdApi.Webpack.Filters.byProps('getEmojiUnavailableReason')
