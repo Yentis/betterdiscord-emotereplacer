@@ -45,3 +45,11 @@ export function fileReaderPromise (blob: Blob): Promise<string | ArrayBuffer | u
     reader.onerror = (error) => { reject(error) }
   })
 }
+
+export function delay (duration: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve()
+    }, duration)
+  })
+}

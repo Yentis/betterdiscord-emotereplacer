@@ -14,6 +14,7 @@ import SelectedChannelStore from 'interfaces/modules/selectedChannelStore'
 import Uploader from 'interfaces/modules/uploader'
 import UserStore from 'interfaces/modules/userStore'
 import { BaseService } from './baseService'
+import { CloudUploader } from 'interfaces/modules/cloudUploader'
 
 export class ModulesService extends BaseService {
   selectedChannelStore!: SelectedChannelStore
@@ -31,6 +32,7 @@ export class ModulesService extends BaseService {
   userStore!: UserStore
   messageStore!: MessageStore
   classes!: Classes
+  cloudUploader!: CloudUploader
 
   public start (): Promise<void> {
     const [
@@ -52,7 +54,8 @@ export class ModulesService extends BaseService {
       Autocomplete,
       autocompleteAttached,
       Wrapper,
-      Size
+      Size,
+      cloudUploader
     ] = BdApi.Webpack.getBulk(
       {
         filter: BdApi.Webpack.Filters.byProps('getChannelId', 'getVoiceChannelId')
@@ -117,6 +120,15 @@ export class ModulesService extends BaseService {
         filter: BdApi.Webpack.Filters.byProps('wrapper', 'base')
       }, {
         filter: BdApi.Webpack.Filters.byProps('size12')
+      }, {
+        filter: (module: Record<string, unknown>) => {
+          return Object.values(module).some((value) => {
+            if (typeof value !== 'object' || value === null) return false
+            const curValue = value as Record<string, unknown>
+
+            return curValue.NOT_STARTED !== undefined && curValue.UPLOADING !== undefined
+          })
+        }
       }
     ) as [
       SelectedChannelStore,
@@ -137,7 +149,8 @@ export class ModulesService extends BaseService {
       Classes['Autocomplete'],
       AutocompleteAttached,
       Classes['Wrapper'],
-      Classes['Size']
+      Classes['Size'],
+      CloudUploader
     ]
 
     this.selectedChannelStore = selectedChannelStore
@@ -154,6 +167,7 @@ export class ModulesService extends BaseService {
     this.emojiStore = emojiStore
     this.userStore = userStore
     this.messageStore = messageStore
+    this.cloudUploader = cloudUploader
 
     this.classes = {
       TextArea,

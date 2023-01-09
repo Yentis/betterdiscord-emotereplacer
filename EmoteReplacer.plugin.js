@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 1.12.2
+ * @version 1.12.3
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -63,13 +63,9 @@ class LoggerClass {
 let Logger;
 
 const PLUGIN_CHANGELOG = [ {
-    title: "Improved",
-    type: "improved",
-    items: [ "Removed update checking as this is now built-in" ]
-}, {
     title: "Fixed",
     type: "fixed",
-    items: [ "Use browser version of Jimp", "Remove node module usage", "Fix all broken webpack filters", "Fix emote uploading", "Fix GIF processing" ]
+    items: [ "Emote upload not working", "Autocomplete for custom emotes not working" ]
 } ], DEFAULT_SETTINGS = {
     emoteSize: 48,
     autocompleteEmoteSize: 15,
@@ -107,6 +103,14 @@ function loadImagePromise(url) {
         }, image.onerror = () => {
             reject(new Error(`Failed to load image from url: ${url}`));
         }, image.src = url;
+    }));
+}
+
+function delay(duration) {
+    return new Promise((resolve => {
+        setTimeout((() => {
+            resolve();
+        }), duration);
     }));
 }
 
@@ -181,7 +185,7 @@ class CompletionsService extends BaseService {
           case 9:
           case 13:
             if (!this.prepareCompletions()) break;
-            event.stopPropagation(), event.preventDefault(), this.insertSelectedCompletion();
+            event.stopPropagation(), event.preventDefault(), this.insertSelectedCompletion().catch(console.error);
             break;
 
           case 38:
@@ -234,10 +238,11 @@ class CompletionsService extends BaseService {
         const {completions} = this.cached ?? {};
         return void 0 !== completions && 0 !== completions.length;
     }
-    insertSelectedCompletion() {
+    async insertSelectedCompletion() {
         const {completions, matchText, selectedIndex} = this.cached ?? {}, curDraft = this.draft, matchTextLength = matchText?.length ?? 0;
         if (void 0 === completions || void 0 === selectedIndex) return;
-        this.modulesService.draft.clearDraft(this.modulesService.selectedChannelStore.getChannelId(), 0);
+        this.modulesService.draft.clearDraft(this.modulesService.selectedChannelStore.getChannelId(), 0), 
+        await delay(0);
         const selectedCompletion = completions[selectedIndex];
         if (!selectedCompletion) return;
         const completionValueArguments = "string" == typeof selectedCompletion.data ? void 0 : selectedCompletion.data.arguments;
@@ -245,9 +250,9 @@ class CompletionsService extends BaseService {
         completionValueArguments && (completionValueArguments.some((argument => "" === argument)) || (suffix = "-")), 
         selectedCompletion.name += suffix;
         const newDraft = curDraft.substring(0, curDraft.length - matchTextLength);
-        this.modulesService.componentDispatcher.dispatch("INSERT_TEXT", {
+        this.destroyCompletions(), await delay(0), this.modulesService.componentDispatcher.dispatch("INSERT_TEXT", {
             plainText: newDraft + selectedCompletion.name
-        }), this.destroyCompletions();
+        });
     }
     destroyCompletions() {
         if (this.htmlService.getTextAreaContainer()) {
@@ -312,7 +317,7 @@ class CompletionsService extends BaseService {
                 name: "mousedown",
                 callback: evt => {
                     evt.preventDefault(), this.cached || (this.cached = {}), this.cached.selectedIndex = index + firstIndex, 
-                    this.insertSelectedCompletion();
+                    this.insertSelectedCompletion().catch(console.error);
                 }
             };
             emoteRow.addEventListener(mouseDownListener.name, mouseDownListener.callback), this.listenersService.addListener(`${CompletionsService.EMOTE_ROW_MOUSEDOWN_LISTENER}${index}`, mouseDownListener), 
@@ -23106,8 +23111,9 @@ class ModulesService extends BaseService {
     userStore;
     messageStore;
     classes;
+    cloudUploader;
     start() {
-        const [selectedChannelStore, channelStore, uploader, draft, permissions, discordPermissions, dispatcher, componentDispatcher, pendingReplyModule, emojiStore, emojiSearch, emojiDisabledReasons, userStore, messageStore, TextArea, Autocomplete, autocompleteAttached, Wrapper, Size] = BdApi.Webpack.getBulk({
+        const [selectedChannelStore, channelStore, uploader, draft, permissions, discordPermissions, dispatcher, componentDispatcher, pendingReplyModule, emojiStore, emojiSearch, emojiDisabledReasons, userStore, messageStore, TextArea, Autocomplete, autocompleteAttached, Wrapper, Size, cloudUploader] = BdApi.Webpack.getBulk({
             filter: BdApi.Webpack.Filters.byProps("getChannelId", "getVoiceChannelId")
         }, {
             filter: BdApi.Webpack.Filters.byProps("getChannel", "hasChannel")
@@ -23152,13 +23158,19 @@ class ModulesService extends BaseService {
             filter: BdApi.Webpack.Filters.byProps("wrapper", "base")
         }, {
             filter: BdApi.Webpack.Filters.byProps("size12")
+        }, {
+            filter: module => Object.values(module).some((value => {
+                if ("object" != typeof value || null === value) return !1;
+                const curValue = value;
+                return void 0 !== curValue.NOT_STARTED && void 0 !== curValue.UPLOADING;
+            }))
         });
         return this.selectedChannelStore = selectedChannelStore, this.channelStore = channelStore, 
         this.uploader = uploader, this.draft = draft, this.permissions = permissions, this.discordPermissions = discordPermissions, 
         this.dispatcher = dispatcher, this.componentDispatcher = componentDispatcher, this.pendingReplyDispatcher.module = pendingReplyModule, 
         this.emojiSearch = emojiSearch, this.emojiDisabledReasons = emojiDisabledReasons, 
         this.emojiStore = emojiStore, this.userStore = userStore, this.messageStore = messageStore, 
-        this.classes = {
+        this.cloudUploader = cloudUploader, this.classes = {
             TextArea,
             Autocomplete: {
                 ...Autocomplete,
@@ -24209,19 +24221,22 @@ class SendMessageService extends BaseService {
     }
     uploadFile(params) {
         const {fileData, fullName, emote} = params, content = emote.content ?? "", channelId = emote.channel ?? "";
-        channelId ? this.modulesService.uploader.upload({
-            channelId,
+        if (!channelId) return void Logger.error("Channel ID not found for emote:", emote);
+        const upload = new this.modulesService.cloudUploader.n({
             file: new File([ fileData ], fullName),
+            platform: 1
+        }, channelId);
+        upload.spoiler = emote.spoiler, this.modulesService.uploader.uploadFiles({
+            channelId,
+            uploads: [ upload ],
             draftType: 0,
-            message: {
+            parsedMessage: {
                 content,
                 invalidEmojis: [],
                 tts: !1,
                 channel_id: channelId
-            },
-            hasSpoiler: emote.spoiler,
-            filename: fullName
-        }) : Logger.error("Channel ID not found for emote:", emote);
+            }
+        });
     }
     async compress(originalFile, commands) {
         const result = await function fileReaderPromise(blob) {

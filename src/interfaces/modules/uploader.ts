@@ -1,12 +1,11 @@
 import Message from 'interfaces/message'
+import { Upload } from 'interfaces/upload'
 
 export default interface Uploader {
-  upload: (options: {
+  uploadFiles: (options: {
     channelId: string,
-    file: File,
+    uploads: Upload[],
     draftType: number,
-    message: Message,
-    hasSpoiler: boolean,
-    filename: string
+    parsedMessage: Message
   }) => void
 }

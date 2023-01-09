@@ -1,18 +1,9 @@
 export const PLUGIN_CHANGELOG = [{
-  title: 'Improved',
-  type: 'improved',
-  items: [
-    'Removed update checking as this is now built-in'
-  ]
-}, {
   title: 'Fixed',
   type: 'fixed',
   items: [
-    'Use browser version of Jimp',
-    'Remove node module usage',
-    'Fix all broken webpack filters',
-    'Fix emote uploading',
-    'Fix GIF processing'
+    'Emote upload not working',
+    'Autocomplete for custom emotes not working'
   ]
 }]
 
