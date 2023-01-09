@@ -1,5 +1,11 @@
 export const PLUGIN_CHANGELOG = [{
-  title: 'Fixed',
+  title: '1.12.4',
+  type: 'fixed',
+  items: [
+    'Reply upload not working'
+  ]
+}, {
+  title: '1.12.3',
   type: 'fixed',
   items: [
     'Emote upload not working',

@@ -1,4 +1,5 @@
 export interface PendingReplyDispatcher {
-  key?: string
+  createPendingReplyKey?: string
+  deletePendingReplyKey?: string
   module?: Record<string, unknown>
 }

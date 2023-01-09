@@ -1,3 +1,4 @@
+import { PendingReply } from 'interfaces/pendingReply'
 import { BaseService } from './baseService'
 import { ModulesService } from './modulesService'
 
@@ -5,7 +6,8 @@ export class AttachService extends BaseService {
   modulesService!: ModulesService
 
   canAttach = false
-  pendingUpload: Promise<void> | undefined
+  pendingUpload?: Promise<void>
+  pendingReply?: PendingReply
 
   onMessagesLoaded: ((data: { channelId: string }) => void) | undefined
   onChannelSelect: ((data: { channelId: string }) => void) | undefined

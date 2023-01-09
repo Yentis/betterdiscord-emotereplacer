@@ -147,7 +147,8 @@ interface ComponentDispatcher {
     };
 }
 interface PendingReplyDispatcher {
-    key?: string;
+    createPendingReplyKey?: string;
+    deletePendingReplyKey?: string;
     module?: Record<string, unknown>;
 }
 interface EmojiDisabledReasons {
@@ -196,6 +197,7 @@ interface Emoji {
     managed: boolean;
 }
 interface Message {
+    id?: string;
     content: string;
     channel_id: string;
     tts: boolean;
@@ -205,13 +207,21 @@ interface Message {
 interface Upload {
     spoiler: boolean;
 }
+interface UploadOptions {
+    channelId: string;
+    uploads: Upload[];
+    draftType: number;
+    parsedMessage: Message;
+    options?: {
+        messageReference: {
+            channel_id: string;
+            guild_id: string;
+            message_id?: string;
+        };
+    };
+}
 interface Uploader {
-    uploadFiles: (options: {
-        channelId: string;
-        uploads: Upload[];
-        draftType: number;
-        parsedMessage: Message;
-    }) => void;
+    uploadFiles: (options: UploadOptions) => void;
 }
 interface UserStore {
     getCurrentUser: () => {
@@ -344,10 +354,15 @@ declare class CompletionsService extends BaseService {
     private scrollWindow;
     stop(): void;
 }
+interface PendingReply {
+    message: Message;
+    channel: Channel;
+}
 declare class AttachService extends BaseService {
     modulesService: ModulesService;
     canAttach: boolean;
-    pendingUpload: Promise<void> | undefined;
+    pendingUpload?: Promise<void>;
+    pendingReply?: PendingReply;
     onMessagesLoaded: ((data: {
         channelId: string;
     }) => void) | undefined;

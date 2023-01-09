@@ -14,6 +14,7 @@ import { Pica } from 'pica'
 // @ts-ignore
 import pica from 'libraries/pica/index'
 import { GifsicleService } from './gifsicleService'
+import { UploadOptions } from 'interfaces/modules/uploader'
 
 export class SendMessageService extends BaseService {
   emoteService!: EmoteService
@@ -402,12 +403,25 @@ export class SendMessageService extends BaseService {
     )
     upload.spoiler = emote.spoiler
 
-    this.modulesService.uploader.uploadFiles({
+    const uploadOptions: UploadOptions = {
       channelId,
       uploads: [upload],
       draftType: 0,
       parsedMessage: { content, invalidEmojis: [], tts: false, channel_id: channelId }
-    })
+    }
+
+    const pendingReply = this.attachService.pendingReply
+    if (pendingReply) {
+      uploadOptions.options = {
+        messageReference: {
+          channel_id: pendingReply.message.channel_id,
+          guild_id: pendingReply.channel.guild_id,
+          message_id: pendingReply.message.id
+        }
+      }
+    }
+
+    this.modulesService.uploader.uploadFiles(uploadOptions)
   }
 
   private async compress (

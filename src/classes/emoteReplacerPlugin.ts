@@ -1,6 +1,6 @@
 import { Plugin } from 'betterdiscord'
 import changeDraftPatch from 'patches/changeDraft'
-import deletePendingReplyPatch from 'patches/deletePendingReply'
+import pendingReplyPatch from 'patches/pendingReply'
 import emojiSearchPatch from 'patches/emojiSearch'
 import lockedEmojisPatch from 'patches/lockedEmojis'
 import {
@@ -130,7 +130,7 @@ export class EmoteReplacerPlugin implements Plugin {
       this.modulesService
     )
 
-    deletePendingReplyPatch(pluginName, this.attachService, this.modulesService)
+    pendingReplyPatch(pluginName, this.attachService, this.modulesService)
     emojiSearchPatch(pluginName, this.attachService, this.modulesService)
     lockedEmojisPatch(pluginName, this.attachService, this.modulesService)
   }

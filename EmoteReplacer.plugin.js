@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 1.12.3
+ * @version 1.12.4
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -63,7 +63,11 @@ class LoggerClass {
 let Logger;
 
 const PLUGIN_CHANGELOG = [ {
-    title: "Fixed",
+    title: "1.12.4",
+    type: "fixed",
+    items: [ "Reply upload not working" ]
+}, {
+    title: "1.12.3",
     type: "fixed",
     items: [ "Emote upload not working", "Autocomplete for custom emotes not working" ]
 } ], DEFAULT_SETTINGS = {
@@ -497,6 +501,7 @@ class AttachService extends BaseService {
     modulesService;
     canAttach=!1;
     pendingUpload;
+    pendingReply;
     onMessagesLoaded;
     onChannelSelect;
     async start(modulesService) {
@@ -23132,11 +23137,11 @@ class ModulesService extends BaseService {
             filter: module => void 0 !== module.dispatchToLastSubscribed && module.emitter.listeners("SHAKE_APP").length > 0,
             searchExports: !0
         }, {
-            filter: module => {
-                const deletePendingReply = Object.entries(module).find((([_key, value]) => "function" == typeof value && value.toString().includes("DELETE_PENDING_REPLY")));
-                return deletePendingReply && (this.pendingReplyDispatcher.key = deletePendingReply[0]), 
-                !!deletePendingReply;
-            }
+            filter: module => (Object.entries(module).forEach((([key, value]) => {
+                if ("function" != typeof value) return;
+                const valueString = value.toString();
+                valueString.includes("DELETE_PENDING_REPLY") ? this.pendingReplyDispatcher.deletePendingReplyKey = key : valueString.includes("CREATE_PENDING_REPLY") && (this.pendingReplyDispatcher.createPendingReplyKey = key);
+            })), void 0 !== this.pendingReplyDispatcher.deletePendingReplyKey)
         }, {
             filter: BdApi.Webpack.Filters.byProps("getEmojiUnavailableReason")
         }, {
@@ -24226,7 +24231,8 @@ class SendMessageService extends BaseService {
             file: new File([ fileData ], fullName),
             platform: 1
         }, channelId);
-        upload.spoiler = emote.spoiler, this.modulesService.uploader.uploadFiles({
+        upload.spoiler = emote.spoiler;
+        const uploadOptions = {
             channelId,
             uploads: [ upload ],
             draftType: 0,
@@ -24236,7 +24242,14 @@ class SendMessageService extends BaseService {
                 tts: !1,
                 channel_id: channelId
             }
-        });
+        }, pendingReply = this.attachService.pendingReply;
+        pendingReply && (uploadOptions.options = {
+            messageReference: {
+                channel_id: pendingReply.message.channel_id,
+                guild_id: pendingReply.channel.guild_id,
+                message_id: pendingReply.message.id
+            }
+        }), this.modulesService.uploader.uploadFiles(uploadOptions);
     }
     async compress(originalFile, commands) {
         const result = await function fileReaderPromise(blob) {
@@ -24410,16 +24423,24 @@ var index = void 0 === window.ZeresPluginLibrary ? class RawPlugin {
                 }
             }(args, attachService, completionsService, emoteService)));
         })(pluginName, this.attachService, this.completionsService, this.emoteService, this.modulesService), 
-        function deletePendingReplyPatch(pluginName, attachService, modulesService) {
-            const functionName = modulesService.pendingReplyDispatcher.key;
-            void 0 !== functionName ? BdApi.Patcher.instead(pluginName, modulesService.pendingReplyDispatcher.module, functionName, ((_, args, original) => async function onDeletePendingReply(args, original, attachService) {
+        function pendingReplyPatch(pluginName, attachService, modulesService) {
+            const pendingReplyDispatcher = modulesService.pendingReplyDispatcher, createPendingReply = pendingReplyDispatcher.createPendingReplyKey;
+            if (void 0 === createPendingReply) return void Logger.warn("Create pending reply function name not found");
+            const deletePendingReply = pendingReplyDispatcher.deletePendingReplyKey;
+            void 0 !== deletePendingReply ? (BdApi.Patcher.before(pluginName, pendingReplyDispatcher.module, createPendingReply, ((_, args) => {
+                if (!args[0]) return;
+                const reply = args[0];
+                attachService.pendingReply = reply;
+            })), BdApi.Patcher.instead(pluginName, pendingReplyDispatcher.module, deletePendingReply, ((_, args, original) => async function onDeletePendingReply(args, original, attachService) {
                 const callDefault = original;
                 try {
                     attachService.pendingUpload && await attachService.pendingUpload, callDefault(...args);
                 } catch (err) {
                     Logger.warn("Error in onDeletePendingReply", err);
+                } finally {
+                    attachService.pendingReply = void 0;
                 }
-            }(args, original, attachService))) : Logger.warn("Pending reply function name not found");
+            }(args, original, attachService)))) : Logger.warn("Delete pending reply function name not found");
         }(pluginName, this.attachService, this.modulesService), function emojiSearchPatch(pluginName, attachService, modulesService) {
             BdApi.Patcher.after(pluginName, modulesService.emojiSearch, "search", ((_, _2, result) => function onEmojiSearch(result, attachService) {
                 if (!attachService.canAttach) return;
