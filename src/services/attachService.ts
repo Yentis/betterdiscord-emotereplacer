@@ -6,6 +6,8 @@ export class AttachService extends BaseService {
   modulesService!: ModulesService
 
   canAttach = false
+  externalEmotes = new Set<string>()
+
   pendingUpload?: Promise<void>
   pendingReply?: PendingReply
 
@@ -52,6 +54,8 @@ export class AttachService extends BaseService {
   }
 
   private setCanAttach (_channelId: string | undefined, userId: string): void {
+    this.externalEmotes.clear()
+
     const channelId = _channelId ?? ''
     if (!channelId) {
       this.canAttach = true
@@ -70,8 +74,12 @@ export class AttachService extends BaseService {
       return
     }
 
-    const attachFilesPermission = this.modulesService.discordPermissions.ATTACH_FILES
-    this.canAttach = this.modulesService.permissions.can(attachFilesPermission, channel, userId)
+    const permissions = this.modulesService.discordPermissions
+    this.canAttach = this.modulesService.permissions.can(
+      permissions.ATTACH_FILES,
+      channel,
+      userId
+    )
   }
 
   private initChannelSubscription (userId: string): void {

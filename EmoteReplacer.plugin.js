@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 1.12.4
+ * @version 1.13.0
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -11,7 +11,7 @@
 
 "use strict";
 
-var https = require("https"), require$$0 = require("fs");
+var https = require("https"), fs = require("fs");
 
 function _interopDefaultLegacy(e) {
     return e && "object" == typeof e && "default" in e ? e : {
@@ -35,7 +35,7 @@ function _interopNamespace(e) {
     })), n.default = e, Object.freeze(n);
 }
 
-var https__default = _interopDefaultLegacy(https), require$$0__default = _interopDefaultLegacy(require$$0);
+var https__default = _interopDefaultLegacy(https), fs__default = _interopDefaultLegacy(fs);
 
 function setLogger(pluginName) {
     Logger = new LoggerClass(pluginName);
@@ -63,13 +63,13 @@ class LoggerClass {
 let Logger;
 
 const PLUGIN_CHANGELOG = [ {
-    title: "1.12.4",
-    type: "fixed",
-    items: [ "Reply upload not working" ]
+    title: "Added",
+    type: "added",
+    items: [ "It's now possible to add custom emotes directly from your PC instead of entering a URL", "Allow uploading images to channels that don't allow external emotes", "Emotes are now shown as disabled in the reactions menu, as they cannot be used for reacting" ]
 }, {
-    title: "1.12.3",
+    title: "Fixed",
     type: "fixed",
-    items: [ "Emote upload not working", "Autocomplete for custom emotes not working" ]
+    items: [ "Custom emote menu no longer shows broken emotes from the standard set", "Custom emotes starting with numbers or containing spaces can now be removed" ]
 } ], DEFAULT_SETTINGS = {
     emoteSize: 48,
     autocompleteEmoteSize: 15,
@@ -83,31 +83,40 @@ const PLUGIN_CHANGELOG = [ {
 
 let Buffer$1;
 
-function httpsGetBuffer(url) {
-    return new Promise(((resolve, reject) => {
-        https__default.default.get(url, (res => {
-            const buffers = [];
-            res.on("data", (chunk => {
-                buffers.push(chunk);
-            })), res.on("end", (() => {
-                const statusCode = res.statusCode ?? 0;
-                0 !== statusCode && (statusCode < 200 || statusCode >= 400) ? reject(new Error(res.statusMessage)) : resolve(Buffer$1.concat(buffers));
+function urlGetBuffer(url) {
+    return url.startsWith("http") ? function httpsGetBuffer(url) {
+        return new Promise(((resolve, reject) => {
+            https__default.default.get(url, (res => {
+                const buffers = [];
+                res.on("data", (chunk => {
+                    buffers.push(chunk);
+                })), res.on("end", (() => {
+                    const statusCode = res.statusCode ?? 0;
+                    0 !== statusCode && (statusCode < 200 || statusCode >= 400) ? reject(new Error(res.statusMessage)) : resolve(Buffer$1.concat(buffers));
+                }));
+            })).on("error", (error => {
+                reject(error);
             }));
-        })).on("error", (error => {
-            reject(error);
         }));
-    }));
+    }(url) : async function fsGetBuffer(url) {
+        const data = fs__default.default.readFileSync(url, "");
+        return await Promise.resolve(Buffer$1.from(data));
+    }(url);
 }
 
-function loadImagePromise(url) {
-    return new Promise(((resolve, reject) => {
-        const image = new Image;
+async function loadImagePromise(url, waitForLoad = !0, element) {
+    const image = element ?? new Image, loadPromise = new Promise(((resolve, reject) => {
         image.onload = () => {
-            resolve(image);
+            resolve();
         }, image.onerror = () => {
-            reject(new Error(`Failed to load image from url: ${url}`));
-        }, image.src = url;
+            reject(new Error(`Failed to load image for url ${url}`));
+        };
     }));
+    if (url.startsWith("http") && !waitForLoad) image.src = url; else {
+        const buffer = await urlGetBuffer(url);
+        image.src = URL.createObjectURL(new Blob([ buffer ]));
+    }
+    return waitForLoad && await loadPromise, image;
 }
 
 function delay(duration) {
@@ -299,8 +308,8 @@ class CompletionsService extends BaseService {
         this.htmlService.addClasses(contentTitle, discordClasses.Autocomplete.contentTitle, discordClasses.Wrapper.base, discordClasses.Size.size12), 
         contentTitle.innerText = isEmote ? "Emoji matching " : "Commands ", selector.append(contentTitle);
         const matchTextElement = document.createElement("strong");
-        matchTextElement.textContent = matchText ?? "", contentTitle.append(matchTextElement), 
-        matchList?.forEach((({name, data}, index) => {
+        matchTextElement.textContent = matchText ?? "", contentTitle.append(matchTextElement);
+        for (const [index, {name, data}] of matchList?.entries() ?? []) {
             const emoteRow = document.createElement("div");
             emoteRow.setAttribute("aria-disabled", "false"), this.htmlService.addClasses(emoteRow, discordClasses.Autocomplete.clickable, discordClasses.Autocomplete.autocompleteRowVertical, discordClasses.Autocomplete.autocompleteRowVerticalSmall);
             const mouseEnterListener = {
@@ -336,12 +345,11 @@ class CompletionsService extends BaseService {
                 this.htmlService.addClasses(containerIcon, discordClasses.Autocomplete.autocompleteRowIcon), 
                 emoteContainer.append(containerIcon);
                 const settingsAutocompleteEmoteSize = this.settingsService.settings.autocompleteEmoteSize, containerImage = document.createElement("img");
-                containerImage.src = "string" == typeof data ? data : "", containerImage.alt = name, 
-                containerImage.title = name, containerImage.style.minWidth = `${Math.round(settingsAutocompleteEmoteSize)}px`, 
+                containerImage.alt = name, containerImage.title = name, containerImage.style.minWidth = `${Math.round(settingsAutocompleteEmoteSize)}px`, 
                 containerImage.style.minHeight = `${Math.round(settingsAutocompleteEmoteSize)}px`, 
                 containerImage.style.width = `${Math.round(settingsAutocompleteEmoteSize)}px`, containerImage.style.height = `${Math.round(settingsAutocompleteEmoteSize)}px`, 
                 this.htmlService.addClasses(containerImage, discordClasses.Autocomplete.emojiImage), 
-                containerIcon.append(containerImage);
+                containerIcon.append(containerImage), "string" == typeof data && loadImagePromise(data, !1, containerImage).catch(console.error);
             }
             const containerContent = document.createElement("div");
             if (containerContent.style.color = "var(--interactive-active)", this.htmlService.addClasses(containerContent, discordClasses.Autocomplete.autocompleteRowContentPrimary), 
@@ -354,7 +362,7 @@ class CompletionsService extends BaseService {
                 containerContentInfo.style.color = "var(--interactive-normal)", containerContentInfo.textContent = data.info, 
                 containerContent.append(containerContentInfo);
             }
-        }));
+        }
     }), 250);
     scrollCompletions(e, options) {
         const delta = Math.sign(e.deltaY);
@@ -406,10 +414,10 @@ class EmoteService extends BaseService {
     }
     async getEmoteNames() {
         if (!this.settingsService.settings.showStandardEmotes) return {};
-        const data = await httpsGetBuffer("https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/emotes.json"), emoteNames = JSON.parse(data.toString());
+        const data = await urlGetBuffer("https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/emotes.json"), emoteNames = JSON.parse(data.toString());
         return Object.keys(emoteNames).forEach((key => {
             const split = emoteNames[key]?.split("."), [name, extension] = split ?? [];
-            void 0 !== name && void 0 !== extension && (emoteNames[name] = `https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/images/${key}.${extension}`);
+            delete emoteNames[key], void 0 !== name && void 0 !== extension && (emoteNames[name] = `https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/images/${key}.${extension}`);
         })), emoteNames;
     }
     setEmoteNames(emoteNames) {
@@ -427,7 +435,7 @@ class EmoteService extends BaseService {
         };
     }
     async getModifiers() {
-        const data = await httpsGetBuffer("https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/modifiers.json");
+        const data = await urlGetBuffer("https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/modifiers.json");
         return JSON.parse(data.toString());
     }
     getPrefixedName(name) {
@@ -500,6 +508,7 @@ class EmoteService extends BaseService {
 class AttachService extends BaseService {
     modulesService;
     canAttach=!1;
+    externalEmotes=new Set;
     pendingUpload;
     pendingReply;
     onMessagesLoaded;
@@ -528,13 +537,14 @@ class AttachService extends BaseService {
         }));
     }
     setCanAttach(_channelId, userId) {
+        this.externalEmotes.clear();
         const channelId = _channelId ?? "";
         if (!channelId) return void (this.canAttach = !0);
         const channel = this.modulesService.channelStore.getChannel(channelId);
         if (!channel) return void (this.canAttach = !0);
         if (!channel.guild_id) return void (this.canAttach = !0);
-        const attachFilesPermission = this.modulesService.discordPermissions.ATTACH_FILES;
-        this.canAttach = this.modulesService.permissions.can(attachFilesPermission, channel, userId);
+        const permissions = this.modulesService.discordPermissions;
+        this.canAttach = this.modulesService.permissions.can(permissions.ATTACH_FILES, channel, userId);
     }
     initChannelSubscription(userId) {
         this.onChannelSelect = data => {
@@ -563,8 +573,10 @@ class SettingsService extends BaseService {
         const emoteService = this.plugin.emoteService;
         if (!emoteService) return new HTMLElement;
         const Settings = this.zeresPluginLibrary.Settings, settings = [];
-        let emoteName;
         this.pushRegularSettings(settings, emoteService);
+        const emoteFolderPicker = document.createElement("input");
+        let emoteName;
+        emoteFolderPicker.type = "file", emoteFolderPicker.multiple = !0, emoteFolderPicker.accept = ".png,.gif";
         const emoteNameTextbox = new Settings.Textbox(void 0, "Emote name", void 0, (val => {
             emoteName = val;
         }));
@@ -577,27 +589,35 @@ class SettingsService extends BaseService {
             element: addButton,
             name: "click",
             callback: () => {
-                if (!emoteName) return void BdApi.showToast("No emote name entered!", {
-                    type: "error"
-                });
-                if (!imageUrl) return void BdApi.showToast("No image URL entered!", {
-                    type: "error"
-                });
-                if (!imageUrl.endsWith(".gif") && !imageUrl.endsWith(".png")) return void BdApi.showToast("Image URL must end with .gif or .png!", {
-                    type: "error"
-                });
-                const emoteNames = emoteService.emoteNames ?? {};
-                if (emoteNames[emoteService.getPrefixedName(emoteName)]) return void BdApi.showToast("Emote name already exists!", {
-                    type: "error"
-                });
-                this.settings.customEmotes[emoteName] = imageUrl, emoteNames[emoteService.getPrefixedName(emoteName)] = imageUrl;
-                const emoteNameTextboxInput = emoteNameTextbox.getElement().querySelector("input");
-                emoteNameTextboxInput && (emoteNameTextboxInput.value = "");
-                const imageUrlTextboxInput = imageUrlTextbox.getElement().querySelector("input");
-                imageUrlTextboxInput && (imageUrlTextboxInput.value = ""), BdApi.saveData(this.plugin.meta.name, "settings", this.settings), 
-                emoteService.emoteNames = emoteNames, BdApi.showToast(`Emote ${emoteName} has been saved!`, {
-                    type: "success"
-                }), customEmotesContainer.append(this.createCustomEmoteContainer(emoteName, customEmotesContainer, emoteService));
+                const files = emoteFolderPicker.files ?? [], addPromises = (files.length > 0 ? Array.from(files).map((file => {
+                    const fileName = file.name.substring(0, file.name.lastIndexOf("."));
+                    return this.addEmote(fileName, file.path);
+                })) : [ this.addEmote(emoteName, imageUrl) ]).map((async promise => {
+                    const emoteName = await promise;
+                    customEmotesContainer.append(this.createCustomEmoteContainer(emoteName, customEmotesContainer, emoteService));
+                }));
+                Promise.allSettled(addPromises).then((results => {
+                    const errors = [];
+                    results.forEach((result => {
+                        "fulfilled" !== result.status && (errors.push(result.reason), console.error(result.reason));
+                    }));
+                    const firstError = errors[0];
+                    if (firstError && (BdApi.showToast(`${firstError.message}${errors.length > 1 ? "\nSee console for all errors" : ""}`, {
+                        type: "error"
+                    }), 1 === addPromises.length)) return;
+                    emoteFolderPicker.value = "";
+                    const emoteNameTextboxInput = emoteNameTextbox.getElement().querySelector("input");
+                    emoteNameTextboxInput && (emoteNameTextboxInput.value = "");
+                    const imageUrlTextboxInput = imageUrlTextbox.getElement().querySelector("input");
+                    imageUrlTextboxInput && (imageUrlTextboxInput.value = ""), BdApi.saveData(this.plugin.meta.name, "settings", this.settings), 
+                    BdApi.showToast("Emote(s) have been saved", {
+                        type: "success"
+                    });
+                })).catch((error => {
+                    BdApi.showToast(error.message, {
+                        type: "error"
+                    });
+                }));
             }
         };
         addButton.addEventListener(addListener.name, addListener.callback), this.listenersService.addListener(SettingsService.ADD_BUTTON_CLICK_LISTENER, addListener), 
@@ -605,7 +625,7 @@ class SettingsService extends BaseService {
             customEmotesContainer.append(this.createCustomEmoteContainer(key, customEmotesContainer, emoteService));
         }));
         const customEmoteGroup = new Settings.SettingGroup("Custom emotes");
-        customEmoteGroup.append(emoteNameTextbox, imageUrlTextbox, addSettingField, customEmotesContainer), 
+        customEmoteGroup.append(emoteFolderPicker, emoteNameTextbox, imageUrlTextbox, addSettingField, customEmotesContainer), 
         settings.push(customEmoteGroup);
         const refreshButton = document.createElement("button");
         refreshButton.type = "button", refreshButton.classList.add("bd-button"), refreshButton.textContent = "Refresh emote list";
@@ -621,6 +641,17 @@ class SettingsService extends BaseService {
         settings.push(refreshSettingField), Settings.SettingPanel.build((() => {
             BdApi.saveData(this.plugin.meta.name, "settings", this.settings);
         }), ...settings);
+    }
+    async addEmote(emoteName, imageUrl) {
+        if (!emoteName) throw new Error("No emote name entered!");
+        if (!imageUrl) throw new Error("No image URL entered!");
+        if (!imageUrl.endsWith(".gif") && !imageUrl.endsWith(".png")) throw new Error("Image URL must end with .gif or .png!");
+        const emoteService = this.plugin.emoteService;
+        if (!emoteService) throw new Error("Emote service not found");
+        const emoteNames = emoteService.emoteNames ?? {};
+        if (emoteNames[emoteService.getPrefixedName(emoteName)]) throw new Error("Emote name already exists!");
+        return this.settings.customEmotes[emoteName] = imageUrl, emoteNames[emoteService.getPrefixedName(emoteName)] = imageUrl, 
+        emoteService.emoteNames = emoteNames, await Promise.resolve(emoteName);
     }
     pushRegularSettings(settings, emoteService) {
         const Settings = this.zeresPluginLibrary.Settings;
@@ -665,13 +696,13 @@ class SettingsService extends BaseService {
     createCustomEmoteContainer(emoteName, container, emoteService) {
         const Settings = this.zeresPluginLibrary.Settings, customEmoteContainer = document.createElement("div");
         customEmoteContainer.style.display = "flex";
-        const containerImage = document.createElement("img");
-        containerImage.src = this.settings.customEmotes[emoteName] ?? "", containerImage.alt = emoteName, 
-        containerImage.title = emoteName, containerImage.style.minWidth = `${Math.round(this.settings.autocompleteEmoteSize)}px`, 
+        const url = this.settings.customEmotes[emoteName] ?? "", containerImage = document.createElement("img");
+        containerImage.alt = emoteName, containerImage.title = emoteName, containerImage.style.minWidth = `${Math.round(this.settings.autocompleteEmoteSize)}px`, 
         containerImage.style.minHeight = `${Math.round(this.settings.autocompleteEmoteSize)}px`, 
         containerImage.style.width = `${Math.round(this.settings.autocompleteEmoteSize)}px`, 
         containerImage.style.height = `${Math.round(this.settings.autocompleteEmoteSize)}px`, 
-        containerImage.style.marginRight = "0.5rem", customEmoteContainer.append(containerImage);
+        containerImage.style.marginRight = "0.5rem", customEmoteContainer.append(containerImage), 
+        loadImagePromise(url, !1, containerImage).catch(console.error);
         const deleteButton = document.createElement("button");
         deleteButton.type = "button", deleteButton.classList.add("bd-button", "bd-button-danger"), 
         deleteButton.innerHTML = '<svg class="" fill="#FFFFFF" viewBox="0 0 24 24" style="width: 20px; height: 20px;"><path fill="none" d="M0 0h24v24H0V0z"></path><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"></path><path fill="none" d="M0 0h24v24H0z"></path></svg>', 
@@ -683,7 +714,7 @@ class SettingsService extends BaseService {
                 delete this.settings.customEmotes[emoteName], emoteService.emoteNames && delete emoteService.emoteNames[emoteService.getPrefixedName(emoteName)], 
                 BdApi.saveData(this.plugin.meta.name, "settings", this.settings), BdApi.showToast(`Emote ${emoteName} has been deleted!`, {
                     type: "success"
-                }), container.querySelector(`#${emoteName}`)?.remove();
+                }), document.getElementById(emoteName)?.remove();
             }
         };
         deleteButton.addEventListener(deleteListener.name, deleteListener.callback), this.listenersService.addListener(`${SettingsService.DELETE_BUTTON_CLICK_LISTENER}${emoteName}`, deleteListener);
@@ -3235,7 +3266,7 @@ class GifFrame$2 extends BitmapImage$1 {
 
 GifFrame$2.DisposeToAnything = 0, GifFrame$2.DisposeNothing = 1, GifFrame$2.DisposeToBackgroundColor = 2, 
 GifFrame$2.DisposeToPrevious = 3, gifframe.GifFrame = GifFrame$2, function(exports) {
-    const fs = require$$0__default.default, ImageQ = imageQ, BitmapImage = bitmapimage, {GifFrame} = gifframe, {GifError} = gif, INVALID_SUFFIXES = [ ".jpg", ".jpeg", ".png", ".bmp" ];
+    const fs = fs__default.default, ImageQ = imageQ, BitmapImage = bitmapimage, {GifFrame} = gifframe, {GifError} = gif, INVALID_SUFFIXES = [ ".jpg", ".jpeg", ".png", ".bmp" ];
     function _quantize(imageOrImages, method, maxColorIndexes, modifier, dither) {
         const images = Array.isArray(imageOrImages) ? imageOrImages : [ imageOrImages ];
         if (dither) {
@@ -3562,9 +3593,7 @@ var src = {
 };
 
 async function getGifFromBuffer(data) {
-    const buffer = await async function getBuffer(data) {
-        return Buffer$1.isBuffer(data) ? data : "string" == typeof data ? httpsGetBuffer(data) : Buffer$1.from([]);
-    }(data), gif = await (new src.GifCodec).decodeGif(buffer);
+    const buffer = data, gif = await (new src.GifCodec).decodeGif(buffer);
     if (gif.frames.length > 200) throw Error("Image too large, advanced modifiers not supported!");
     return gif;
 }
@@ -22747,7 +22776,7 @@ class GifsicleService extends BaseService {
     }
     async processCommands(url, commands) {
         const fileType = url.endsWith("gif") ? "gif" : "png";
-        let size, buffer = url;
+        let size, buffer = await urlGetBuffer(url);
         if ("gif" === fileType && (commands.priority.length > 0 && (buffer = await this.doModification(buffer, commands.priority)), 
         buffer = await this.doModification(buffer, [ {
             name: "--unoptimize"
@@ -22768,12 +22797,11 @@ class GifsicleService extends BaseService {
         if (0 === data.length) return Buffer$1.concat([]);
         let retryCount = _retryCount;
         const gifsicleParams = [];
-        let buffer;
         options.forEach((option => {
             const param = option.param ?? "";
             gifsicleParams.push(option.name), "" !== param && gifsicleParams.push(param.toString());
-        })), buffer = Buffer$1.isBuffer(data) ? data : await httpsGetBuffer(data);
-        const result = (await gifsicle.run({
+        }));
+        const buffer = data, result = (await gifsicle.run({
             input: [ {
                 file: buffer.buffer,
                 name: "1.gif"
@@ -22821,7 +22849,6 @@ class GifsicleService extends BaseService {
                     }
                     return encoder.finish(), encoder.getAndResetBuffer();
                 }(options) : async function createRotatedPNG(options) {
-                    if (options.buffer instanceof Buffer) throw Error("Was given a buffer instead of a path");
                     let image = await Jimp$7.read(options.buffer);
                     const {width, height} = preparePNGVariables(options, image.bitmap), degrees = options.value, {max, margin} = prepareRotateVariables(width, height), encoder = new GIFEncoder(max, max);
                     image.resize(width, height);
@@ -22849,7 +22876,6 @@ class GifsicleService extends BaseService {
                     }
                     return encoder.finish(), encoder.getAndResetBuffer();
                 }(options) : async function createSpinningPNG(options) {
-                    if (options.buffer instanceof Buffer) throw Error("Was given a buffer instead of a path");
                     let image = await Jimp$6.read(options.buffer);
                     const {width, height} = preparePNGVariables(options, image.bitmap), {degrees, interval, max, margin} = prepareSpinVariables(options.value, 200 * options.value / 8, "spinrev" === options.name, width, height), encoder = new GIFEncoder(max, max);
                     image.resize(width, height);
@@ -22903,7 +22929,6 @@ class GifsicleService extends BaseService {
                     }
                     return encoder.finish(), encoder.getAndResetBuffer();
                 }(options) : async function createShakingPNG(options) {
-                    if (options.buffer instanceof Buffer) throw Error("Was given a buffer instead of a path");
                     const image = await Jimp$5.read(options.buffer), {width, height, encoder} = preparePNGVariables(options, image.bitmap);
                     image.resize(width, height), setEncoderProperties(encoder, 10 * options.value);
                     for (let i = 0; i < 4; i++) {
@@ -22941,7 +22966,6 @@ class GifsicleService extends BaseService {
                         encoder.addFrame(frame.bitmap.data);
                     })), encoder.finish(), encoder.getAndResetBuffer();
                 }(options) : async function createRainbowPNG(options) {
-                    if (options.buffer instanceof Buffer) throw Error("Was given a buffer instead of a path");
                     const image = await Jimp$4.read(options.buffer), {width, height, encoder} = preparePNGVariables(options, image.bitmap);
                     image.resize(width, height), setEncoderProperties(encoder, 10 * options.value);
                     const randomBlack = Math.random(), randomWhite = Math.random();
@@ -22969,7 +22993,6 @@ class GifsicleService extends BaseService {
                         encoder.addFrame(wiggledBitmap.data), [shift, left] = shiftWiggleStep(shift, left, margin, shiftSize);
                     })), encoder.finish(), encoder.getAndResetBuffer();
                 }(options) : async function createWigglingPNG(options) {
-                    if (options.buffer instanceof Buffer) throw Error("Was given a buffer instead of a path");
                     const image = await Jimp$3.read(options.buffer), {width: imgWidth, height} = preparePNGVariables(options, image.bitmap);
                     image.resize(imgWidth, height);
                     const width = imgWidth + 2 * Math.floor(imgWidth * options.value * 0.1 / 15), margin = width - imgWidth, encoder = new GIFEncoder(width, height), wiggleVariables = prepareWiggleVariables(margin, height), {shiftSize, interval, stripeHeight} = wiggleVariables;
@@ -23001,7 +23024,6 @@ class GifsicleService extends BaseService {
                         encoder.addFrame(frameData.data), scales = shiftInfiniteScales(scales, .9, scaleStep);
                     })), encoder.finish(), encoder.getAndResetBuffer();
                 }(options) : async function createInfinitePNG(options) {
-                    if (options.buffer instanceof Buffer) throw Error("Was given a buffer instead of a path");
                     const image = await Jimp$2.read(options.buffer), {width, height, encoder} = preparePNGVariables(options, image.bitmap);
                     image.resize(width, height), setEncoderProperties(encoder, 10 * options.value);
                     let scales = resetInfiniteScales(5, .9, .06);
@@ -23028,7 +23050,6 @@ class GifsicleService extends BaseService {
                         encoder.addFrame(shiftedBitmap.data), shift = (shift + direction * shiftSize) % width;
                     })), encoder.finish(), encoder.getAndResetBuffer();
                 }(options) : async function createSlidingPNG(options) {
-                    if (options.buffer instanceof Buffer) throw Error("Was given a buffer instead of a path");
                     const image = await Jimp$1.read(options.buffer), {width, height, encoder} = preparePNGVariables(options, image.bitmap);
                     image.resize(width, height);
                     const slidingVariables = prepareSlidingVariables(width, options.value), {interval, shiftSize} = slidingVariables;
@@ -23055,7 +23076,6 @@ class GifsicleService extends BaseService {
                         jimpFrame.blit(rainGenerator.next(), 0, 0), encoder.addFrame(jimpFrame.bitmap.data);
                     })), encoder.finish(), encoder.getAndResetBuffer();
                 }(options) : async function createRainingPNG(options) {
-                    if (options.buffer instanceof Buffer) throw Error("Was given a buffer instead of a path");
                     const image = await Jimp.read(options.buffer), {width, height, encoder} = preparePNGVariables(options, image.bitmap);
                     image.resize(width, height), setEncoderProperties(encoder, 80);
                     const rainGenerator = rainImageGenerator(width, height, 1 === options.value, 8);
@@ -24102,7 +24122,7 @@ class SendMessageService extends BaseService {
         if (invalidEmojis.length > 0) emoji = invalidEmojis[invalidEmojis.length - 1]; else {
             if (!(validNonShortcutEmojis?.length > 0)) return {};
             if (emoji = validNonShortcutEmojis[validNonShortcutEmojis.length - 1], !0 === emoji?.managed) return {};
-            validEmoji = !0 === emoji?.available;
+            validEmoji = !0 === emoji?.available && !this.attachService.externalEmotes.has(emoji.id);
         }
         if (!emoji) return {};
         const emojiName = emoji.originalName ?? emoji.name, allNamesString = emoji.allNamesString.replace(emoji.name, emojiName), emojiText = `<${emoji.animated ? "a" : ""}${allNamesString}${emoji.id}>`, result = {}, url = emoji.url.split("?")[0] ?? "";
@@ -24158,7 +24178,7 @@ class SendMessageService extends BaseService {
     async fetchBlobAndUpload(emote) {
         const url = emote.url, name = emote.name, commands = emote.commands;
         if (emote.channel = this.modulesService.selectedChannelStore.getChannelId(), url.endsWith(".gif") || this.findCommand(commands, this.getGifModifiers())) return this.getMetaAndModifyGif(emote);
-        const buffer = await httpsGetBuffer(url), resultBlob = await this.compress(new Blob([ buffer ]), commands) ?? new Blob([]);
+        const resultBlob = await this.compress(url, commands) ?? new Blob([]);
         if (0 === resultBlob.size) throw new Error("Emote URL did not contain data");
         this.uploadFile({
             fileData: resultBlob,
@@ -24251,17 +24271,8 @@ class SendMessageService extends BaseService {
             }
         }), this.modulesService.uploader.uploadFiles(uploadOptions);
     }
-    async compress(originalFile, commands) {
-        const result = await function fileReaderPromise(blob) {
-            return new Promise(((resolve, reject) => {
-                const reader = new FileReader;
-                reader.readAsDataURL(blob), reader.onload = event => {
-                    resolve(event.target?.result ?? void 0);
-                }, reader.onerror = error => {
-                    reject(error);
-                };
-            }));
-        }(originalFile), image = await loadImagePromise(result?.toString() ?? ""), ctx = (await this.applyScaling(image, commands)).getContext("2d");
+    async compress(url, commands) {
+        const image = await loadImagePromise(url), ctx = (await this.applyScaling(image, commands)).getContext("2d");
         if (ctx) return await new Promise((resolve => {
             ctx.canvas.toBlob((blob => {
                 resolve(blob ?? void 0);
@@ -24449,11 +24460,17 @@ var index = void 0 === window.ZeresPluginLibrary ? class RawPlugin {
             }(result, attachService)));
         }(pluginName, this.attachService, this.modulesService), function lockedEmojisPatch(pluginName, attachService, modulesService) {
             const emojiStore = modulesService.emojiStore;
-            BdApi.Patcher.after(pluginName, emojiStore, "getEmojiUnavailableReason", ((_, _2, result) => function onGetEmojiUnavailableReason(result, attachService, modulesService) {
-                const EmojiDisabledReasons = modulesService.emojiDisabledReasons;
-                return result !== EmojiDisabledReasons.PREMIUM_LOCKED && result !== EmojiDisabledReasons.GUILD_SUBSCRIPTION_UNAVAILABLE || !attachService.canAttach || (result = null), 
-                result;
-            }(result, attachService, modulesService))), BdApi.Patcher.after(pluginName, emojiStore, "isEmojiDisabled", ((_, args) => function onIsEmojiDisabled(args, emojiStore) {
+            BdApi.Patcher.after(pluginName, emojiStore, "getEmojiUnavailableReason", ((_, args, result) => function onGetEmojiUnavailableReason(args, result, attachService, modulesService) {
+                if (!attachService.canAttach) return result;
+                const EmojiDisabledReasons = modulesService.emojiDisabledReasons, options = args[0];
+                if (0 === options?.intention) return result;
+                if (result === EmojiDisabledReasons.DISALLOW_EXTERNAL) {
+                    const emojiId = options?.emoji?.id;
+                    if (void 0 === emojiId) return result;
+                    attachService.externalEmotes.add(emojiId), result = null;
+                } else result !== EmojiDisabledReasons.PREMIUM_LOCKED && result !== EmojiDisabledReasons.GUILD_SUBSCRIPTION_UNAVAILABLE || (result = null);
+                return result;
+            }(args, result, attachService, modulesService))), BdApi.Patcher.after(pluginName, emojiStore, "isEmojiDisabled", ((_, args) => function onIsEmojiDisabled(args, emojiStore) {
                 const [emoji, channel, intention] = args;
                 return null !== emojiStore.getEmojiUnavailableReason({
                     emoji,

@@ -6,7 +6,7 @@ export interface Command {
 export interface SpecialCommand {
   name: string
   value: number
-  buffer: string | Buffer
+  buffer: Buffer
   type: string
   size: string
   isResized: boolean

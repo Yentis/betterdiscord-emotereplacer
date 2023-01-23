@@ -64,7 +64,7 @@ export class EmoteService extends BaseService {
       return {}
     }
 
-    const data = await PromiseUtils.httpsGetBuffer(
+    const data = await PromiseUtils.urlGetBuffer(
       'https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/emotes.json'
     )
     const emoteNames = JSON.parse(data.toString()) as Record<string, string>
@@ -72,6 +72,8 @@ export class EmoteService extends BaseService {
     Object.keys(emoteNames).forEach((key) => {
       const split = emoteNames[key]?.split('.')
       const [name, extension] = split ?? []
+
+      delete emoteNames[key]
       if (name === undefined || extension === undefined) return
 
       emoteNames[name] = 'https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes' +
@@ -98,7 +100,7 @@ export class EmoteService extends BaseService {
   }
 
   private async getModifiers (): Promise<Modifier[]> {
-    const data = await PromiseUtils.httpsGetBuffer(
+    const data = await PromiseUtils.urlGetBuffer(
       'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/modifiers.json'
     )
     return JSON.parse(data.toString()) as Modifier[]

@@ -1,7 +1,20 @@
 import https from 'https'
+import fs from 'fs'
 import { Buffer } from 'pluginConstants'
 
-export function httpsGetBuffer (url: string): Promise<Buffer> {
+export function urlGetBuffer (url: string): Promise<Buffer> {
+  if (url.startsWith('http')) return httpsGetBuffer(url)
+  else return fsGetBuffer(url)
+}
+
+async function fsGetBuffer (url: string): Promise<Buffer> {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  const data = fs.readFileSync(url, '')
+  return await Promise.resolve(Buffer.from(data))
+}
+
+function httpsGetBuffer (url: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     https.get(url, (res) => {
       const buffers: Uint8Array[] = []
@@ -25,25 +38,27 @@ export function httpsGetBuffer (url: string): Promise<Buffer> {
   })
 }
 
-export function loadImagePromise (url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image()
+export async function loadImagePromise (
+  url: string,
+  waitForLoad = true,
+  element?: HTMLImageElement
+): Promise<HTMLImageElement> {
+  const image = element ?? new Image()
 
-    image.onload = () => { resolve(image) }
-    image.onerror = () => { reject(new Error(`Failed to load image from url: ${url}`)) }
+  const loadPromise = new Promise<void>((resolve, reject) => {
+    image.onload = () => { resolve() }
+    image.onerror = () => { reject(new Error(`Failed to load image for url ${url}`)) }
+  })
 
+  if (url.startsWith('http') && !waitForLoad) {
     image.src = url
-  })
-}
+  } else {
+    const buffer = await urlGetBuffer(url)
+    image.src = URL.createObjectURL(new Blob([buffer]))
+  }
 
-export function fileReaderPromise (blob: Blob): Promise<string | ArrayBuffer | undefined> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.readAsDataURL(blob)
-
-    reader.onload = (event) => { resolve(event.target?.result ?? undefined) }
-    reader.onerror = (error) => { reject(error) }
-  })
+  if (waitForLoad) await loadPromise
+  return image
 }
 
 export function delay (duration: number): Promise<void> {

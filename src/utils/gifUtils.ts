@@ -2,21 +2,9 @@ import Jimp from 'jimp'
 import GIFEncoder from 'libraries/gifencoder/gifencoder'
 import { SpecialCommand } from 'interfaces/gifData'
 import { Gif, GifUtil, GifFrame, GifCodec } from 'gifwrap'
-import * as PromiseUtils from 'utils/promiseUtils'
-import { Buffer } from 'pluginConstants'
 
-export async function getBuffer (data: string | Buffer): Promise<Buffer> {
-  if (Buffer.isBuffer(data)) {
-    return data
-  } else if (typeof (data) === 'string') {
-    return PromiseUtils.httpsGetBuffer(data)
-  } else {
-    return Buffer.from([])
-  }
-}
-
-export async function getGifFromBuffer (data: string | Buffer): Promise<Gif> {
-  const buffer = await getBuffer(data)
+export async function getGifFromBuffer (data: Buffer): Promise<Gif> {
+  const buffer = data
   const gif = await new GifCodec().decodeGif(buffer)
 
   if (gif.frames.length > 200) {

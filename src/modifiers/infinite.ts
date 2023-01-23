@@ -85,7 +85,6 @@ export async function createInfiniteGIF (options: SpecialCommand): Promise<Buffe
 }
 
 export async function createInfinitePNG (options: SpecialCommand): Promise<Buffer> {
-  if (options.buffer instanceof Buffer) throw Error('Was given a buffer instead of a path')
   const image = await Jimp.read(options.buffer)
 
   const {

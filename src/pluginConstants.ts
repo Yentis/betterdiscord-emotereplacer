@@ -1,15 +1,17 @@
 export const PLUGIN_CHANGELOG = [{
-  title: '1.12.4',
-  type: 'fixed',
+  title: 'Added',
+  type: 'added',
   items: [
-    'Reply upload not working'
+    'It\'s now possible to add custom emotes directly from your PC instead of entering a URL',
+    'Allow uploading images to channels that don\'t allow external emotes',
+    'Emotes are now shown as disabled in the reactions menu, as they cannot be used for reacting'
   ]
 }, {
-  title: '1.12.3',
+  title: 'Fixed',
   type: 'fixed',
   items: [
-    'Emote upload not working',
-    'Autocomplete for custom emotes not working'
+    'Custom emote menu no longer shows broken emotes from the standard set',
+    'Custom emotes starting with numbers or containing spaces can now be removed'
   ]
 }]
 

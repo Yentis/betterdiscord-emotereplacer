@@ -2,6 +2,7 @@ import { Listener } from 'interfaces/listener'
 import Settings from 'interfaces/settings'
 import { SettingGroup, SettingsField } from 'interfaces/zeresPluginLibrary'
 import { DEFAULT_SETTINGS, SETTINGS_KEY } from 'pluginConstants'
+import { loadImagePromise } from 'utils/promiseUtils'
 import { BaseService } from './baseService'
 import { EmoteService } from './emoteService'
 import { ListenersService } from './listenersService'
@@ -33,6 +34,11 @@ export class SettingsService extends BaseService {
 
     this.pushRegularSettings(settings, emoteService)
 
+    const emoteFolderPicker = document.createElement('input')
+    emoteFolderPicker.type = 'file'
+    emoteFolderPicker.multiple = true
+    emoteFolderPicker.accept = '.png,.gif'
+
     let emoteName: string
     const emoteNameTextbox = new Settings.Textbox(
       undefined,
@@ -60,42 +66,53 @@ export class SettingsService extends BaseService {
       element: addButton,
       name: 'click',
       callback: () => {
-        if (!emoteName) {
-          BdApi.showToast('No emote name entered!', { type: 'error' })
-          return
-        }
-        if (!imageUrl) {
-          BdApi.showToast('No image URL entered!', { type: 'error' })
-          return
-        }
-        if (!imageUrl.endsWith('.gif') && !imageUrl.endsWith('.png')) {
-          BdApi.showToast('Image URL must end with .gif or .png!', { type: 'error' })
-          return
-        }
+        const files = emoteFolderPicker.files ?? []
 
-        const emoteNames = emoteService.emoteNames ?? {}
-        const targetEmoteName = emoteNames[emoteService.getPrefixedName(emoteName)] ?? ''
-        if (targetEmoteName) {
-          BdApi.showToast('Emote name already exists!', { type: 'error' })
-          return
-        }
+        const addPromises = (
+          files.length > 0 ? Array.from(files).map((file) => {
+            const fileName = file.name.substring(0, file.name.lastIndexOf('.'))
+            return this.addEmote(fileName, file.path)
+          }) : [this.addEmote(emoteName, imageUrl)]
+        ).map(async (promise) => {
+          const emoteName = await promise
+          customEmotesContainer.append(
+            this.createCustomEmoteContainer(emoteName, customEmotesContainer, emoteService)
+          )
+        })
 
-        this.settings.customEmotes[emoteName] = imageUrl
-        emoteNames[emoteService.getPrefixedName(emoteName)] = imageUrl
+        Promise.allSettled(addPromises).then((results) => {
+          const errors: Error[] = []
+          results.forEach((result) => {
+            if (result.status === 'fulfilled') return
+            errors.push(result.reason as Error)
+            console.error(result.reason)
+          })
 
-        const emoteNameTextboxInput = emoteNameTextbox.getElement().querySelector('input')
-        if (emoteNameTextboxInput) emoteNameTextboxInput.value = ''
+          const firstError = errors[0]
+          if (firstError) {
+            BdApi.showToast(
+              `${firstError.message}${errors.length > 1 ? '\nSee console for all errors' : ''}`,
+              { type: 'error' }
+            )
 
-        const imageUrlTextboxInput = imageUrlTextbox.getElement().querySelector('input')
-        if (imageUrlTextboxInput) imageUrlTextboxInput.value = ''
+            if (addPromises.length === 1) return
+          }
 
-        BdApi.saveData(this.plugin.meta.name, SETTINGS_KEY, this.settings)
-        emoteService.emoteNames = emoteNames
-        BdApi.showToast(`Emote ${emoteName} has been saved!`, { type: 'success' })
+          emoteFolderPicker.value = ''
+          const emoteNameTextboxInput = emoteNameTextbox.getElement().querySelector('input')
+          if (emoteNameTextboxInput) emoteNameTextboxInput.value = ''
 
-        customEmotesContainer.append(
-          this.createCustomEmoteContainer(emoteName, customEmotesContainer, emoteService)
-        )
+          const imageUrlTextboxInput = imageUrlTextbox.getElement().querySelector('input')
+          if (imageUrlTextboxInput) imageUrlTextboxInput.value = ''
+
+          BdApi.saveData(this.plugin.meta.name, SETTINGS_KEY, this.settings)
+          BdApi.showToast(
+            'Emote(s) have been saved',
+            { type: 'success' }
+          )
+        }).catch((error: Error) => {
+          BdApi.showToast(error.message, { type: 'error' })
+        })
       }
     }
     addButton.addEventListener(addListener.name, addListener.callback)
@@ -109,6 +126,7 @@ export class SettingsService extends BaseService {
 
     const customEmoteGroup = new Settings.SettingGroup('Custom emotes')
     customEmoteGroup.append(
+      emoteFolderPicker,
       emoteNameTextbox,
       imageUrlTextbox,
       addSettingField,
@@ -143,6 +161,28 @@ export class SettingsService extends BaseService {
       () => { BdApi.saveData(this.plugin.meta.name, SETTINGS_KEY, this.settings) },
       ...settings
     )
+  }
+
+  private async addEmote (emoteName: string, imageUrl: string): Promise<string> {
+    if (!emoteName) throw new Error('No emote name entered!')
+    if (!imageUrl) throw new Error('No image URL entered!')
+
+    if (!imageUrl.endsWith('.gif') && !imageUrl.endsWith('.png')) {
+      throw new Error('Image URL must end with .gif or .png!')
+    }
+
+    const emoteService = this.plugin.emoteService
+    if (!emoteService) throw new Error('Emote service not found')
+
+    const emoteNames = emoteService.emoteNames ?? {}
+    const targetEmoteName = emoteNames[emoteService.getPrefixedName(emoteName)] ?? ''
+    if (targetEmoteName) throw new Error('Emote name already exists!')
+
+    this.settings.customEmotes[emoteName] = imageUrl
+    emoteNames[emoteService.getPrefixedName(emoteName)] = imageUrl
+
+    emoteService.emoteNames = emoteNames
+    return await Promise.resolve(emoteName)
   }
 
   private pushRegularSettings (
@@ -249,8 +289,8 @@ export class SettingsService extends BaseService {
     const customEmoteContainer = document.createElement('div')
     customEmoteContainer.style.display = 'flex'
 
+    const url = this.settings.customEmotes[emoteName] ?? ''
     const containerImage = document.createElement('img')
-    containerImage.src = this.settings.customEmotes[emoteName] ?? ''
     containerImage.alt = emoteName
     containerImage.title = emoteName
     containerImage.style.minWidth = `${Math.round(this.settings.autocompleteEmoteSize)}px`
@@ -258,7 +298,9 @@ export class SettingsService extends BaseService {
     containerImage.style.width = `${Math.round(this.settings.autocompleteEmoteSize)}px`
     containerImage.style.height = `${Math.round(this.settings.autocompleteEmoteSize)}px`
     containerImage.style.marginRight = '0.5rem'
+
     customEmoteContainer.append(containerImage)
+    loadImagePromise(url, false, containerImage).catch(console.error)
 
     const deleteButton = document.createElement('button')
     deleteButton.type = 'button'
@@ -282,7 +324,7 @@ export class SettingsService extends BaseService {
         BdApi.saveData(this.plugin.meta.name, SETTINGS_KEY, this.settings)
         BdApi.showToast(`Emote ${emoteName} has been deleted!`, { type: 'success' })
 
-        container.querySelector(`#${emoteName}`)?.remove()
+        document.getElementById(emoteName)?.remove()
       }
     }
     deleteButton.addEventListener(deleteListener.name, deleteListener.callback)

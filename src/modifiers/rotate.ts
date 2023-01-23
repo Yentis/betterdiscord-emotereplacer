@@ -57,7 +57,6 @@ export async function createRotatedGIF (options: SpecialCommand): Promise<Buffer
 }
 
 export async function createRotatedPNG (options: SpecialCommand): Promise<Buffer> {
-  if (options.buffer instanceof Buffer) throw Error('Was given a buffer instead of a path')
   let image = await Jimp.read(options.buffer)
 
   const {
