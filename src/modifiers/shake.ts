@@ -122,7 +122,6 @@ export async function createShakingGIF (options: SpecialCommand): Promise<Buffer
 }
 
 export async function createShakingPNG (options: SpecialCommand): Promise<Buffer> {
-  if (options.buffer instanceof Buffer) throw Error('Was given a buffer instead of a path')
   const image = await Jimp.read(options.buffer)
 
   const {

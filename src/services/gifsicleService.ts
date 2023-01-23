@@ -123,7 +123,7 @@ export class GifsicleService extends BaseService {
 
   private async processCommands (url: string, commands: GifCommands): Promise<Buffer> {
     const fileType = url.endsWith('gif') ? 'gif' : 'png'
-    let buffer: string | Buffer = url
+    let buffer = await PromiseUtils.urlGetBuffer(url)
     let size: string | number | undefined
 
     if (fileType === 'gif') {
@@ -163,7 +163,7 @@ export class GifsicleService extends BaseService {
   }
 
   private async doModification (
-    data: string | Buffer,
+    data: Buffer,
     options: Command[],
     _retryCount = 0
   ): Promise<Buffer> {
@@ -182,14 +182,7 @@ export class GifsicleService extends BaseService {
       }
     })
 
-    let buffer: Buffer
-
-    if (Buffer.isBuffer(data)) {
-      buffer = data
-    } else {
-      buffer = await PromiseUtils.httpsGetBuffer(data)
-    }
-
+    const buffer = data
     const output = await gifsicle.run({
       input: [{
         file: buffer.buffer,
@@ -220,12 +213,12 @@ export class GifsicleService extends BaseService {
 
   private async processSpecialCommands (
     options: {
-      data: string | Buffer,
+      data: Buffer,
       commands: Command[],
       fileType: string,
       size: string | number | undefined
     }
-  ): Promise<string | Buffer> {
+  ): Promise<Buffer> {
     const { commands } = options
     let currentBuffer = options.data
 
@@ -250,7 +243,7 @@ export class GifsicleService extends BaseService {
 
   private processSpecialCommand (
     command: SpecialCommand
-  ): Promise<string | Buffer> {
+  ): Promise<Buffer> {
     Logger.info(`Command name: ${command.name}`)
 
     switch (command.name) {
@@ -278,7 +271,7 @@ export class GifsicleService extends BaseService {
   }
 
   private async processNormalCommands (
-    buffer: string | Buffer,
+    buffer: Buffer,
     _commands: Command[]
   ): Promise<Buffer> {
     let commands = _commands

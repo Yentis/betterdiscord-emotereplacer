@@ -55,7 +55,6 @@ export async function createSlidingGIF (options: SpecialCommand): Promise<Buffer
 }
 
 export async function createSlidingPNG (options: SpecialCommand): Promise<Buffer> {
-  if (options.buffer instanceof Buffer) throw Error('Was given a buffer instead of a path')
   const image = await Jimp.read(options.buffer)
 
   const {

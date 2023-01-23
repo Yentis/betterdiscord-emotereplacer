@@ -1,3 +1,4 @@
+import Emoji from 'interfaces/emoji'
 import EmojiStore from 'interfaces/modules/emojiStore'
 import { AttachService } from 'services/attachService'
 import { ModulesService } from 'services/modulesService'
@@ -13,7 +14,7 @@ export default function lockedEmojisPatch (
     pluginName,
     emojiStore,
     'getEmojiUnavailableReason',
-    (_, _2, result) => onGetEmojiUnavailableReason(result, attachService, modulesService)
+    (_, args, result) => onGetEmojiUnavailableReason(args, result, attachService, modulesService)
   )
 
   BdApi.Patcher.after(
@@ -25,16 +26,27 @@ export default function lockedEmojisPatch (
 }
 
 function onGetEmojiUnavailableReason (
+  args: unknown[],
   result: unknown,
   attachService: AttachService,
   modulesService: ModulesService
 ): unknown {
+  if (!attachService.canAttach) return result
   const EmojiDisabledReasons = modulesService.emojiDisabledReasons
+  const options = args[0] as { emoji?: Emoji, intention?: number } | undefined
 
-  if (
-    (result === EmojiDisabledReasons.PREMIUM_LOCKED ||
-     result === EmojiDisabledReasons.GUILD_SUBSCRIPTION_UNAVAILABLE
-    ) && attachService.canAttach
+  const isReactIntention = options?.intention === 0
+  if (isReactIntention) return result
+
+  if (result === EmojiDisabledReasons.DISALLOW_EXTERNAL) {
+    const emojiId = options?.emoji?.id
+    if (emojiId === undefined) return result
+
+    attachService.externalEmotes.add(emojiId)
+    result = null
+  } else if (
+    result === EmojiDisabledReasons.PREMIUM_LOCKED ||
+    result === EmojiDisabledReasons.GUILD_SUBSCRIPTION_UNAVAILABLE
   ) {
     result = null
   }

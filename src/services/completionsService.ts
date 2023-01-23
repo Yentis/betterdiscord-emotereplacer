@@ -1,7 +1,7 @@
 import Cached from 'interfaces/cached'
 import { Listener } from 'interfaces/listener'
 import ScrollOptions from 'interfaces/scrollOptions'
-import { delay } from 'utils/promiseUtils'
+import { delay, loadImagePromise } from 'utils/promiseUtils'
 import { BaseService } from './baseService'
 import { EmoteService } from './emoteService'
 import { HtmlService } from './htmlService'
@@ -313,7 +313,7 @@ export class CompletionsService extends BaseService {
     matchTextElement.textContent = (matchText ?? '')
     contentTitle.append(matchTextElement)
 
-    matchList?.forEach(({ name, data }, index) => {
+    for (const [index, { name, data }] of matchList?.entries() ?? []) {
       const emoteRow = document.createElement('div')
       emoteRow.setAttribute('aria-disabled', 'false')
 
@@ -387,16 +387,19 @@ export class CompletionsService extends BaseService {
 
         const settingsAutocompleteEmoteSize = this.settingsService.settings.autocompleteEmoteSize
         const containerImage = document.createElement('img')
-
-        containerImage.src = typeof data === 'string' ? data : ''
         containerImage.alt = name
         containerImage.title = name
         containerImage.style.minWidth = `${Math.round(settingsAutocompleteEmoteSize)}px`
         containerImage.style.minHeight = `${Math.round(settingsAutocompleteEmoteSize)}px`
         containerImage.style.width = `${Math.round(settingsAutocompleteEmoteSize)}px`
         containerImage.style.height = `${Math.round(settingsAutocompleteEmoteSize)}px`
+
         this.htmlService.addClasses(containerImage, discordClasses.Autocomplete.emojiImage)
         containerIcon.append(containerImage)
+
+        if (typeof data === 'string') {
+          loadImagePromise(data, false, containerImage).catch(console.error)
+        }
       }
 
       const containerContent = document.createElement('div')
@@ -423,7 +426,7 @@ export class CompletionsService extends BaseService {
         containerContentInfo.textContent = data.info
         containerContent.append(containerContentInfo)
       }
-    })
+    }
   }, 250)
 
   public scrollCompletions (e: WheelEvent, options?: ScrollOptions): void {

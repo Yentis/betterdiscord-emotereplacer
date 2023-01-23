@@ -129,7 +129,7 @@ export class SendMessageService extends BaseService {
 
       // Ignore built-in emotes
       if (emoji?.managed === true) return {}
-      validEmoji = emoji?.available === true
+      validEmoji = emoji?.available === true && !this.attachService.externalEmotes.has(emoji.id)
     } else return {}
 
     if (!emoji) return {}
@@ -247,8 +247,7 @@ export class SendMessageService extends BaseService {
       return this.getMetaAndModifyGif(emote)
     }
 
-    const buffer = await PromiseUtils.httpsGetBuffer(url)
-    const resultBlob = (await this.compress(new Blob([buffer]), commands)) ?? new Blob([])
+    const resultBlob = (await this.compress(url, commands)) ?? new Blob([])
     if (resultBlob.size === 0) throw new Error('Emote URL did not contain data')
 
     this.uploadFile({
@@ -425,11 +424,10 @@ export class SendMessageService extends BaseService {
   }
 
   private async compress (
-    originalFile: Blob,
+    url: string,
     commands: InternalEmote['commands']
   ): Promise<Blob | undefined> {
-    const result = await PromiseUtils.fileReaderPromise(originalFile)
-    const image = await PromiseUtils.loadImagePromise(result?.toString() ?? '')
+    const image = await PromiseUtils.loadImagePromise(url)
     const canvas = await this.applyScaling(image, commands)
 
     const ctx = canvas.getContext('2d')

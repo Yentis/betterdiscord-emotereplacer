@@ -60,7 +60,7 @@ interface Switch extends SettingsField {
     isChecked: boolean;
 }
 interface Textbox extends SettingsField {
-    value: string | undefined;
+    value?: string;
 }
 interface DropdownValue {
     label: string;
@@ -96,10 +96,10 @@ interface ZeresPluginLibrary {
         SettingField: new (name: string | undefined, note: string | undefined, onChange: ((newValue: unknown) => void) | undefined, settingtype: HTMLElement, props?: SettingsFieldProps) => SettingsField;
         SettingGroup: new (groupName: string) => SettingGroup;
         Slider: new (name: string | undefined, note: string | undefined, min: number, max: number, value: number, onChange: ((newValue: number) => void) | undefined, options?: SliderOptions) => Slider;
-        Switch: new (name: string | undefined, note: string | undefined, isChecked: boolean, onChange: ((newValue: boolean) => void) | undefined) => Switch;
-        Textbox: new (name: string | undefined, note: string | undefined, value: string | undefined, onChange: ((newValue: string) => void) | undefined) => Textbox;
-        Dropdown: new (name: string | undefined, note: string | undefined, defaultValue: string, values: DropdownValue[], onChange: ((newValue: string) => void) | undefined) => Dropdown;
-        RadioGroup: new (name: string | undefined, note: string | undefined, defaultValue: string, values: RadioItem[], onChange: ((newValue: string) => void) | undefined) => RadioGroup;
+        Switch: new (name: string | undefined, note: string | undefined, isChecked: boolean, onChange?: ((newValue: boolean) => void)) => Switch;
+        Textbox: new (name: string | undefined, note: string | undefined, value: string | undefined, onChange?: ((newValue: string) => void)) => Textbox;
+        Dropdown: new (name: string | undefined, note: string | undefined, defaultValue: string, values: DropdownValue[], onChange?: ((newValue: string) => void)) => Dropdown;
+        RadioGroup: new (name: string | undefined, note: string | undefined, defaultValue: string, values: RadioItem[], onChange?: ((newValue: string) => void)) => RadioGroup;
     };
 }
 declare abstract class BaseService {
@@ -154,6 +154,7 @@ interface PendingReplyDispatcher {
 interface EmojiDisabledReasons {
     GUILD_SUBSCRIPTION_UNAVAILABLE: number;
     PREMIUM_LOCKED: number;
+    DISALLOW_EXTERNAL: number;
 }
 interface DiscordPermissions {
     ATTACH_FILES: bigint;
@@ -299,6 +300,7 @@ declare class SettingsService extends BaseService {
     settings: Settings;
     start(listenersService: ListenersService): Promise<void>;
     getSettingsElement(): HTMLElement;
+    private addEmote;
     private pushRegularSettings;
     private createCustomEmoteContainer;
     stop(): void;
@@ -361,6 +363,7 @@ interface PendingReply {
 declare class AttachService extends BaseService {
     modulesService: ModulesService;
     canAttach: boolean;
+    externalEmotes: Set<string>;
     pendingUpload?: Promise<void>;
     pendingReply?: PendingReply;
     onMessagesLoaded: ((data: {

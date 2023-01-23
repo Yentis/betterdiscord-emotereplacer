@@ -69,7 +69,6 @@ export async function createSpinningGIF (options: SpecialCommand): Promise<Buffe
 }
 
 export async function createSpinningPNG (options: SpecialCommand): Promise<Buffer> {
-  if (options.buffer instanceof Buffer) throw Error('Was given a buffer instead of a path')
   let image = await Jimp.read(options.buffer)
 
   const {

@@ -35,7 +35,7 @@ interface Switch extends SettingsField {
 }
 
 interface Textbox extends SettingsField {
-  value: string | undefined
+  value?: string
 }
 
 interface DropdownValue {
@@ -105,14 +105,14 @@ export default interface ZeresPluginLibrary {
       name: string | undefined,
       note: string | undefined,
       isChecked: boolean,
-      onChange: ((newValue: boolean) => void) | undefined
+      onChange?: ((newValue: boolean) => void)
     ) => Switch
 
     Textbox: new (
       name: string | undefined,
       note: string | undefined,
       value: string | undefined,
-      onChange: ((newValue: string) => void) | undefined
+      onChange?: ((newValue: string) => void)
     ) => Textbox
 
     Dropdown: new (
@@ -120,7 +120,7 @@ export default interface ZeresPluginLibrary {
       note: string | undefined,
       defaultValue: string,
       values: DropdownValue[],
-      onChange: ((newValue: string) => void) | undefined
+      onChange?: ((newValue: string) => void)
     ) => Dropdown
 
     RadioGroup: new (
@@ -128,7 +128,7 @@ export default interface ZeresPluginLibrary {
       note: string | undefined,
       defaultValue: string,
       values: RadioItem[],
-      onChange: ((newValue: string) => void) | undefined
+      onChange?: ((newValue: string) => void)
     ) => RadioGroup
   }
 }
