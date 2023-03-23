@@ -25,6 +25,8 @@ function onChangeDraft (
   completionsService: CompletionsService,
   emoteService: EmoteService
 ): void {
+  const channelId = args[0] as string | undefined
+  if (channelId !== undefined) attachService.setCanAttach(channelId)
   if (!attachService.canAttach) return
 
   const draft = args[1] as string | undefined
@@ -34,8 +36,6 @@ function onChangeDraft (
   try {
     const lastText = completionsService.cached?.draft
 
-    // If an emote match is impossible, don't override default behavior.
-    // This allows other completion types (like usernames or channels) to work as usual.
     if (!emoteService.shouldCompleteEmote(draft) && !emoteService.shouldCompleteCommand(draft)) {
       completionsService.destroyCompletions()
       return

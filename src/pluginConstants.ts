@@ -1,5 +1,13 @@
 export const PLUGIN_CHANGELOG = [{
-  title: 'Added',
+  title: '1.13.1',
+  type: 'fixed',
+  items: [
+    'Fix emote upload not working',
+    'Fix emotes with reply always pinging even when turned off',
+    'Fix emotes not working in threads when using split view'
+  ]
+}, {
+  title: '1.13.0',
   type: 'added',
   items: [
     'It\'s now possible to add custom emotes directly from your PC instead of entering a URL',
@@ -7,7 +15,7 @@ export const PLUGIN_CHANGELOG = [{
     'Emotes are now shown as disabled in the reactions menu, as they cannot be used for reacting'
   ]
 }, {
-  title: 'Fixed',
+  title: '1.13.0',
   type: 'fixed',
   items: [
     'Custom emote menu no longer shows broken emotes from the standard set',

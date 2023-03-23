@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 1.13.0
+ * @version 1.13.1
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -63,11 +63,15 @@ class LoggerClass {
 let Logger;
 
 const PLUGIN_CHANGELOG = [ {
-    title: "Added",
+    title: "1.13.1",
+    type: "fixed",
+    items: [ "Fix emote upload not working", "Fix emotes with reply always pinging even when turned off", "Fix emotes not working in threads when using split view" ]
+}, {
+    title: "1.13.0",
     type: "added",
     items: [ "It's now possible to add custom emotes directly from your PC instead of entering a URL", "Allow uploading images to channels that don't allow external emotes", "Emotes are now shown as disabled in the reactions menu, as they cannot be used for reacting" ]
 }, {
-    title: "Fixed",
+    title: "1.13.0",
     type: "fixed",
     items: [ "Custom emote menu no longer shows broken emotes from the standard set", "Custom emotes starting with numbers or containing spaces can now be removed" ]
 } ], DEFAULT_SETTINGS = {
@@ -139,6 +143,7 @@ class CompletionsService extends BaseService {
     static TAG=CompletionsService.name;
     static TEXTAREA_KEYDOWN_LISTENER="textAreaKeydown";
     static TEXTAREA_WHEEL_LISTENER="textAreaWheel";
+    static TEXTAREA_FOCUS_LISTENER="textAreaFocus";
     static TEXTAREA_BLUR_LISTENER="textAreaBlur";
     static AUTOCOMPLETE_DIV_WHEEL_LISTENER="autocompleteDivWheel";
     static EMOTE_ROW_MOUSEENTER_LISTENER="emoteRowMouseenter";
@@ -148,47 +153,61 @@ class CompletionsService extends BaseService {
     modulesService;
     listenersService;
     htmlService;
+    attachService;
     draft="";
     cached;
-    start(emoteService, settingsService, modulesService, listenersService, htmlService) {
+    curEditor;
+    start(emoteService, settingsService, modulesService, listenersService, htmlService, attachService) {
         return this.emoteService = emoteService, this.settingsService = settingsService, 
         this.modulesService = modulesService, this.listenersService = listenersService, 
-        this.htmlService = htmlService, this.listenersService.addListenersWatchers[CompletionsService.TAG] = {
+        this.htmlService = htmlService, this.attachService = attachService, this.listenersService.addListenersWatchers[CompletionsService.TAG] = {
             onAddListeners: () => {
                 this.addListeners();
             }
         }, this.addListeners(), Promise.resolve();
     }
     addListeners() {
-        const textArea = this.htmlService.getTextAreaField();
-        if (void 0 === textArea) return;
-        this.listenersService.removeListener(CompletionsService.TEXTAREA_KEYDOWN_LISTENER), 
-        this.listenersService.removeListener(CompletionsService.TEXTAREA_WHEEL_LISTENER), 
-        this.listenersService.removeListener(CompletionsService.TEXTAREA_BLUR_LISTENER);
-        const keydownListener = {
-            element: textArea,
-            name: "keydown",
-            callback: evt => {
-                this.browseCompletions(evt);
-            }
-        };
-        textArea.addEventListener(keydownListener.name, keydownListener.callback), this.listenersService.addListener(CompletionsService.TEXTAREA_KEYDOWN_LISTENER, keydownListener);
-        const wheelListener = {
-            element: textArea,
-            name: "wheel",
-            callback: evt => {
-                this.scrollCompletions(evt);
-            }
-        };
-        textArea.addEventListener(wheelListener.name, wheelListener.callback), this.listenersService.addListener(CompletionsService.TEXTAREA_WHEEL_LISTENER, wheelListener);
-        const blurListener = {
-            element: textArea,
-            name: "blur",
-            callback: () => {
-                this.destroyCompletions();
-            }
-        };
-        textArea.addEventListener(blurListener.name, blurListener.callback), this.listenersService.addListener(CompletionsService.TEXTAREA_BLUR_LISTENER, blurListener);
+        const editors = this.htmlService.getEditors();
+        0 !== editors.length && (this.curEditor = editors[0], this.listenersService.removeListeners(CompletionsService.TEXTAREA_KEYDOWN_LISTENER), 
+        this.listenersService.removeListeners(CompletionsService.TEXTAREA_WHEEL_LISTENER), 
+        this.listenersService.removeListeners(CompletionsService.TEXTAREA_FOCUS_LISTENER), 
+        this.listenersService.removeListeners(CompletionsService.TEXTAREA_BLUR_LISTENER), 
+        editors.forEach(((editor, index) => {
+            const focusListener = {
+                element: editor,
+                name: "focus",
+                callback: () => {
+                    this.curEditor = editor;
+                }
+            };
+            editor.addEventListener(focusListener.name, focusListener.callback), this.listenersService.addListener(`${CompletionsService.TEXTAREA_FOCUS_LISTENER}${index}`, focusListener);
+            const blurListener = {
+                element: editor,
+                name: "blur",
+                callback: () => {
+                    this.destroyCompletions(), this.curEditor = void 0;
+                }
+            };
+            editor.addEventListener(blurListener.name, blurListener.callback), this.listenersService.addListener(`${CompletionsService.TEXTAREA_BLUR_LISTENER}${index}`, blurListener);
+            const textArea = this.htmlService.getTextAreaField(editor);
+            if (!textArea) return;
+            const keydownListener = {
+                element: textArea,
+                name: "keydown",
+                callback: evt => {
+                    this.browseCompletions(evt);
+                }
+            };
+            textArea.addEventListener(keydownListener.name, keydownListener.callback), this.listenersService.addListener(`${CompletionsService.TEXTAREA_KEYDOWN_LISTENER}${index}`, keydownListener);
+            const wheelListener = {
+                element: textArea,
+                name: "wheel",
+                callback: evt => {
+                    this.scrollCompletions(evt);
+                }
+            };
+            textArea.addEventListener(wheelListener.name, wheelListener.callback), this.listenersService.addListener(`${CompletionsService.TEXTAREA_WHEEL_LISTENER}${index}`, wheelListener);
+        })));
     }
     browseCompletions(event) {
         if (!this.emoteService.shouldCompleteEmote(this.draft) && !this.emoteService.shouldCompleteCommand(this.draft)) return;
@@ -252,10 +271,9 @@ class CompletionsService extends BaseService {
         return void 0 !== completions && 0 !== completions.length;
     }
     async insertSelectedCompletion() {
-        const {completions, matchText, selectedIndex} = this.cached ?? {}, curDraft = this.draft, matchTextLength = matchText?.length ?? 0;
-        if (void 0 === completions || void 0 === selectedIndex) return;
-        this.modulesService.draft.clearDraft(this.modulesService.selectedChannelStore.getChannelId(), 0), 
-        await delay(0);
+        const {completions, matchText, selectedIndex} = this.cached ?? {}, curDraft = this.draft, matchTextLength = matchText?.length ?? 0, channelId = this.attachService.curChannelId;
+        if (void 0 === completions || void 0 === selectedIndex || void 0 === channelId) return;
+        this.modulesService.draft.clearDraft(channelId, 0), await delay(0);
         const selectedCompletion = completions[selectedIndex];
         if (!selectedCompletion) return;
         const completionValueArguments = "string" == typeof selectedCompletion.data ? void 0 : selectedCompletion.data.arguments;
@@ -263,13 +281,13 @@ class CompletionsService extends BaseService {
         completionValueArguments && (completionValueArguments.some((argument => "" === argument)) || (suffix = "-")), 
         selectedCompletion.name += suffix;
         const newDraft = curDraft.substring(0, curDraft.length - matchTextLength);
-        this.destroyCompletions(), await delay(0), this.modulesService.componentDispatcher.dispatch("INSERT_TEXT", {
+        this.destroyCompletions(), await delay(0), this.modulesService.componentDispatcher.dispatchToLastSubscribed("INSERT_TEXT", {
             plainText: newDraft + selectedCompletion.name
         });
     }
     destroyCompletions() {
-        if (this.htmlService.getTextAreaContainer()) {
-            const completions = this.htmlService.getTextAreaContainer()?.querySelectorAll(`.${this.plugin.meta.name}`);
+        if (this.htmlService.getTextAreaContainer(this.curEditor)) {
+            const completions = this.htmlService.getTextAreaContainer(this.curEditor)?.querySelectorAll(`.${this.plugin.meta.name}`);
             completions?.forEach((completion => {
                 completion.remove();
             }));
@@ -277,7 +295,7 @@ class CompletionsService extends BaseService {
         this.cached = void 0, this.renderCompletions.cancel();
     }
     renderCompletions=_.debounce((() => {
-        const channelTextArea = this.htmlService.getTextAreaContainer();
+        const channelTextArea = this.htmlService.getTextAreaContainer(this.curEditor);
         if (!channelTextArea) return;
         const oldAutoComplete = channelTextArea?.querySelectorAll(`.${this.plugin.meta.name}`) ?? [], discordClasses = this.modulesService.classes, isEmote = this.emoteService.shouldCompleteEmote(this.draft);
         for (const autoComplete of oldAutoComplete) autoComplete.remove();
@@ -380,7 +398,7 @@ class CompletionsService extends BaseService {
         this.renderCompletions(), this.renderCompletions.flush();
     }
     stop() {
-        this.draft = "", this.cached = void 0;
+        this.draft = "", this.cached = void 0, this.curEditor = void 0;
     }
 }
 
@@ -396,7 +414,7 @@ class EmoteService extends BaseService {
     }
     initEmotes() {
         Promise.all([ this.getEmoteNames(), this.getModifiers() ]).then((([emoteNames, modifiers]) => {
-            this.setEmoteNames(emoteNames), this.modifiers = modifiers, this.htmlService.getTextAreaField() && this.listenersService.requestAddListeners(CompletionsService.TAG);
+            this.setEmoteNames(emoteNames), this.modifiers = modifiers, this.htmlService.getEditors().length > 0 && this.listenersService.requestAddListeners(CompletionsService.TAG);
         })).catch((error => {
             Logger.warn("Failed to get emote names and/or modifiers", error);
         }));
@@ -509,47 +527,39 @@ class AttachService extends BaseService {
     modulesService;
     canAttach=!1;
     externalEmotes=new Set;
+    userId;
+    curChannelId;
     pendingUpload;
     pendingReply;
     onMessagesLoaded;
     onChannelSelect;
     async start(modulesService) {
-        this.modulesService = modulesService;
-        const userId = await this.getUserId();
-        this.initChannelSubscription(userId);
+        this.modulesService = modulesService, this.userId = await this.getUserId();
     }
     getUserId() {
         return new Promise((resolve => {
             const getCurrentUser = this.modulesService.userStore.getCurrentUser;
             let user = getCurrentUser();
-            if (user) {
-                const userId = user.id;
-                return this.setCanAttach(this.modulesService.selectedChannelStore.getChannelId(), userId), 
-                void resolve(userId);
-            }
-            this.onMessagesLoaded = data => {
+            user ? resolve(user.id) : (this.onMessagesLoaded = () => {
                 user = getCurrentUser();
                 const userId = user?.id ?? "";
                 this.onMessagesLoaded && (this.modulesService.dispatcher.unsubscribe("LOAD_MESSAGES_SUCCESS", this.onMessagesLoaded), 
-                this.onMessagesLoaded = void 0), userId && (this.setCanAttach(data.channelId, userId), 
-                resolve(userId));
-            }, this.modulesService.dispatcher.subscribe("LOAD_MESSAGES_SUCCESS", this.onMessagesLoaded);
+                this.onMessagesLoaded = void 0), userId && resolve(userId);
+            }, this.modulesService.dispatcher.subscribe("LOAD_MESSAGES_SUCCESS", this.onMessagesLoaded));
         }));
     }
-    setCanAttach(_channelId, userId) {
+    setCanAttach(_channelId) {
+        if (void 0 !== _channelId && _channelId === this.curChannelId) return;
         this.externalEmotes.clear();
         const channelId = _channelId ?? "";
         if (!channelId) return void (this.canAttach = !0);
+        if (void 0 === this.userId) return void (this.canAttach = !0);
         const channel = this.modulesService.channelStore.getChannel(channelId);
         if (!channel) return void (this.canAttach = !0);
         if (!channel.guild_id) return void (this.canAttach = !0);
         const permissions = this.modulesService.discordPermissions;
-        this.canAttach = this.modulesService.permissions.can(permissions.ATTACH_FILES, channel, userId);
-    }
-    initChannelSubscription(userId) {
-        this.onChannelSelect = data => {
-            this.setCanAttach(data.channelId, userId);
-        }, this.modulesService.dispatcher.subscribe("CHANNEL_SELECT", this.onChannelSelect);
+        this.canAttach = this.modulesService.permissions.can(permissions.ATTACH_FILES, channel, this.userId), 
+        this.curChannelId = channelId;
     }
     stop() {
         this.onMessagesLoaded && (this.modulesService.dispatcher.unsubscribe("LOAD_MESSAGES_SUCCESS", this.onMessagesLoaded), 
@@ -734,6 +744,12 @@ class ListenersService extends BaseService {
     }
     addListener(id, listener) {
         this.listeners[id] && this.removeListener(id), this.listeners[id] = listener;
+    }
+    removeListeners(idPrefix) {
+        const listeners = Object.keys(this.listeners).filter((id => id.startsWith(idPrefix)));
+        0 !== listeners.length && listeners.forEach((id => {
+            this.removeListener(id);
+        }));
     }
     removeListener(id) {
         const listener = this.listeners[id];
@@ -23121,7 +23137,6 @@ class GifsicleService extends BaseService {
 }
 
 class ModulesService extends BaseService {
-    selectedChannelStore;
     channelStore;
     uploader;
     draft;
@@ -23138,9 +23153,7 @@ class ModulesService extends BaseService {
     classes;
     cloudUploader;
     start() {
-        const [selectedChannelStore, channelStore, uploader, draft, permissions, discordPermissions, dispatcher, componentDispatcher, pendingReplyModule, emojiStore, emojiSearch, emojiDisabledReasons, userStore, messageStore, TextArea, Autocomplete, autocompleteAttached, Wrapper, Size, cloudUploader] = BdApi.Webpack.getBulk({
-            filter: BdApi.Webpack.Filters.byProps("getChannelId", "getVoiceChannelId")
-        }, {
+        const [channelStore, uploader, draft, permissions, discordPermissions, dispatcher, componentDispatcher, pendingReplyModule, emojiStore, emojiSearch, emojiDisabledReasons, userStore, messageStore, TextArea, Editor, Autocomplete, autocompleteAttached, Wrapper, Size, cloudUploader] = BdApi.Webpack.getBulk({
             filter: BdApi.Webpack.Filters.byProps("getChannel", "hasChannel")
         }, {
             filter: BdApi.Webpack.Filters.byProps("instantBatchUpload")
@@ -23160,7 +23173,7 @@ class ModulesService extends BaseService {
             filter: module => (Object.entries(module).forEach((([key, value]) => {
                 if ("function" != typeof value) return;
                 const valueString = value.toString();
-                valueString.includes("DELETE_PENDING_REPLY") ? this.pendingReplyDispatcher.deletePendingReplyKey = key : valueString.includes("CREATE_PENDING_REPLY") && (this.pendingReplyDispatcher.createPendingReplyKey = key);
+                valueString.includes("DELETE_PENDING_REPLY") ? this.pendingReplyDispatcher.deletePendingReplyKey = key : valueString.includes("CREATE_PENDING_REPLY") ? this.pendingReplyDispatcher.createPendingReplyKey = key : valueString.includes("SET_PENDING_REPLY_SHOULD_MENTION") && (this.pendingReplyDispatcher.setPendingReplyShouldMentionKey = key);
             })), void 0 !== this.pendingReplyDispatcher.deletePendingReplyKey)
         }, {
             filter: BdApi.Webpack.Filters.byProps("getEmojiUnavailableReason")
@@ -23176,6 +23189,8 @@ class ModulesService extends BaseService {
         }, {
             filter: BdApi.Webpack.Filters.byProps("channelTextArea", "textAreaHeight")
         }, {
+            filter: BdApi.Webpack.Filters.byProps("editor", "placeholder")
+        }, {
             filter: BdApi.Webpack.Filters.byProps("autocomplete", "autocompleteInner", "autocompleteRowVertical")
         }, {
             filter: BdApi.Webpack.Filters.byProps("autocomplete", "autocompleteAttached")
@@ -23187,16 +23202,17 @@ class ModulesService extends BaseService {
             filter: module => Object.values(module).some((value => {
                 if ("object" != typeof value || null === value) return !1;
                 const curValue = value;
-                return void 0 !== curValue.NOT_STARTED && void 0 !== curValue.UPLOADING;
+                return void 0 !== curValue.NOT_STARTED && void 0 !== curValue.UPLOADING && void 0 !== module.n;
             }))
         });
-        return this.selectedChannelStore = selectedChannelStore, this.channelStore = channelStore, 
-        this.uploader = uploader, this.draft = draft, this.permissions = permissions, this.discordPermissions = discordPermissions, 
-        this.dispatcher = dispatcher, this.componentDispatcher = componentDispatcher, this.pendingReplyDispatcher.module = pendingReplyModule, 
+        return this.channelStore = channelStore, this.uploader = uploader, this.draft = draft, 
+        this.permissions = permissions, this.discordPermissions = discordPermissions, this.dispatcher = dispatcher, 
+        this.componentDispatcher = componentDispatcher, this.pendingReplyDispatcher.module = pendingReplyModule, 
         this.emojiSearch = emojiSearch, this.emojiDisabledReasons = emojiDisabledReasons, 
         this.emojiStore = emojiStore, this.userStore = userStore, this.messageStore = messageStore, 
         this.cloudUploader = cloudUploader, this.classes = {
             TextArea,
+            Editor,
             Autocomplete: {
                 ...Autocomplete,
                 autocomplete: [ autocompleteAttached?.autocomplete, autocompleteAttached?.autocompleteAttached, Autocomplete?.autocomplete ].join(" ")
@@ -24086,8 +24102,8 @@ class SendMessageService extends BaseService {
         Promise.resolve();
     }
     async onSendMessage(args, original) {
-        const callDefault = original, message = args[1];
-        if (message) try {
+        const callDefault = original, channelId = args[0], message = args[1];
+        if (void 0 !== channelId && message) try {
             const discordEmotes = this.getTargetEmoteFromMessage(message);
             let content = message.content;
             const foundEmote = this.getTextPos(content, {
@@ -24099,7 +24115,7 @@ class SendMessageService extends BaseService {
                 type: "error"
             }), void callDefault(...args);
             content = (content.substring(0, foundEmote.pos) + content.substring(foundEmote.pos + foundEmote.nameAndCommand.length)).trim(), 
-            foundEmote.content = content;
+            foundEmote.content = content, foundEmote.channel = channelId;
             try {
                 return this.attachService.pendingUpload = this.fetchBlobAndUpload(foundEmote), void await this.attachService.pendingUpload;
             } catch (error) {
@@ -24177,7 +24193,7 @@ class SendMessageService extends BaseService {
     }
     async fetchBlobAndUpload(emote) {
         const url = emote.url, name = emote.name, commands = emote.commands;
-        if (emote.channel = this.modulesService.selectedChannelStore.getChannelId(), url.endsWith(".gif") || this.findCommand(commands, this.getGifModifiers())) return this.getMetaAndModifyGif(emote);
+        if (url.endsWith(".gif") || this.findCommand(commands, this.getGifModifiers())) return this.getMetaAndModifyGif(emote);
         const resultBlob = await this.compress(url, commands) ?? new Blob([]);
         if (0 === resultBlob.size) throw new Error("Emote URL did not contain data");
         this.uploadFile({
@@ -24264,6 +24280,9 @@ class SendMessageService extends BaseService {
             }
         }, pendingReply = this.attachService.pendingReply;
         pendingReply && (uploadOptions.options = {
+            allowedMentions: {
+                replied_user: pendingReply.shouldMention
+            },
             messageReference: {
                 channel_id: pendingReply.message.channel_id,
                 guild_id: pendingReply.channel.guild_id,
@@ -24327,13 +24346,17 @@ class HtmlService extends BaseService {
     getClassSelector(classes) {
         return classes.split(" ").map((curClass => curClass.startsWith(".") ? curClass : `.${curClass}`)).join(" ");
     }
-    getTextAreaField() {
+    getTextAreaField(editor) {
         const textArea = this.modulesService.classes.TextArea.textArea;
-        return document.querySelector(this.getClassSelector(textArea)) ?? void 0;
+        return editor?.closest(this.getClassSelector(textArea)) ?? void 0;
     }
-    getTextAreaContainer() {
+    getTextAreaContainer(editor) {
         const channelTextArea = this.modulesService.classes.TextArea.channelTextArea;
-        return document.querySelector(this.getClassSelector(channelTextArea)) ?? void 0;
+        return editor?.closest(this.getClassSelector(channelTextArea)) ?? void 0;
+    }
+    getEditors() {
+        const editor = this.modulesService.classes.Editor.editor;
+        return document.querySelectorAll(this.getClassSelector(editor)) ?? [];
     }
     stop() {}
 }
@@ -24413,14 +24436,15 @@ var index = void 0 === window.ZeresPluginLibrary ? class RawPlugin {
         this.modulesService = new ModulesService(this, zeresPluginLibrary), await this.modulesService.start(), 
         this.htmlService = new HtmlService(this, zeresPluginLibrary), await this.htmlService.start(this.modulesService), 
         this.emoteService = new EmoteService(this, zeresPluginLibrary), await this.emoteService.start(this.listenersService, this.settingsService, this.htmlService), 
-        this.completionsService = new CompletionsService(this, zeresPluginLibrary), await this.completionsService.start(this.emoteService, this.settingsService, this.modulesService, this.listenersService, this.htmlService), 
         this.attachService = new AttachService(this, zeresPluginLibrary), await this.attachService.start(this.modulesService), 
+        this.completionsService = new CompletionsService(this, zeresPluginLibrary), await this.completionsService.start(this.emoteService, this.settingsService, this.modulesService, this.listenersService, this.htmlService, this.attachService), 
         this.gifsicleService = new GifsicleService(this, zeresPluginLibrary), await this.gifsicleService.start(), 
         this.sendMessageService = new SendMessageService(this, zeresPluginLibrary), await this.sendMessageService.start(this.emoteService, this.attachService, this.modulesService, this.settingsService, this.gifsicleService);
         const pluginName = this.meta.name;
         (function changeDraftPatch(pluginName, attachService, completionsService, emoteService, modulesService) {
             BdApi.Patcher.before(pluginName, modulesService.draft, "changeDraft", ((_, args) => function onChangeDraft(args, attachService, completionsService, emoteService) {
-                if (!attachService.canAttach) return;
+                const channelId = args[0];
+                if (void 0 !== channelId && attachService.setCanAttach(channelId), !attachService.canAttach) return;
                 const draft = args[1];
                 if (void 0 !== draft) {
                     completionsService.draft = draft;
@@ -24438,7 +24462,9 @@ var index = void 0 === window.ZeresPluginLibrary ? class RawPlugin {
             const pendingReplyDispatcher = modulesService.pendingReplyDispatcher, createPendingReply = pendingReplyDispatcher.createPendingReplyKey;
             if (void 0 === createPendingReply) return void Logger.warn("Create pending reply function name not found");
             const deletePendingReply = pendingReplyDispatcher.deletePendingReplyKey;
-            void 0 !== deletePendingReply ? (BdApi.Patcher.before(pluginName, pendingReplyDispatcher.module, createPendingReply, ((_, args) => {
+            if (void 0 === deletePendingReply) return void Logger.warn("Delete pending reply function name not found");
+            const setPendingReplyShouldMention = pendingReplyDispatcher.setPendingReplyShouldMentionKey;
+            void 0 !== setPendingReplyShouldMention ? (BdApi.Patcher.before(pluginName, pendingReplyDispatcher.module, createPendingReply, ((_, args) => {
                 if (!args[0]) return;
                 const reply = args[0];
                 attachService.pendingReply = reply;
@@ -24451,7 +24477,11 @@ var index = void 0 === window.ZeresPluginLibrary ? class RawPlugin {
                 } finally {
                     attachService.pendingReply = void 0;
                 }
-            }(args, original, attachService)))) : Logger.warn("Delete pending reply function name not found");
+            }(args, original, attachService))), BdApi.Patcher.before(pluginName, pendingReplyDispatcher.module, setPendingReplyShouldMention, ((_, args) => {
+                if ("string" != typeof args[0] || "boolean" != typeof args[1]) return;
+                const channelId = args[0], shouldMention = args[1];
+                attachService.pendingReply?.channel.id === channelId && (attachService.pendingReply.shouldMention = shouldMention);
+            }))) : Logger.warn("Set pending reply should mention function name not found");
         }(pluginName, this.attachService, this.modulesService), function emojiSearchPatch(pluginName, attachService, modulesService) {
             BdApi.Patcher.after(pluginName, modulesService.emojiSearch, "search", ((_, _2, result) => function onEmojiSearch(result, attachService) {
                 if (!attachService.canAttach) return;
@@ -24496,8 +24526,8 @@ var index = void 0 === window.ZeresPluginLibrary ? class RawPlugin {
     stop() {
         BdApi.Patcher.unpatchAll(this.meta.name), this.updateInterval && (clearTimeout(this.updateInterval), 
         this.updateInterval = void 0), this.sendMessageService?.stop(), this.sendMessageService = void 0, 
-        this.gifsicleService?.stop(), this.gifsicleService = void 0, this.attachService?.stop(), 
-        this.attachService = void 0, this.completionsService?.stop(), this.completionsService = void 0, 
+        this.gifsicleService?.stop(), this.gifsicleService = void 0, this.completionsService?.stop(), 
+        this.completionsService = void 0, this.attachService?.stop(), this.attachService = void 0, 
         this.emoteService?.stop(), this.emoteService = void 0, this.htmlService?.stop(), 
         this.htmlService = void 0, this.modulesService?.stop(), this.modulesService = void 0, 
         this.settingsService?.stop(), this.settingsService = void 0, this.listenersService?.stop(), 

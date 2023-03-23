@@ -15,6 +15,15 @@ export class ListenersService extends BaseService {
     this.listeners[id] = listener
   }
 
+  public removeListeners (idPrefix: string): void {
+    const listeners = Object.keys(this.listeners).filter((id) => id.startsWith(idPrefix))
+    if (listeners.length === 0) return
+
+    listeners.forEach((id) => {
+      this.removeListener(id)
+    })
+  }
+
   public removeListener (id: string): void {
     const listener = this.listeners[id]
     if (!listener) return

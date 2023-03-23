@@ -38,7 +38,7 @@ export class EmoteService extends BaseService {
       this.setEmoteNames(emoteNames)
       this.modifiers = modifiers
 
-      if (this.htmlService.getTextAreaField()) {
+      if (this.htmlService.getEditors().length > 0) {
         this.listenersService.requestAddListeners(CompletionsService.TAG)
       }
     }).catch((error) => {

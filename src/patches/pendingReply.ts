@@ -22,6 +22,12 @@ export default function pendingReplyPatch (
     return
   }
 
+  const setPendingReplyShouldMention = pendingReplyDispatcher.setPendingReplyShouldMentionKey
+  if (setPendingReplyShouldMention === undefined) {
+    Logger.warn('Set pending reply should mention function name not found')
+    return
+  }
+
   BdApi.Patcher.before(
     pluginName,
     pendingReplyDispatcher.module,
@@ -39,6 +45,20 @@ export default function pendingReplyPatch (
     pendingReplyDispatcher.module,
     deletePendingReply as never,
     (_, args, original) => onDeletePendingReply(args, original, attachService)
+  )
+
+  BdApi.Patcher.before(
+    pluginName,
+    pendingReplyDispatcher.module,
+    setPendingReplyShouldMention as never,
+    (_, args) => {
+      if (typeof args[0] !== 'string' || typeof args[1] !== 'boolean') return
+      const channelId = args[0] as string
+      const shouldMention = args[1] as boolean
+
+      if (attachService.pendingReply?.channel.id !== channelId) return
+      attachService.pendingReply.shouldMention = shouldMention
+    }
   )
 }
 
