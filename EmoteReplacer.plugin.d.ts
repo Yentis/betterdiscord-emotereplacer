@@ -110,6 +110,7 @@ declare abstract class BaseService {
     abstract stop(): void;
 }
 interface Channel {
+    id: string;
     guild_id: string;
 }
 interface ChannelStore {
@@ -119,6 +120,9 @@ interface Classes {
     TextArea: {
         channelTextArea: string;
         textArea: string;
+    };
+    Editor: {
+        editor: string;
     };
     Autocomplete: {
         autocomplete: string;
@@ -141,7 +145,7 @@ interface Classes {
     };
 }
 interface ComponentDispatcher {
-    dispatch: (dispatchType: string, data?: unknown) => void;
+    dispatchToLastSubscribed: (dispatchType: string, data?: unknown) => void;
     emitter: {
         listeners: (listenerType: string) => unknown[];
     };
@@ -149,6 +153,7 @@ interface ComponentDispatcher {
 interface PendingReplyDispatcher {
     createPendingReplyKey?: string;
     deletePendingReplyKey?: string;
+    setPendingReplyShouldMentionKey?: string;
     module?: Record<string, unknown>;
 }
 interface EmojiDisabledReasons {
@@ -184,9 +189,6 @@ interface MessageStore {
 interface Permissions {
     can: (permissions: bigint, channel: Channel, userId: string) => boolean;
 }
-interface SelectedChannelStore {
-    getChannelId: () => string;
-}
 interface Emoji {
     id: string;
     name: string;
@@ -214,6 +216,9 @@ interface UploadOptions {
     draftType: number;
     parsedMessage: Message;
     options?: {
+        allowedMentions: {
+            replied_user: boolean;
+        };
         messageReference: {
             channel_id: string;
             guild_id: string;
@@ -238,7 +243,6 @@ interface CloudUploader {
     };
 }
 declare class ModulesService extends BaseService {
-    selectedChannelStore: SelectedChannelStore;
     channelStore: ChannelStore;
     uploader: Uploader;
     draft: Draft;
@@ -262,8 +266,9 @@ declare class HtmlService extends BaseService {
     start(modulesService: ModulesService): Promise<void>;
     addClasses(element: Element, ...classes: string[]): void;
     getClassSelector(classes: string): string;
-    getTextAreaField(): Element | undefined;
-    getTextAreaContainer(): Element | undefined;
+    getTextAreaField(editor: Element | undefined): Element | undefined;
+    getTextAreaContainer(editor: Element | undefined): Element | undefined;
+    getEditors(): NodeListOf<Element>;
     stop(): void;
 }
 interface Listener {
@@ -278,6 +283,7 @@ declare class ListenersService extends BaseService {
     }>;
     start(): Promise<void>;
     addListener(id: string, listener: Listener): void;
+    removeListeners(idPrefix: string): void;
     removeListener(id: string): void;
     requestAddListeners(targetId: string): void;
     stop(): void;
@@ -330,40 +336,17 @@ interface ScrollOptions {
     locked?: boolean;
     clamped?: boolean;
 }
-declare class CompletionsService extends BaseService {
-    static readonly TAG: string;
-    private static readonly TEXTAREA_KEYDOWN_LISTENER;
-    private static readonly TEXTAREA_WHEEL_LISTENER;
-    private static readonly TEXTAREA_BLUR_LISTENER;
-    private static readonly AUTOCOMPLETE_DIV_WHEEL_LISTENER;
-    private static readonly EMOTE_ROW_MOUSEENTER_LISTENER;
-    private static readonly EMOTE_ROW_MOUSEDOWN_LISTENER;
-    emoteService: EmoteService;
-    settingsService: SettingsService;
-    modulesService: ModulesService;
-    listenersService: ListenersService;
-    htmlService: HtmlService;
-    draft: string;
-    cached: Cached | undefined;
-    start(emoteService: EmoteService, settingsService: SettingsService, modulesService: ModulesService, listenersService: ListenersService, htmlService: HtmlService): Promise<void>;
-    private addListeners;
-    browseCompletions(event: KeyboardEvent): void;
-    private prepareCompletions;
-    private insertSelectedCompletion;
-    destroyCompletions(): void;
-    renderCompletions: import("lodash").DebouncedFunc<() => void>;
-    scrollCompletions(e: WheelEvent, options?: ScrollOptions): void;
-    private scrollWindow;
-    stop(): void;
-}
 interface PendingReply {
     message: Message;
     channel: Channel;
+    shouldMention: boolean;
 }
 declare class AttachService extends BaseService {
     modulesService: ModulesService;
     canAttach: boolean;
     externalEmotes: Set<string>;
+    userId?: string;
+    curChannelId?: string;
     pendingUpload?: Promise<void>;
     pendingReply?: PendingReply;
     onMessagesLoaded: ((data: {
@@ -374,8 +357,36 @@ declare class AttachService extends BaseService {
     }) => void) | undefined;
     start(modulesService: ModulesService): Promise<void>;
     private getUserId;
-    private setCanAttach;
-    private initChannelSubscription;
+    setCanAttach(_channelId: string | undefined): void;
+    stop(): void;
+}
+declare class CompletionsService extends BaseService {
+    static readonly TAG: string;
+    private static readonly TEXTAREA_KEYDOWN_LISTENER;
+    private static readonly TEXTAREA_WHEEL_LISTENER;
+    private static readonly TEXTAREA_FOCUS_LISTENER;
+    private static readonly TEXTAREA_BLUR_LISTENER;
+    private static readonly AUTOCOMPLETE_DIV_WHEEL_LISTENER;
+    private static readonly EMOTE_ROW_MOUSEENTER_LISTENER;
+    private static readonly EMOTE_ROW_MOUSEDOWN_LISTENER;
+    emoteService: EmoteService;
+    settingsService: SettingsService;
+    modulesService: ModulesService;
+    listenersService: ListenersService;
+    htmlService: HtmlService;
+    attachService: AttachService;
+    draft: string;
+    cached: Cached | undefined;
+    curEditor?: Element;
+    start(emoteService: EmoteService, settingsService: SettingsService, modulesService: ModulesService, listenersService: ListenersService, htmlService: HtmlService, attachService: AttachService): Promise<void>;
+    private addListeners;
+    browseCompletions(event: KeyboardEvent): void;
+    private prepareCompletions;
+    private insertSelectedCompletion;
+    destroyCompletions(): void;
+    renderCompletions: import("lodash").DebouncedFunc<() => void>;
+    scrollCompletions(e: WheelEvent, options?: ScrollOptions): void;
+    private scrollWindow;
     stop(): void;
 }
 declare class GifsicleService extends BaseService {

@@ -56,8 +56,9 @@ export class SendMessageService extends BaseService {
   ): Promise<void> {
     const callDefault = original as (...args: unknown[]) => unknown
 
+    const channelId = args[0] as string | undefined
     const message = args[1] as Message | undefined
-    if (!message) {
+    if (channelId === undefined || !message) {
       callDefault(...args)
       return
     }
@@ -88,6 +89,7 @@ export class SendMessageService extends BaseService {
       ).trim()
 
       foundEmote.content = content
+      foundEmote.channel = channelId
 
       try {
         this.attachService.pendingUpload = this.fetchBlobAndUpload(foundEmote)
@@ -241,7 +243,6 @@ export class SendMessageService extends BaseService {
 
   private async fetchBlobAndUpload (emote: InternalEmote): Promise<void> {
     const url = emote.url, name = emote.name, commands = emote.commands
-    emote.channel = this.modulesService.selectedChannelStore.getChannelId()
 
     if (url.endsWith('.gif') || this.findCommand(commands, this.getGifModifiers())) {
       return this.getMetaAndModifyGif(emote)
@@ -412,6 +413,9 @@ export class SendMessageService extends BaseService {
     const pendingReply = this.attachService.pendingReply
     if (pendingReply) {
       uploadOptions.options = {
+        allowedMentions: {
+          replied_user: pendingReply.shouldMention
+        },
         messageReference: {
           channel_id: pendingReply.message.channel_id,
           guild_id: pendingReply.channel.guild_id,

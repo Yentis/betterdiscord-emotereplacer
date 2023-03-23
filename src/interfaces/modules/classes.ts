@@ -3,6 +3,9 @@ export default interface Classes {
     channelTextArea: string
     textArea: string
   }
+  Editor: {
+    editor: string
+  }
   Autocomplete: {
     autocomplete: string
     autocompleteInner: string

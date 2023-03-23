@@ -26,14 +26,19 @@ export class HtmlService extends BaseService {
       .join(' ')
   }
 
-  public getTextAreaField (): Element | undefined {
+  public getTextAreaField (editor: Element | undefined): Element | undefined {
     const textArea = this.modulesService.classes.TextArea.textArea
-    return document.querySelector(this.getClassSelector(textArea)) ?? undefined
+    return editor?.closest(this.getClassSelector(textArea)) ?? undefined
   }
 
-  public getTextAreaContainer (): Element | undefined {
+  public getTextAreaContainer (editor: Element | undefined): Element | undefined {
     const channelTextArea = this.modulesService.classes.TextArea.channelTextArea
-    return document.querySelector(this.getClassSelector(channelTextArea)) ?? undefined
+    return editor?.closest(this.getClassSelector(channelTextArea)) ?? undefined
+  }
+
+  public getEditors (): NodeListOf<Element> {
+    const editor = this.modulesService.classes.Editor.editor
+    return document.querySelectorAll(this.getClassSelector(editor)) ?? []
   }
 
   public stop (): void {

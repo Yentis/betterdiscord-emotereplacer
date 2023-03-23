@@ -2,6 +2,7 @@ import Cached from 'interfaces/cached'
 import { Listener } from 'interfaces/listener'
 import ScrollOptions from 'interfaces/scrollOptions'
 import { delay, loadImagePromise } from 'utils/promiseUtils'
+import { AttachService } from './attachService'
 import { BaseService } from './baseService'
 import { EmoteService } from './emoteService'
 import { HtmlService } from './htmlService'
@@ -13,6 +14,7 @@ export class CompletionsService extends BaseService {
   public static readonly TAG = CompletionsService.name
   private static readonly TEXTAREA_KEYDOWN_LISTENER = 'textAreaKeydown'
   private static readonly TEXTAREA_WHEEL_LISTENER = 'textAreaWheel'
+  private static readonly TEXTAREA_FOCUS_LISTENER = 'textAreaFocus'
   private static readonly TEXTAREA_BLUR_LISTENER = 'textAreaBlur'
   private static readonly AUTOCOMPLETE_DIV_WHEEL_LISTENER = 'autocompleteDivWheel'
   private static readonly EMOTE_ROW_MOUSEENTER_LISTENER = 'emoteRowMouseenter'
@@ -23,22 +25,26 @@ export class CompletionsService extends BaseService {
   modulesService!: ModulesService
   listenersService!: ListenersService
   htmlService!: HtmlService
+  attachService!: AttachService
 
   draft = ''
   cached: Cached | undefined
+  curEditor?: Element
 
   public start (
     emoteService: EmoteService,
     settingsService: SettingsService,
     modulesService: ModulesService,
     listenersService: ListenersService,
-    htmlService: HtmlService
+    htmlService: HtmlService,
+    attachService: AttachService
   ): Promise<void> {
     this.emoteService = emoteService
     this.settingsService = settingsService
     this.modulesService = modulesService
     this.listenersService = listenersService
     this.htmlService = htmlService
+    this.attachService = attachService
 
     this.listenersService.addListenersWatchers[CompletionsService.TAG] = {
       onAddListeners: () => { this.addListeners() }
@@ -49,36 +55,70 @@ export class CompletionsService extends BaseService {
   }
 
   private addListeners (): void {
-    const textArea = this.htmlService.getTextAreaField()
-    if (textArea === undefined) return
+    const editors = this.htmlService.getEditors()
+    if (editors.length === 0) return
+    this.curEditor = editors[0]
 
-    this.listenersService.removeListener(CompletionsService.TEXTAREA_KEYDOWN_LISTENER)
-    this.listenersService.removeListener(CompletionsService.TEXTAREA_WHEEL_LISTENER)
-    this.listenersService.removeListener(CompletionsService.TEXTAREA_BLUR_LISTENER)
+    this.listenersService.removeListeners(CompletionsService.TEXTAREA_KEYDOWN_LISTENER)
+    this.listenersService.removeListeners(CompletionsService.TEXTAREA_WHEEL_LISTENER)
+    this.listenersService.removeListeners(CompletionsService.TEXTAREA_FOCUS_LISTENER)
+    this.listenersService.removeListeners(CompletionsService.TEXTAREA_BLUR_LISTENER)
 
-    const keydownListener: Listener = {
-      element: textArea,
-      name: 'keydown',
-      callback: (evt: Event) => { this.browseCompletions(evt as KeyboardEvent) }
-    }
-    textArea.addEventListener(keydownListener.name, keydownListener.callback)
-    this.listenersService.addListener(CompletionsService.TEXTAREA_KEYDOWN_LISTENER, keydownListener)
+    editors.forEach((editor, index) => {
+      const focusListener: Listener = {
+        element: editor,
+        name: 'focus',
+        callback: () => { this.curEditor = editor }
+      }
 
-    const wheelListener: Listener = {
-      element: textArea,
-      name: 'wheel',
-      callback: (evt: Event) => { this.scrollCompletions(evt as WheelEvent) }
-    }
-    textArea.addEventListener(wheelListener.name, wheelListener.callback)
-    this.listenersService.addListener(CompletionsService.TEXTAREA_WHEEL_LISTENER, wheelListener)
+      editor.addEventListener(focusListener.name, focusListener.callback)
+      this.listenersService.addListener(
+        `${CompletionsService.TEXTAREA_FOCUS_LISTENER}${index}`,
+        focusListener
+      )
 
-    const blurListener: Listener = {
-      element: textArea,
-      name: 'blur',
-      callback: () => { this.destroyCompletions() }
-    }
-    textArea.addEventListener(blurListener.name, blurListener.callback)
-    this.listenersService.addListener(CompletionsService.TEXTAREA_BLUR_LISTENER, blurListener)
+      const blurListener: Listener = {
+        element: editor,
+        name: 'blur',
+        callback: () => {
+          this.destroyCompletions()
+          this.curEditor = undefined
+        }
+      }
+
+      editor.addEventListener(blurListener.name, blurListener.callback)
+      this.listenersService.addListener(
+        `${CompletionsService.TEXTAREA_BLUR_LISTENER}${index}`,
+        blurListener
+      )
+
+      const textArea = this.htmlService.getTextAreaField(editor)
+      if (!textArea) return
+
+      const keydownListener: Listener = {
+        element: textArea,
+        name: 'keydown',
+        callback: (evt: Event) => { this.browseCompletions(evt as KeyboardEvent) }
+      }
+
+      textArea.addEventListener(keydownListener.name, keydownListener.callback)
+      this.listenersService.addListener(
+        `${CompletionsService.TEXTAREA_KEYDOWN_LISTENER}${index}`,
+        keydownListener
+      )
+
+      const wheelListener: Listener = {
+        element: textArea,
+        name: 'wheel',
+        callback: (evt: Event) => { this.scrollCompletions(evt as WheelEvent) }
+      }
+
+      textArea.addEventListener(wheelListener.name, wheelListener.callback)
+      this.listenersService.addListener(
+        `${CompletionsService.TEXTAREA_WHEEL_LISTENER}${index}`,
+        wheelListener
+      )
+    })
   }
 
   public browseCompletions (event: KeyboardEvent): void {
@@ -188,12 +228,13 @@ export class CompletionsService extends BaseService {
     const { completions, matchText, selectedIndex } = this.cached ?? {}
     const curDraft = this.draft
     const matchTextLength = matchText?.length ?? 0
+    const channelId = this.attachService.curChannelId
 
-    if (completions === undefined || selectedIndex === undefined) {
+    if (completions === undefined || selectedIndex === undefined || channelId === undefined) {
       return
     }
 
-    this.modulesService.draft.clearDraft(this.modulesService.selectedChannelStore.getChannelId(), 0)
+    this.modulesService.draft.clearDraft(channelId, 0)
     await delay(0)
 
     const selectedCompletion = completions[selectedIndex]
@@ -216,17 +257,17 @@ export class CompletionsService extends BaseService {
     this.destroyCompletions()
 
     await delay(0)
-    this.modulesService.componentDispatcher.dispatch(
+    this.modulesService.componentDispatcher.dispatchToLastSubscribed(
       'INSERT_TEXT',
       { plainText: newDraft + selectedCompletion.name }
     )
   }
 
   public destroyCompletions (): void {
-    const textAreaContainer = this.htmlService.getTextAreaContainer()
+    const textAreaContainer = this.htmlService.getTextAreaContainer(this.curEditor)
 
     if (textAreaContainer) {
-      const completions = this.htmlService.getTextAreaContainer()?.querySelectorAll(
+      const completions = this.htmlService.getTextAreaContainer(this.curEditor)?.querySelectorAll(
         `.${this.plugin.meta.name}`
       )
 
@@ -240,7 +281,7 @@ export class CompletionsService extends BaseService {
   }
 
   public renderCompletions = _.debounce(() => {
-    const channelTextArea = this.htmlService.getTextAreaContainer()
+    const channelTextArea = this.htmlService.getTextAreaContainer(this.curEditor)
     if (!channelTextArea) return
 
     const oldAutoComplete = channelTextArea?.querySelectorAll(`.${this.plugin.meta.name}`) ?? []
@@ -480,5 +521,6 @@ export class CompletionsService extends BaseService {
   public stop (): void {
     this.draft = ''
     this.cached = undefined
+    this.curEditor = undefined
   }
 }

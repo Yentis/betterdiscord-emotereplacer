@@ -96,17 +96,18 @@ export class EmoteReplacerPlugin implements Plugin {
     this.emoteService = new EmoteService(this, zeresPluginLibrary)
     await this.emoteService.start(this.listenersService, this.settingsService, this.htmlService)
 
+    this.attachService = new AttachService(this, zeresPluginLibrary)
+    await this.attachService.start(this.modulesService)
+
     this.completionsService = new CompletionsService(this, zeresPluginLibrary)
     await this.completionsService.start(
       this.emoteService,
       this.settingsService,
       this.modulesService,
       this.listenersService,
-      this.htmlService
+      this.htmlService,
+      this.attachService
     )
-
-    this.attachService = new AttachService(this, zeresPluginLibrary)
-    await this.attachService.start(this.modulesService)
 
     this.gifsicleService = new GifsicleService(this, zeresPluginLibrary)
     await this.gifsicleService.start()
@@ -173,11 +174,11 @@ export class EmoteReplacerPlugin implements Plugin {
     this.gifsicleService?.stop()
     this.gifsicleService = undefined
 
-    this.attachService?.stop()
-    this.attachService = undefined
-
     this.completionsService?.stop()
     this.completionsService = undefined
+
+    this.attachService?.stop()
+    this.attachService = undefined
 
     this.emoteService?.stop()
     this.emoteService = undefined

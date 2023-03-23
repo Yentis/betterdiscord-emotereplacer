@@ -1,6 +1,6 @@
 {
   "name": "EmoteReplacer",
-  "version": "1.13.0",
+  "version": "1.13.1",
   "description": "Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/",
   "author": "Yentis",
   "authorId": "68834122860077056",

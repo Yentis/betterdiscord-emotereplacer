@@ -10,14 +10,12 @@ import { EmojiSearch } from 'interfaces/modules/emojiSearch'
 import EmojiStore from 'interfaces/modules/emojiStore'
 import { MessageStore } from 'interfaces/modules/messageStore'
 import Permissions from 'interfaces/modules/permissions'
-import SelectedChannelStore from 'interfaces/modules/selectedChannelStore'
 import Uploader from 'interfaces/modules/uploader'
 import UserStore from 'interfaces/modules/userStore'
 import { BaseService } from './baseService'
 import { CloudUploader } from 'interfaces/modules/cloudUploader'
 
 export class ModulesService extends BaseService {
-  selectedChannelStore!: SelectedChannelStore
   channelStore!: ChannelStore
   uploader!: Uploader
   draft!: Draft
@@ -36,7 +34,6 @@ export class ModulesService extends BaseService {
 
   public start (): Promise<void> {
     const [
-      selectedChannelStore,
       channelStore,
       uploader,
       draft,
@@ -51,6 +48,7 @@ export class ModulesService extends BaseService {
       userStore,
       messageStore,
       TextArea,
+      Editor,
       Autocomplete,
       autocompleteAttached,
       Wrapper,
@@ -58,8 +56,6 @@ export class ModulesService extends BaseService {
       cloudUploader
     ] = BdApi.Webpack.getBulk(
       {
-        filter: BdApi.Webpack.Filters.byProps('getChannelId', 'getVoiceChannelId')
-      }, {
         filter: BdApi.Webpack.Filters.byProps('getChannel', 'hasChannel')
       }, {
         filter: BdApi.Webpack.Filters.byProps('instantBatchUpload')
@@ -94,6 +90,8 @@ export class ModulesService extends BaseService {
               this.pendingReplyDispatcher.deletePendingReplyKey = key
             } else if (valueString.includes('CREATE_PENDING_REPLY')) {
               this.pendingReplyDispatcher.createPendingReplyKey = key
+            } else if (valueString.includes('SET_PENDING_REPLY_SHOULD_MENTION')) {
+              this.pendingReplyDispatcher.setPendingReplyShouldMentionKey = key
             }
           })
 
@@ -113,6 +111,8 @@ export class ModulesService extends BaseService {
       }, {
         filter: BdApi.Webpack.Filters.byProps('channelTextArea', 'textAreaHeight')
       }, {
+        filter: BdApi.Webpack.Filters.byProps('editor', 'placeholder')
+      }, {
         filter: BdApi.Webpack.Filters.byProps(
           'autocomplete',
           'autocompleteInner',
@@ -130,12 +130,13 @@ export class ModulesService extends BaseService {
             if (typeof value !== 'object' || value === null) return false
             const curValue = value as Record<string, unknown>
 
-            return curValue.NOT_STARTED !== undefined && curValue.UPLOADING !== undefined
+            return curValue.NOT_STARTED !== undefined &&
+                   curValue.UPLOADING !== undefined &&
+                   module.n !== undefined
           })
         }
       }
     ) as [
-      SelectedChannelStore,
       ChannelStore,
       Uploader,
       Draft,
@@ -150,6 +151,7 @@ export class ModulesService extends BaseService {
       UserStore,
       MessageStore,
       Classes['TextArea'],
+      Classes['Editor'],
       Classes['Autocomplete'],
       AutocompleteAttached,
       Classes['Wrapper'],
@@ -157,7 +159,6 @@ export class ModulesService extends BaseService {
       CloudUploader
     ]
 
-    this.selectedChannelStore = selectedChannelStore
     this.channelStore = channelStore
     this.uploader = uploader
     this.draft = draft
@@ -175,6 +176,7 @@ export class ModulesService extends BaseService {
 
     this.classes = {
       TextArea,
+      Editor,
 
       Autocomplete: {
         ...Autocomplete,

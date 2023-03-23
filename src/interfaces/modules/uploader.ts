@@ -7,6 +7,9 @@ export interface UploadOptions {
   draftType: number,
   parsedMessage: Message,
   options?: {
+    allowedMentions: {
+      replied_user: boolean
+    },
     messageReference: {
       channel_id: string
       guild_id: string

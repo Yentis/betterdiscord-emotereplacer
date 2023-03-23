@@ -7,6 +7,8 @@ export class AttachService extends BaseService {
 
   canAttach = false
   externalEmotes = new Set<string>()
+  userId?: string
+  curChannelId?: string
 
   pendingUpload?: Promise<void>
   pendingReply?: PendingReply
@@ -16,9 +18,7 @@ export class AttachService extends BaseService {
 
   public async start (modulesService: ModulesService): Promise<void> {
     this.modulesService = modulesService
-
-    const userId = await this.getUserId()
-    this.initChannelSubscription(userId)
+    this.userId = await this.getUserId()
   }
 
   private getUserId (): Promise<string> {
@@ -27,15 +27,12 @@ export class AttachService extends BaseService {
       let user = getCurrentUser()
 
       if (user) {
-        const userId = user.id
-        this.setCanAttach(this.modulesService.selectedChannelStore.getChannelId(), userId)
-
-        resolve(userId)
+        resolve(user.id)
         return
       }
 
       // Not fully booted yet, wait for channel messages to load
-      this.onMessagesLoaded = (data) => {
+      this.onMessagesLoaded = () => {
         user = getCurrentUser()
         const userId = user?.id ?? ''
 
@@ -45,19 +42,24 @@ export class AttachService extends BaseService {
         }
 
         if (!userId) return
-        this.setCanAttach(data.channelId, userId)
-
         resolve(userId)
       }
+
       this.modulesService.dispatcher.subscribe('LOAD_MESSAGES_SUCCESS', this.onMessagesLoaded)
     })
   }
 
-  private setCanAttach (_channelId: string | undefined, userId: string): void {
+  public setCanAttach (_channelId: string | undefined): void {
+    if (_channelId !== undefined && _channelId === this.curChannelId) return
     this.externalEmotes.clear()
 
     const channelId = _channelId ?? ''
     if (!channelId) {
+      this.canAttach = true
+      return
+    }
+
+    if (this.userId === undefined) {
       this.canAttach = true
       return
     }
@@ -78,15 +80,10 @@ export class AttachService extends BaseService {
     this.canAttach = this.modulesService.permissions.can(
       permissions.ATTACH_FILES,
       channel,
-      userId
+      this.userId
     )
-  }
 
-  private initChannelSubscription (userId: string): void {
-    this.onChannelSelect = (data) => {
-      this.setCanAttach(data.channelId, userId)
-    }
-    this.modulesService.dispatcher.subscribe('CHANNEL_SELECT', this.onChannelSelect)
+    this.curChannelId = channelId
   }
 
   public stop (): void {
