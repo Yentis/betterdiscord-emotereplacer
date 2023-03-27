@@ -22,7 +22,7 @@ export class RawPlugin implements Plugin {
     const fs = await import('fs')
     const path = await import('path')
 
-    BdApi.showConfirmationModal(
+    BdApi.UI.showConfirmationModal(
       'Library Missing',
       `The library plugin needed for ${this.meta.name} is missing. ` +
       'Please click Download Now to install it.',

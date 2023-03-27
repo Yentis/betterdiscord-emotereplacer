@@ -1,4 +1,5 @@
 /// <reference types="lodash" />
+/// <reference types="node" />
 import { Plugin, Meta } from "betterdiscord";
 import { Pica } from "pica";
 interface ExtendedMeta extends Meta {
