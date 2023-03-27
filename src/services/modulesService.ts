@@ -33,146 +33,116 @@ export class ModulesService extends BaseService {
   cloudUploader!: CloudUploader
 
   public start (): Promise<void> {
-    const [
-      channelStore,
-      uploader,
-      draft,
-      permissions,
-      discordPermissions,
-      dispatcher,
-      componentDispatcher,
-      pendingReplyModule,
-      emojiStore,
-      emojiSearch,
-      emojiDisabledReasons,
-      userStore,
-      messageStore,
-      TextArea,
-      Editor,
-      Autocomplete,
-      autocompleteAttached,
-      Wrapper,
-      Size,
-      cloudUploader
-    ] = BdApi.Webpack.getBulk(
-      {
-        filter: BdApi.Webpack.Filters.byProps('getChannel', 'hasChannel')
-      }, {
-        filter: BdApi.Webpack.Filters.byProps('instantBatchUpload')
-      }, {
-        filter: BdApi.Webpack.Filters.byProps('changeDraft')
-      }, {
-        filter: BdApi.Webpack.Filters.byProps('getChannelPermissions')
-      }, {
-        filter: (module: Record<string, unknown>) => {
-          return typeof module.CREATE_INSTANT_INVITE === 'bigint'
-        },
-        searchExports: true
-      }, {
-        filter: BdApi.Webpack.Filters.byProps('dispatch', 'subscribe')
-      }, {
-        filter: (module: Record<string, unknown>) => {
-          if (module.dispatchToLastSubscribed !== undefined) {
-            const componentDispatcher = (module as unknown) as ComponentDispatcher
-            return componentDispatcher.emitter.listeners('SHAKE_APP').length > 0
-          }
+    this.channelStore = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('getChannel', 'hasChannel')
+    ) as ChannelStore
 
-          return false
-        },
-        searchExports: true
-      }, {
-        filter: (module: Record<string, (() => string) | undefined>) => {
-          Object.entries(module).forEach(([key, value]) => {
-            if (!(typeof value === 'function')) return
-            const valueString = value.toString()
+    this.uploader = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('instantBatchUpload')
+    ) as Uploader
 
-            if (valueString.includes('DELETE_PENDING_REPLY')) {
-              this.pendingReplyDispatcher.deletePendingReplyKey = key
-            } else if (valueString.includes('CREATE_PENDING_REPLY')) {
-              this.pendingReplyDispatcher.createPendingReplyKey = key
-            } else if (valueString.includes('SET_PENDING_REPLY_SHOULD_MENTION')) {
-              this.pendingReplyDispatcher.setPendingReplyShouldMentionKey = key
-            }
-          })
+    this.draft = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('changeDraft')
+    ) as Draft
 
-          return this.pendingReplyDispatcher.deletePendingReplyKey !== undefined
-        }
-      }, {
-        filter: BdApi.Webpack.Filters.byProps('getEmojiUnavailableReason')
-      }, {
-        filter: BdApi.Webpack.Filters.byProps('getDisambiguatedEmojiContext')
-      }, {
-        filter: BdApi.Webpack.Filters.byProps('PREMIUM_LOCKED'),
-        searchExports: true
-      }, {
-        filter: BdApi.Webpack.Filters.byProps('getCurrentUser')
-      }, {
-        filter: BdApi.Webpack.Filters.byProps('sendMessage')
-      }, {
-        filter: BdApi.Webpack.Filters.byProps('channelTextArea', 'textAreaHeight')
-      }, {
-        filter: BdApi.Webpack.Filters.byProps('editor', 'placeholder')
-      }, {
-        filter: BdApi.Webpack.Filters.byProps(
-          'autocomplete',
-          'autocompleteInner',
-          'autocompleteRowVertical'
-        )
-      }, {
-        filter: BdApi.Webpack.Filters.byProps('autocomplete', 'autocompleteAttached')
-      }, {
-        filter: BdApi.Webpack.Filters.byProps('wrapper', 'base')
-      }, {
-        filter: BdApi.Webpack.Filters.byProps('size12')
-      }, {
-        filter: (module: Record<string, unknown>) => {
-          return Object.values(module).some((value) => {
-            if (typeof value !== 'object' || value === null) return false
-            const curValue = value as Record<string, unknown>
+    this.permissions = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('getChannelPermissions')
+    ) as Permissions
 
-            return curValue.NOT_STARTED !== undefined &&
-                   curValue.UPLOADING !== undefined &&
-                   module.n !== undefined
-          })
-        }
+    this.discordPermissions = BdApi.Webpack.getModule((module: Record<string, unknown>) => {
+      return typeof module.CREATE_INSTANT_INVITE === 'bigint'
+    }, { searchExports: true }) as DiscordPermissions
+
+    this.dispatcher = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('dispatch', 'subscribe')
+    ) as Dispatcher
+
+    this.componentDispatcher = BdApi.Webpack.getModule((module: Record<string, unknown>) => {
+      if (module.dispatchToLastSubscribed !== undefined) {
+        const componentDispatcher = (module as unknown) as ComponentDispatcher
+        return componentDispatcher.emitter.listeners('SHAKE_APP').length > 0
       }
-    ) as [
-      ChannelStore,
-      Uploader,
-      Draft,
-      Permissions,
-      DiscordPermissions,
-      Dispatcher,
-      ComponentDispatcher,
-      Record<string, unknown>,
-      EmojiStore,
-      EmojiSearch,
-      EmojiDisabledReasons,
-      UserStore,
-      MessageStore,
-      Classes['TextArea'],
-      Classes['Editor'],
-      Classes['Autocomplete'],
-      AutocompleteAttached,
-      Classes['Wrapper'],
-      Classes['Size'],
-      CloudUploader
-    ]
 
-    this.channelStore = channelStore
-    this.uploader = uploader
-    this.draft = draft
-    this.permissions = permissions
-    this.discordPermissions = discordPermissions
-    this.dispatcher = dispatcher
-    this.componentDispatcher = componentDispatcher
-    this.pendingReplyDispatcher.module = pendingReplyModule
-    this.emojiSearch = emojiSearch
-    this.emojiDisabledReasons = emojiDisabledReasons
-    this.emojiStore = emojiStore
-    this.userStore = userStore
-    this.messageStore = messageStore
-    this.cloudUploader = cloudUploader
+      return false
+    }, { searchExports: true }) as ComponentDispatcher
+
+    this.pendingReplyDispatcher.module = BdApi.Webpack.getModule(
+      (module: Record<string, (() => string) | undefined>) => {
+        Object.entries(module).forEach(([key, value]) => {
+          if (!(typeof value === 'function')) return
+          const valueString = value.toString()
+
+          if (valueString.includes('DELETE_PENDING_REPLY')) {
+            this.pendingReplyDispatcher.deletePendingReplyKey = key
+          } else if (valueString.includes('CREATE_PENDING_REPLY')) {
+            this.pendingReplyDispatcher.createPendingReplyKey = key
+          } else if (valueString.includes('SET_PENDING_REPLY_SHOULD_MENTION')) {
+            this.pendingReplyDispatcher.setPendingReplyShouldMentionKey = key
+          }
+        })
+
+        return this.pendingReplyDispatcher.deletePendingReplyKey !== undefined
+      }
+    ) as Record<string, unknown>
+
+    this.emojiStore = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('getEmojiUnavailableReason')
+    ) as EmojiStore
+
+    this.emojiSearch = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('getDisambiguatedEmojiContext')
+    ) as EmojiSearch
+
+    this.emojiDisabledReasons = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('PREMIUM_LOCKED'), { searchExports: true }
+    ) as EmojiDisabledReasons
+
+    this.userStore = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('getCurrentUser')
+    ) as UserStore
+
+    this.messageStore = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('sendMessage')
+    ) as MessageStore
+
+    this.cloudUploader = BdApi.Webpack.getModule((module: Record<string, unknown>) => {
+      return Object.values(module).some((value) => {
+        if (typeof value !== 'object' || value === null) return false
+        const curValue = value as Record<string, unknown>
+
+        return curValue.NOT_STARTED !== undefined &&
+                curValue.UPLOADING !== undefined &&
+                module.n !== undefined
+      })
+    }) as CloudUploader
+
+    const TextArea = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('channelTextArea', 'textAreaHeight')
+    ) as Classes['TextArea']
+
+    const Editor = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('editor', 'placeholder')
+    ) as Classes['Editor']
+
+    const Autocomplete = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps(
+        'autocomplete',
+        'autocompleteInner',
+        'autocompleteRowVertical'
+      )
+    ) as Classes['Autocomplete']
+
+    const autocompleteAttached = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('autocomplete', 'autocompleteAttached')
+    ) as AutocompleteAttached
+
+    const Wrapper = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('wrapper', 'base')
+    ) as Classes['Wrapper']
+
+    const Size = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('size12')
+    ) as Classes['Size']
 
     this.classes = {
       TextArea,

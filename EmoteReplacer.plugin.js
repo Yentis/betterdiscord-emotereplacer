@@ -23153,64 +23153,32 @@ class ModulesService extends BaseService {
     classes;
     cloudUploader;
     start() {
-        const [channelStore, uploader, draft, permissions, discordPermissions, dispatcher, componentDispatcher, pendingReplyModule, emojiStore, emojiSearch, emojiDisabledReasons, userStore, messageStore, TextArea, Editor, Autocomplete, autocompleteAttached, Wrapper, Size, cloudUploader] = BdApi.Webpack.getBulk({
-            filter: BdApi.Webpack.Filters.byProps("getChannel", "hasChannel")
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("instantBatchUpload")
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("changeDraft")
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("getChannelPermissions")
-        }, {
-            filter: module => "bigint" == typeof module.CREATE_INSTANT_INVITE,
+        this.channelStore = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("getChannel", "hasChannel")), 
+        this.uploader = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("instantBatchUpload")), 
+        this.draft = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("changeDraft")), 
+        this.permissions = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("getChannelPermissions")), 
+        this.discordPermissions = BdApi.Webpack.getModule((module => "bigint" == typeof module.CREATE_INSTANT_INVITE), {
             searchExports: !0
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("dispatch", "subscribe")
-        }, {
-            filter: module => void 0 !== module.dispatchToLastSubscribed && module.emitter.listeners("SHAKE_APP").length > 0,
+        }), this.dispatcher = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("dispatch", "subscribe")), 
+        this.componentDispatcher = BdApi.Webpack.getModule((module => void 0 !== module.dispatchToLastSubscribed && module.emitter.listeners("SHAKE_APP").length > 0), {
             searchExports: !0
-        }, {
-            filter: module => (Object.entries(module).forEach((([key, value]) => {
-                if ("function" != typeof value) return;
-                const valueString = value.toString();
-                valueString.includes("DELETE_PENDING_REPLY") ? this.pendingReplyDispatcher.deletePendingReplyKey = key : valueString.includes("CREATE_PENDING_REPLY") ? this.pendingReplyDispatcher.createPendingReplyKey = key : valueString.includes("SET_PENDING_REPLY_SHOULD_MENTION") && (this.pendingReplyDispatcher.setPendingReplyShouldMentionKey = key);
-            })), void 0 !== this.pendingReplyDispatcher.deletePendingReplyKey)
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("getEmojiUnavailableReason")
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("getDisambiguatedEmojiContext")
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("PREMIUM_LOCKED"),
+        }), this.pendingReplyDispatcher.module = BdApi.Webpack.getModule((module => (Object.entries(module).forEach((([key, value]) => {
+            if ("function" != typeof value) return;
+            const valueString = value.toString();
+            valueString.includes("DELETE_PENDING_REPLY") ? this.pendingReplyDispatcher.deletePendingReplyKey = key : valueString.includes("CREATE_PENDING_REPLY") ? this.pendingReplyDispatcher.createPendingReplyKey = key : valueString.includes("SET_PENDING_REPLY_SHOULD_MENTION") && (this.pendingReplyDispatcher.setPendingReplyShouldMentionKey = key);
+        })), void 0 !== this.pendingReplyDispatcher.deletePendingReplyKey))), this.emojiStore = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("getEmojiUnavailableReason")), 
+        this.emojiSearch = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("getDisambiguatedEmojiContext")), 
+        this.emojiDisabledReasons = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("PREMIUM_LOCKED"), {
             searchExports: !0
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("getCurrentUser")
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("sendMessage")
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("channelTextArea", "textAreaHeight")
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("editor", "placeholder")
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("autocomplete", "autocompleteInner", "autocompleteRowVertical")
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("autocomplete", "autocompleteAttached")
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("wrapper", "base")
-        }, {
-            filter: BdApi.Webpack.Filters.byProps("size12")
-        }, {
-            filter: module => Object.values(module).some((value => {
-                if ("object" != typeof value || null === value) return !1;
-                const curValue = value;
-                return void 0 !== curValue.NOT_STARTED && void 0 !== curValue.UPLOADING && void 0 !== module.n;
-            }))
-        });
-        return this.channelStore = channelStore, this.uploader = uploader, this.draft = draft, 
-        this.permissions = permissions, this.discordPermissions = discordPermissions, this.dispatcher = dispatcher, 
-        this.componentDispatcher = componentDispatcher, this.pendingReplyDispatcher.module = pendingReplyModule, 
-        this.emojiSearch = emojiSearch, this.emojiDisabledReasons = emojiDisabledReasons, 
-        this.emojiStore = emojiStore, this.userStore = userStore, this.messageStore = messageStore, 
-        this.cloudUploader = cloudUploader, this.classes = {
+        }), this.userStore = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("getCurrentUser")), 
+        this.messageStore = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("sendMessage")), 
+        this.cloudUploader = BdApi.Webpack.getModule((module => Object.values(module).some((value => {
+            if ("object" != typeof value || null === value) return !1;
+            const curValue = value;
+            return void 0 !== curValue.NOT_STARTED && void 0 !== curValue.UPLOADING && void 0 !== module.n;
+        }))));
+        const TextArea = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("channelTextArea", "textAreaHeight")), Editor = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("editor", "placeholder")), Autocomplete = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("autocomplete", "autocompleteInner", "autocompleteRowVertical")), autocompleteAttached = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("autocomplete", "autocompleteAttached")), Wrapper = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("wrapper", "base")), Size = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byProps("size12"));
+        return this.classes = {
             TextArea,
             Editor,
             Autocomplete: {
@@ -24381,7 +24349,7 @@ var index = void 0 === window.ZeresPluginLibrary ? class RawPlugin {
         })), path = await Promise.resolve().then((function() {
             return _interopNamespace(require("path"));
         }));
-        BdApi.showConfirmationModal("Library Missing", `The library plugin needed for ${this.meta.name} is missing. Please click Download Now to install it.`, {
+        BdApi.UI.showConfirmationModal("Library Missing", `The library plugin needed for ${this.meta.name} is missing. Please click Download Now to install it.`, {
             confirmText: "Download Now",
             cancelText: "Cancel",
             onConfirm: () => {
