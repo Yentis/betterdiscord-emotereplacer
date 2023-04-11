@@ -235,7 +235,7 @@ export class CompletionsService extends BaseService {
     }
 
     this.modulesService.draft.clearDraft(channelId, 0)
-    await delay(0)
+    await delay(100)
 
     const selectedCompletion = completions[selectedIndex]
     if (!selectedCompletion) return

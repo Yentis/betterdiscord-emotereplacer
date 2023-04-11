@@ -1,3 +1,7 @@
+import * as request from 'request'
+import * as electron from 'electron'
+import * as fs from 'fs'
+import * as path from 'path'
 import { Plugin } from 'betterdiscord'
 import { ExtendedMeta } from 'interfaces/extendedMeta'
 import { Logger, setLogger } from 'utils/logger'
@@ -11,17 +15,10 @@ export class RawPlugin implements Plugin {
   }
 
   start (): void {
-    this.showLibraryMissingModal().catch((error) => {
-      Logger.error(error)
-    })
+    this.showLibraryMissingModal()
   }
 
-  private async showLibraryMissingModal () {
-    const request = await import('request')
-    const electron = await import('electron')
-    const fs = await import('fs')
-    const path = await import('path')
-
+  private showLibraryMissingModal () {
     BdApi.UI.showConfirmationModal(
       'Library Missing',
       `The library plugin needed for ${this.meta.name} is missing. ` +

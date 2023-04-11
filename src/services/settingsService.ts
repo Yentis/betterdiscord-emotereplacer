@@ -19,7 +19,7 @@ export class SettingsService extends BaseService {
   public start (listenersService: ListenersService): Promise<void> {
     this.listenersService = listenersService
 
-    const savedSettings = BdApi.loadData(this.plugin.meta.name, SETTINGS_KEY) as Settings
+    const savedSettings = BdApi.Data.load(this.plugin.meta.name, SETTINGS_KEY) as Settings
     this.settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings)
 
     return Promise.resolve()

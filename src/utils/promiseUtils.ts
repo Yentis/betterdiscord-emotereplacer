@@ -1,6 +1,6 @@
-import https from 'https'
-import fs from 'fs'
-import { Buffer } from 'pluginConstants'
+import * as https from 'https'
+import * as fs from 'fs'
+import { Buffer } from 'buffer'
 
 export function urlGetBuffer (url: string): Promise<Buffer> {
   if (url.startsWith('http')) return httpsGetBuffer(url)
