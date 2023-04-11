@@ -1,7 +1,7 @@
 /// <reference types="lodash" />
 /// <reference types="node" />
 import { Plugin, Meta } from "betterdiscord";
-import { Pica } from "pica";
+import { Buffer } from "buffer";
 interface ExtendedMeta extends Meta {
     source: string;
     license: string;
@@ -395,12 +395,6 @@ declare class GifsicleService extends BaseService {
     modifyGif(url: string, options: (string | undefined)[][]): Promise<Buffer>;
     private getCommands;
     private processCommands;
-    private doModification;
-    private getCommandIndex;
-    private processSpecialCommands;
-    private processSpecialCommand;
-    private processNormalCommands;
-    private removeEveryOtherFrame;
     stop(): void;
 }
 declare class SendMessageService extends BaseService {
@@ -409,7 +403,6 @@ declare class SendMessageService extends BaseService {
     modulesService: ModulesService;
     settingsService: SettingsService;
     gifsicleService: GifsicleService;
-    picaInstance: Pica;
     start(emoteService: EmoteService, attachService: AttachService, modulesService: ModulesService, settingsService: SettingsService, gifsicleService: GifsicleService): Promise<void>;
     private onSendMessage;
     private getTargetEmoteFromMessage;

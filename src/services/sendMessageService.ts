@@ -8,11 +8,6 @@ import { ModulesService } from './modulesService'
 import { Logger } from 'utils/logger'
 import * as PromiseUtils from 'utils/promiseUtils'
 import { SettingsService } from './settingsService'
-import { Pica } from 'pica'
-
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import pica from 'libraries/pica/index'
 import { GifsicleService } from './gifsicleService'
 import { UploadOptions } from 'interfaces/modules/uploader'
 
@@ -22,8 +17,6 @@ export class SendMessageService extends BaseService {
   modulesService!: ModulesService
   settingsService!: SettingsService
   gifsicleService!: GifsicleService
-
-  picaInstance!: Pica
 
   public start (
     emoteService: EmoteService,
@@ -37,8 +30,6 @@ export class SendMessageService extends BaseService {
     this.modulesService = modulesService
     this.settingsService = settingsService
     this.gifsicleService = gifsicleService
-
-    this.picaInstance = pica()
 
     BdApi.Patcher.instead(
       this.plugin.meta.name,
@@ -434,11 +425,8 @@ export class SendMessageService extends BaseService {
     const image = await PromiseUtils.loadImagePromise(url)
     const canvas = await this.applyScaling(image, commands)
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return undefined
-
     return await new Promise((resolve) => {
-      ctx.canvas.toBlob((blob) => {
+      canvas.toBlob((blob) => {
         resolve(blob ?? undefined)
       }, 'image/png', 1)
     })
@@ -460,19 +448,24 @@ export class SendMessageService extends BaseService {
       canvas.getContext('2d')?.drawImage(image, 0, 0)
     }
 
-    const resizedCanvas = document.createElement('canvas')
-    resizedCanvas.width = Math.ceil(canvas.width * scaleFactor)
-    resizedCanvas.height = Math.ceil(canvas.height * scaleFactor)
-
-    return await this.picaInstance.resize(
+    const scaledBitmap = await createImageBitmap(
       canvas,
-      resizedCanvas,
       {
-        unsharpAmount: 70,
-        unsharpRadius: 0.8,
-        unsharpThreshold: 105
+        resizeWidth: Math.ceil(canvas.width * scaleFactor),
+        resizeHeight: Math.ceil(canvas.height * scaleFactor),
+        resizeQuality: 'high'
       }
     )
+
+    const resizedCanvas = document.createElement('canvas')
+    resizedCanvas.width = scaledBitmap.width
+    resizedCanvas.height = scaledBitmap.height
+
+    const resizedContext = resizedCanvas.getContext('bitmaprenderer')
+    if (!resizedContext) throw new Error('Bitmap context not found')
+    resizedContext.transferFromImageBitmap(scaledBitmap)
+
+    return resizedCanvas
   }
 
   private applyCommands (

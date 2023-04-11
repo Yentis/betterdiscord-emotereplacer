@@ -1,6 +1,3 @@
-import Jimp from 'jimp'
-import GIFEncoder from 'libraries/gifencoder/gifencoder'
-import { SpecialCommand } from 'interfaces/gifData'
 import { Gif, GifUtil, GifFrame, GifCodec } from 'gifwrap'
 
 export async function getGifFromBuffer (data: Buffer): Promise<Gif> {
@@ -43,58 +40,4 @@ export function alignGif (frames: GifFrame[], interval: number): GifFrame[] {
   }
 
   return alignedFrames
-}
-
-export function setEncoderProperties (encoder: GIFEncoder, delay?: number): void {
-  encoder.start()
-  encoder.setRepeat(0)
-  encoder.setQuality(5)
-
-  if (delay !== undefined) {
-    encoder.setDelay(delay)
-  }
-
-  encoder.setTransparent(0x00000000)
-}
-
-function getSizeFromOptions (options: SpecialCommand) {
-  let widthModifier = 1
-  let heightModifier = 1
-
-  if (!options.isResized) {
-    const { size } = options
-
-    if (size.includes('x')) {
-      const split = size.split('x')
-      widthModifier = parseFloat(split[0] ?? '1')
-      heightModifier = parseFloat(split[1] ?? '1')
-    } else {
-      widthModifier = parseFloat(size)
-      heightModifier = parseFloat(size)
-    }
-  }
-
-  return {
-    widthModifier,
-    heightModifier
-  }
-}
-
-export function preparePNGVariables (
-  options: SpecialCommand,
-  image: Jimp['bitmap']
-): { width: number, height: number, encoder: GIFEncoder } {
-  const {
-    widthModifier,
-    heightModifier
-  } = getSizeFromOptions(options)
-  // Flooring to elude rounding errors
-  const width = Math.floor(widthModifier * image.width)
-  const height = Math.floor(heightModifier * image.height)
-
-  return {
-    width,
-    height,
-    encoder: new GIFEncoder(width, height)
-  }
 }
