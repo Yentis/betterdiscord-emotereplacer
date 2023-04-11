@@ -2,23 +2,18 @@ use colors_transform::{Rgb, Color, Hsl};
 use image::{Frame, ImageBuffer, Rgba, Pixel};
 use rand::Rng;
 
-pub fn rainbow(frames: Vec<Frame>, speed: f32) -> Vec<Frame> {
+pub fn rainbow(frames: &mut [Frame], speed: f32) {
   let speed = 4.0 * speed;
   let mut rng = rand::thread_rng();
   let random_black = rng.gen_range(0.0..=360.0);
   let random_white = rng.gen_range(0.0..=360.0);
 
-  frames
-    .into_iter()
-    .enumerate()
-    .map(|(index, mut frame)| {
-      let cycle = (index as f32) % speed;
-      let shift = (cycle / speed) * (330.0 - 30.0) + 30.0;
+  for (index, frame) in frames.into_iter().enumerate() {
+    let cycle = (index as f32) % speed;
+    let shift = (cycle / speed) * (330.0 - 30.0) + 30.0;
 
-      shift_colors(frame.buffer_mut(), shift, random_black, random_white);
-      frame
-    })
-    .collect()
+    shift_colors(frame.buffer_mut(), shift, random_black, random_white);
+  }
 }
 
 fn shift_colors(
