@@ -1,6 +1,5 @@
 use image::Frame;
 use rand::Rng;
-use wasm_bindgen::UnwrapThrowExt;
 
 use crate::rotate::rotate_frame;
 
@@ -9,8 +8,8 @@ pub enum Direction {
     CounterClockwise
 }
 
-pub fn spin(frames: Vec<Frame>, speed: f32, direction: Direction) -> Vec<Frame> {
-    let frame = frames.get(0).expect_throw("No frames found");
+pub fn spin(frames: &mut Vec<Frame>, speed: f32, direction: Direction) {
+    let Some(frame) = frames.first() else { return };
     let (numerator, denominator) = frame.delay().numer_denom_ms();
 
     let delay_centisecs = (numerator as f32 * denominator as f32) / 10.0;
@@ -23,33 +22,31 @@ pub fn spin(frames: Vec<Frame>, speed: f32, direction: Direction) -> Vec<Frame> 
         Direction::CounterClockwise => degrees *= -1.0
     };
 
-    let frames = align_gif(frames, interval);
-    frames
-        .into_iter()
-        .enumerate()
-        .map(|(index, frame)| {
-            let degrees = (index as f32 * degrees) % 360.0;
-            rotate_frame(&frame, degrees)
-        })
-        .collect()
+    *frames = align_gif(frames, interval as usize);
+
+    for (index, frame) in frames.into_iter().enumerate() {
+        let degrees = (index as f32 * degrees) % 360.0;
+        *frame = rotate_frame(frame, degrees);
+    }
 }
 
-fn align_gif(frames: Vec<Frame>, interval: f32) -> Vec<Frame> {
+fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
     // Duplicate frames until interval is reached
-    let mut aligned_frames = frames.clone();
-    while aligned_frames.len() < interval as usize {
-        aligned_frames.append(&mut frames.clone());
+    let copies = (interval.saturating_sub(1) / frames.len()) + 1;
+    let mut aligned_frames = Vec::with_capacity(copies * frames.len());
+    while aligned_frames.len() < interval {
+        aligned_frames.extend_from_slice(frames);
     }
 
-    let mut frames_to_delete = aligned_frames.len() % interval as usize;
+    let mut frames_to_delete = aligned_frames.len() % interval;
     /*
       Removing more than 20% of frames makes it look sucky => add copies until it's below 20%
       Worst case: interval = (frames.length / 2) + 1 e.g. interval 17 with 32 frames
       then frames_to_delete = 15/32 (46.9%) -> 13/64 (20.3%) -> 11/96 (11.4%)
      */
     while frames_to_delete as f32 / frames.len() as f32 > 0.2 {
-        aligned_frames.append(&mut frames.clone());
-        frames_to_delete = aligned_frames.len() % interval as usize;
+        aligned_frames.extend_from_slice(frames);
+        frames_to_delete = aligned_frames.len() % interval;
     }
 
     let amount_copies = aligned_frames.len() / frames.len();
