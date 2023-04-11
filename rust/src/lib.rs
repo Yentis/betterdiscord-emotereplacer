@@ -8,6 +8,7 @@ use resize::resize;
 use rotate::rotate;
 use serde::Deserialize;
 use flip::flip;
+use spin::{spin, Direction};
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
 mod flip;
@@ -78,6 +79,8 @@ pub fn apply_commands(data: Vec<u8>, commands: JsValue) -> Result<Vec<u8>, Strin
                 "rain" => rain(frames, command.param),
                 "rainbow" => rainbow(frames, command.param),
                 "rotate" => rotate(frames, command.param),
+                "spin" => spin(frames, command.param, Direction::Clockwise),
+                "spinrev" => spin(frames, command.param, Direction::CounterClockwise),
                 _ => {
                     log(name);
                     frames
@@ -132,7 +135,7 @@ fn set_speed(frame: Frame, speed: u32) -> Frame {
 }
 
 fn hyperspeed(frames: Vec<Frame>) -> Vec<Frame> {
-    if frames.len() <= 4 { return frames; }
+    if frames.len() <= 4 { return speed(frames, 2.0); }
 
     frames
         .into_iter()
