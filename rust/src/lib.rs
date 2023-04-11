@@ -1,10 +1,8 @@
 extern crate console_error_panic_hook;
 
 use std::{io::Cursor, mem};
-use image::{
-    codecs::gif::{GifDecoder, GifEncoder, Repeat},
-    AnimationDecoder, Delay, Frame, ImageDecoder,
-};
+use image::{codecs::gif::{GifEncoder, GifDecoder, Repeat}, ImageDecoder, Frame, AnimationDecoder, Delay};
+use infinite::infinite;
 use rain::rain;
 use rainbow::rainbow;
 use resize::resize;
@@ -20,6 +18,8 @@ mod rainbow;
 mod resize;
 mod rotate;
 mod spin;
+mod infinite;
+mod utils;
 
 #[wasm_bindgen]
 extern "C" {
@@ -80,6 +80,7 @@ pub fn apply_commands(data: Vec<u8>, commands: JsValue) -> Result<Vec<u8>, Strin
                 "rotate" => rotate(&mut frames, command.param),
                 "spin" => spin(&mut frames, command.param, Direction::Clockwise),
                 "spinrev" => spin(&mut frames, command.param, Direction::CounterClockwise),
+                "infinite" => infinite(&mut frames, command.param),
                 _ => log(name),
             };
         }
