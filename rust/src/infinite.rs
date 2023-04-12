@@ -5,24 +5,19 @@ use image::{
 
 use crate::{utils::align_gif, log};
 
-pub fn infinite(frames: Vec<Frame>, speed: f32) -> Vec<Frame> {
+pub fn infinite(frames: &mut Vec<Frame>, speed: f32)  {
     let scales_amount: u32 = 5;
     let scale_diff: f32 = 0.9; // Difference between each scale
     let scale_step = (0.03 * 8.0) / speed; // Scale shift between frames
-    let frames = align_gif(frames, scale_diff / scale_step);
+    *frames = align_gif(frames, (scale_diff / scale_step) as usize);
 
     let mut scales: Vec<f32> = Vec::new();
     set_scales(&mut scales, scales_amount, scale_diff, scale_step);
 
-    frames
-        .into_iter()
-        .map(|mut frame| {
-            infinite_shift_frame(&scales, &mut frame);
-            shift_infinite_scales(&mut scales, scale_diff, scale_step);
-
-            frame
-        })
-        .collect()
+    for frame in frames {
+        infinite_shift_frame(&scales, frame);
+        shift_infinite_scales(&mut scales, scale_diff, scale_step);
+    }
 }
 
 fn set_scales(scales: &mut Vec<f32>, scales_amount: u32, scale_diff: f32, scale_step: f32) {

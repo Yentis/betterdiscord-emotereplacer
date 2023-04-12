@@ -1,6 +1,6 @@
 extern crate console_error_panic_hook;
 
-use std::io::Cursor;
+use std::{io::Cursor, mem};
 use image::{codecs::gif::{GifEncoder, GifDecoder, Repeat}, ImageDecoder, Frame, AnimationDecoder, Delay};
 use infinite::infinite;
 use rain::rain;
@@ -13,9 +13,9 @@ use spin::{spin, Direction};
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
 mod flip;
-mod resize;
 mod rain;
 mod rainbow;
+mod resize;
 mod rotate;
 mod spin;
 mod infinite;
@@ -30,22 +30,22 @@ extern "C" {
 #[derive(Deserialize)]
 struct Command {
     pub name: String,
-    pub param: f32
+    pub param: f32,
 }
 
-#[wasm_bindgen(js_name="initPanicHook")]
+#[wasm_bindgen(js_name = "initPanicHook")]
 pub fn init_panic_hook() {
     console_error_panic_hook::set_once();
 }
 
-#[wasm_bindgen(js_name="applyCommands")]
+#[wasm_bindgen(js_name = "applyCommands")]
 pub fn apply_commands(data: Vec<u8>, commands: JsValue) -> Result<Vec<u8>, String> {
     let commands: Vec<Command> = serde_wasm_bindgen::from_value(commands)
         .map_err(|e| format!("Failed to parse commands: {}", e))?;
 
     let reader = GifDecoder::new(Cursor::new(data))
         .map_err(|e| format!("Failed to create reader: {}", e))?;
-    
+
     let (width, height) = reader.dimensions();
     let target_size = get_target_size(&commands);
     let target_width = ((width as f32) * target_size).round() as u32;
@@ -57,56 +57,45 @@ pub fn apply_commands(data: Vec<u8>, commands: JsValue) -> Result<Vec<u8>, Strin
         writer
             .set_repeat(Repeat::Infinite)
             .map_err(|e| format!("Failed to set repeat: {}", e))?;
-    
+
         let mut frames: Vec<Frame> = Vec::new();
         for frame in reader.into_frames() {
             let frame = frame.map_err(|e| format!("Failed to get next frame: {}", e))?;
             frames.push(frame);
         }
-    
+
         if target_size < 1.0 {
-            frames = resize(
-                frames,
-                target_width,
-                target_height
-            )
+            resize(&mut frames, target_width, target_height);
         }
-    
+
         for command in &commands {
             let name = command.name.as_str();
-            frames = match name {
-                "speed" => speed(frames, command.param),
-                "hyperspeed" => hyperspeed(frames),
-                "reverse" => reverse(frames),
-                "flip" => flip(frames, command.param),
-                "rain" => rain(frames, command.param),
-                "rainbow" => rainbow(frames, command.param),
-                "rotate" => rotate(frames, command.param),
-                "spin" => spin(frames, command.param, Direction::Clockwise),
-                "spinrev" => spin(frames, command.param, Direction::CounterClockwise),
-                "infinite" => infinite(frames, command.param),
-                _ => {
-                    log(name);
-                    frames
-                }
+            match name {
+                "speed" => speed(&mut frames, command.param),
+                "hyperspeed" => hyperspeed(&mut frames),
+                "reverse" => reverse(&mut frames),
+                "flip" => flip(&mut frames, command.param),
+                "rain" => rain(&mut frames, command.param),
+                "rainbow" => rainbow(&mut frames, command.param),
+                "rotate" => rotate(&mut frames, command.param),
+                "spin" => spin(&mut frames, command.param, Direction::Clockwise),
+                "spinrev" => spin(&mut frames, command.param, Direction::CounterClockwise),
+                "infinite" => infinite(&mut frames, command.param),
+                _ => log(name),
             };
         }
-    
+
         if target_size > 1.0 {
-            frames = resize(
-                frames,
-                target_width,
-                target_height
-            )
+            resize(&mut frames, target_width, target_height);
         }
-    
+
         for frame in frames {
             writer
                 .encode_frame(frame)
                 .map_err(|e| format!("Failed to write frame: {}", e))?;
         }
     };
-    
+
     Ok(output)
 }
 
@@ -119,36 +108,30 @@ fn get_target_size(commands: &[Command]) -> f32 {
         .unwrap_or(1.0)
 }
 
-fn speed(frames: Vec<Frame>, value: f32) -> Vec<Frame> {
-    frames
-        .into_iter()
-        .map(|frame| set_speed(frame, value as u32))
-        .collect()
+fn speed(frames: &mut [Frame], value: f32) {
+    for frame in frames {
+        set_speed(frame, value as u32);
+    }
 }
 
-fn set_speed(frame: Frame, speed: u32) -> Frame {
+fn set_speed(frame: &mut Frame, speed: u32) {
     let left = frame.left();
     let top = frame.top();
 
-    Frame::from_parts(
-        frame.into_buffer(),
+    *frame = Frame::from_parts(
+        mem::take(frame.buffer_mut()),
         left,
         top,
-        Delay::from_numer_denom_ms(speed * 10, 1)
-    )
+        Delay::from_numer_denom_ms(speed * 10, 1),
+    );
 }
 
-fn hyperspeed(frames: Vec<Frame>) -> Vec<Frame> {
-    if frames.len() <= 4 { return speed(frames, 2.0); }
-
-    frames
-        .into_iter()
-        .step_by(2)
-        .map(|frame| set_speed(frame, 2))
-        .collect()
+fn hyperspeed(frames: &mut [Frame]) {
+    if frames.len() > 4 {
+        speed(frames, 2.0);
+    }
 }
 
-fn reverse(mut frames: Vec<Frame>) -> Vec<Frame> {
+fn reverse(frames: &mut [Frame]) {
     frames.reverse();
-    frames
 }

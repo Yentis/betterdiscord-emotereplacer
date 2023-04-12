@@ -1,11 +1,12 @@
 use image::Frame;
 use rand::Rng;
 
-pub fn align_gif(frames: Vec<Frame>, interval: f32) -> Vec<Frame> {
+pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
   // Duplicate frames until interval is reached
-  let mut aligned_frames = frames.clone();
-  while aligned_frames.len() < interval as usize {
-      aligned_frames.append(&mut frames.clone());
+  let copies = (interval.saturating_sub(1) / frames.len()) + 1;
+  let mut aligned_frames = Vec::with_capacity(copies * frames.len());
+  while aligned_frames.len() < interval {
+      aligned_frames.extend_from_slice(frames);
   }
 
   let mut frames_to_delete = aligned_frames.len() % interval as usize;
@@ -15,7 +16,7 @@ pub fn align_gif(frames: Vec<Frame>, interval: f32) -> Vec<Frame> {
     then frames_to_delete = 15/32 (46.9%) -> 13/64 (20.3%) -> 11/96 (11.4%)
    */
   while frames_to_delete as f32 / frames.len() as f32 > 0.2 {
-      aligned_frames.append(&mut frames.clone());
+      aligned_frames.extend_from_slice(frames);
       frames_to_delete = aligned_frames.len() % interval as usize;
   }
 

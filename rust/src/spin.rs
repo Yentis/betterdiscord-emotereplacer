@@ -1,5 +1,4 @@
 use image::Frame;
-use wasm_bindgen::UnwrapThrowExt;
 
 use crate::{rotate::rotate_frame, utils::align_gif};
 
@@ -8,8 +7,8 @@ pub enum Direction {
     CounterClockwise
 }
 
-pub fn spin(frames: Vec<Frame>, speed: f32, direction: Direction) -> Vec<Frame> {
-    let frame = frames.get(0).expect_throw("No frames found");
+pub fn spin(frames: &mut Vec<Frame>, speed: f32, direction: Direction) {
+    let Some(frame) = frames.first() else { return };
     let (numerator, denominator) = frame.delay().numer_denom_ms();
 
     let delay_centisecs = (numerator as f32 * denominator as f32) / 10.0;
@@ -22,13 +21,11 @@ pub fn spin(frames: Vec<Frame>, speed: f32, direction: Direction) -> Vec<Frame> 
         Direction::CounterClockwise => degrees *= -1.0
     };
 
-    let frames = align_gif(frames, interval);
-    frames
-        .into_iter()
-        .enumerate()
-        .map(|(index, frame)| {
-            let degrees = (index as f32 * degrees) % 360.0;
-            rotate_frame(&frame, degrees)
-        })
-        .collect()
+    *frames = align_gif(frames, interval as usize);
+
+    for (index, frame) in frames.into_iter().enumerate() {
+        let degrees = (index as f32 * degrees) % 360.0;
+        *frame = rotate_frame(frame, degrees);
+    }
 }
+

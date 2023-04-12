@@ -1,4 +1,4 @@
-use image::{Frame, ImageBuffer, Rgba};
+use image::{Frame, Rgba, RgbaImage};
 use rand::{Rng, rngs::ThreadRng};
 use wasm_bindgen::UnwrapThrowExt;
 
@@ -107,7 +107,7 @@ impl Drop {
   }
 }
 
-pub fn rain(frames: Vec<Frame>, rain_type: f32) -> Vec<Frame> {
+pub fn rain(frames: &mut [Frame], rain_type: f32) {
   let rain_type = if rain_type == 0.0 {
     RainType::Regular
   } else {
@@ -122,13 +122,9 @@ pub fn rain(frames: Vec<Frame>, rain_type: f32) -> Vec<Frame> {
   let mut rng = rand::thread_rng();
   let mut drops = create_drops(width, height, rain_type, delay_centisecs, &mut rng);
 
-  frames
-    .into_iter()
-    .map(|mut frame| {
-      write_drops(&mut drops, frame.buffer_mut(), &mut rng);
-      frame
-    })
-    .collect()
+  for frame in frames {
+    write_drops(&mut drops, frame.buffer_mut(), &mut rng);
+  }
 }
 
 fn create_drops(width: u32, height: u32, rain_type: RainType, delay: u32, rng: &mut ThreadRng) -> Vec<Drop> {
@@ -141,7 +137,7 @@ fn create_drops(width: u32, height: u32, rain_type: RainType, delay: u32, rng: &
 
 fn write_drops(
   drops: &mut [Drop],
-  buffer: &mut ImageBuffer<Rgba<u8>, Vec<u8>>,
+  buffer: &mut RgbaImage,
   rng: &mut ThreadRng,
 ) {
   for drop in drops {
