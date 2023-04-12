@@ -1,9 +1,9 @@
 use image::{
     imageops::{self, FilterType},
-    Frame, GenericImageView
+    Frame, GenericImageView,
 };
 
-use crate::{utils::align_gif, log};
+use crate::utils::align_gif;
 
 pub fn infinite(frames: &mut Vec<Frame>, speed: f32)  {
     let scales_amount: u32 = 5;
@@ -23,15 +23,16 @@ pub fn infinite(frames: &mut Vec<Frame>, speed: f32)  {
 fn set_scales(scales: &mut Vec<f32>, scales_amount: u32, scale_diff: f32, scale_step: f32) {
     scales.clear();
 
-    for depth in 0..scales_amount {
-        scales.push(((scales_amount as f32) - (depth as f32) - 1.0) * scale_diff + scale_step);
-    }
+    let new_scales = (0..scales_amount)
+        .map(|depth| ((scales_amount as f32) - (depth as f32) - 1.0) * scale_diff + scale_step);
+
+    scales.extend(new_scales);
 }
 
 fn shift_infinite_scales(scales: &mut Vec<f32>, scale_diff: f32, scale_step: f32) {
-    let scale = scales.first().unwrap_or(&0.0);
+    let scale = scales.first().copied().unwrap_or(0.0);
 
-    if scale >= &((scales.len() as f32) * scale_diff) {
+    if scale >= (scales.len() as f32) * scale_diff {
         set_scales(scales, scales.len() as u32, scale_diff, scale_step);
     } else {
         for scale in scales {
@@ -41,11 +42,11 @@ fn shift_infinite_scales(scales: &mut Vec<f32>, scale_diff: f32, scale_step: f32
 }
 
 fn infinite_shift_frame(scales: &[f32], frame: &mut Frame) {
-    let buffer_width = frame.buffer().width() as f32;
-    let buffer_height = frame.buffer().height() as f32;
+    let mut stacked_img = frame.buffer().to_owned();
+    let buffer_width = stacked_img.width() as f32;
+    let buffer_height = stacked_img.height() as f32;
 
-    scales.iter().for_each(|scale| {
-        log(format!("Scale: {}", scale).as_str());
+    for &scale in scales.iter() {
         let scaled_width = (buffer_width * scale).round();
         let scaled_height = (buffer_height * scale).round();
 
@@ -53,27 +54,25 @@ fn infinite_shift_frame(scales: &[f32], frame: &mut Frame) {
             frame.buffer(),
             scaled_width as u32,
             scaled_height as u32,
-            FilterType::Nearest
+            FilterType::Nearest,
         );
 
         let dx = ((scaled_width - buffer_width) / 2.0).round() as i64;
         let dy = ((scaled_height - buffer_height) / 2.0).round() as i64;
-        
-        log(format!("X: {}, Y: {}, Width: {}, Height: {}, Scale width: {}, Scale height: {}", dx, dy, buffer_width, buffer_height, scaled_width, scaled_height).as_str());
-        if scale > &1.0 {
-            imageops::overlay(
-                frame.buffer_mut(),
-                &scaled_buffer.view(
-                    dx as u32,
-                    dy as u32,
-                    buffer_width as u32,
-                    buffer_height as u32
-                ).to_image(),
-                0,
-                0
+
+        if scale > 1.0 {
+            let sub_img = scaled_buffer.view(
+                dx as u32,
+                dy as u32,
+                buffer_width as u32,
+                buffer_height as u32,
             );
+
+            imageops::overlay(&mut stacked_img, &sub_img.to_image(), 0, 0);
         } else {
-            imageops::overlay(frame.buffer_mut(), &scaled_buffer, -dx, -dy);
+            imageops::overlay(&mut stacked_img, &scaled_buffer, -dx, -dy);
         }
-    });
+    }
+
+    *frame.buffer_mut() = stacked_img;
 }
