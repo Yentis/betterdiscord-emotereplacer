@@ -9,7 +9,8 @@ use resize::resize;
 use rotate::rotate;
 use serde::Deserialize;
 use flip::flip;
-use spin::{spin, Direction};
+use slide::slide;
+use spin::spin;
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
 mod flip;
@@ -20,6 +21,7 @@ mod rotate;
 mod spin;
 mod infinite;
 mod utils;
+mod slide;
 
 #[wasm_bindgen]
 extern "C" {
@@ -78,9 +80,11 @@ pub fn apply_commands(data: Vec<u8>, commands: JsValue) -> Result<Vec<u8>, Strin
                 "rain" => rain(&mut frames, command.param),
                 "rainbow" => rainbow(&mut frames, command.param),
                 "rotate" => rotate(&mut frames, command.param),
-                "spin" => spin(&mut frames, command.param, Direction::Clockwise),
-                "spinrev" => spin(&mut frames, command.param, Direction::CounterClockwise),
+                "spin" => spin(&mut frames, command.param, spin::Direction::Clockwise),
+                "spinrev" => spin(&mut frames, command.param, spin::Direction::CounterClockwise),
                 "infinite" => infinite(&mut frames, command.param),
+                "slide" => slide(&mut frames, command.param, slide::Direction::Forwards),
+                "sliderev" => slide(&mut frames, command.param, slide::Direction::Backwards),
                 _ => log(name),
             };
         }

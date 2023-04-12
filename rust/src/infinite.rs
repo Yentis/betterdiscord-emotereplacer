@@ -42,9 +42,9 @@ fn shift_infinite_scales(scales: &mut Vec<f32>, scale_diff: f32, scale_step: f32
 }
 
 fn infinite_shift_frame(scales: &[f32], frame: &mut Frame) {
-    let mut stacked_img = frame.buffer().to_owned();
-    let buffer_width = stacked_img.width() as f32;
-    let buffer_height = stacked_img.height() as f32;
+    let mut stacked_buffer = frame.buffer().to_owned();
+    let buffer_width = stacked_buffer.width() as f32;
+    let buffer_height = stacked_buffer.height() as f32;
 
     for &scale in scales.iter() {
         let scaled_width = (buffer_width * scale).round();
@@ -60,8 +60,8 @@ fn infinite_shift_frame(scales: &[f32], frame: &mut Frame) {
         let dx = ((scaled_width - buffer_width) / 2.0).round() as i64;
         let dy = ((scaled_height - buffer_height) / 2.0).round() as i64;
 
-        imageops::overlay(&mut stacked_img, &scaled_buffer, -dx, -dy);
+        imageops::overlay(&mut stacked_buffer, &scaled_buffer, -dx, -dy);
     }
 
-    *frame.buffer_mut() = stacked_img;
+    *frame.buffer_mut() = stacked_buffer;
 }
