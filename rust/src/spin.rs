@@ -25,6 +25,6 @@ pub fn spin(frames: &mut Vec<Frame>, speed: f32, direction: Direction) {
 
     for (index, frame) in frames.iter_mut().enumerate() {
         let degrees = (index as f32 * degrees) % 360.0;
-        *frame = rotate_frame(frame, degrees);
+        rotate_frame(frame, degrees);
     }
 }

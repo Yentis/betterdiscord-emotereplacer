@@ -9,11 +9,6 @@ pub fn resize(frames: &mut [Frame], target_width: u32, target_height: u32) {
             FilterType::Nearest
         );
         
-        *frame = Frame::from_parts(
-            new_buffer,
-            frame.left(),
-            frame.top(),
-            frame.delay()
-        );
+        *frame.buffer_mut() = new_buffer;
     }
 }
