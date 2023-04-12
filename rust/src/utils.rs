@@ -1,6 +1,7 @@
 use image::Frame;
 use rand::Rng;
 
+// TODO: make gifs faster if needed so that shake works better on slow gifs
 pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
     // Duplicate frames until interval is reached
     let copies = (interval.saturating_sub(1) / frames.len()) + 1;

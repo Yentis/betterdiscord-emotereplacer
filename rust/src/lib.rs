@@ -9,6 +9,7 @@ use resize::resize;
 use rotate::rotate;
 use serde::Deserialize;
 use flip::flip;
+use shake::shake;
 use slide::slide;
 use spin::spin;
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
@@ -24,6 +25,7 @@ mod infinite;
 mod utils;
 mod slide;
 mod wiggle;
+mod shake;
 
 #[wasm_bindgen]
 extern "C" {
@@ -88,6 +90,7 @@ pub fn apply_commands(data: Vec<u8>, commands: JsValue) -> Result<Vec<u8>, Strin
                 "slide" => slide(&mut frames, command.param, slide::Direction::Forwards),
                 "sliderev" => slide(&mut frames, command.param, slide::Direction::Backwards),
                 "wiggle" => wiggle(&mut frames, command.param),
+                "shake" => shake(&mut frames, command.param),
                 _ => log(name),
             };
         }
