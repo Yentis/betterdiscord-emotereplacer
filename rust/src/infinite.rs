@@ -1,6 +1,6 @@
 use image::{
     imageops::{self, FilterType},
-    Frame,
+    Frame, RgbaImage,
 };
 
 use crate::utils::align_gif;
@@ -42,9 +42,13 @@ fn shift_infinite_scales(scales: &mut Vec<f32>, scale_diff: f32, scale_step: f32
 }
 
 fn infinite_shift_frame(scales: &[f32], frame: &mut Frame) {
-    let mut stacked_buffer = frame.buffer().to_owned();
-    let buffer_width = stacked_buffer.width() as f32;
-    let buffer_height = stacked_buffer.height() as f32;
+    let buffer_width = frame.buffer().width() as f32;
+    let buffer_height = frame.buffer().height() as f32;
+
+    let mut stacked_buffer = RgbaImage::new(
+        buffer_width as u32,
+        buffer_height as u32
+    );
 
     for &scale in scales.iter() {
         let scaled_width = (buffer_width * scale).round();
