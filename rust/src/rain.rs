@@ -2,14 +2,13 @@ use image::{Frame, Rgba, RgbaImage};
 use rand::{Rng, rngs::ThreadRng};
 use wasm_bindgen::UnwrapThrowExt;
 
+#[derive(Copy, Clone)]
 enum RainType {
   Regular,
   Glitter
 }
 
 struct Drop {
-  rng: ThreadRng,
-
   width: u32,
   height: u32,
   delay: u32,
@@ -27,8 +26,7 @@ struct Drop {
 }
 
 impl Drop {
-  pub fn new(width: u32, height: u32, delay: u32, rain_type: &RainType) -> Self {
-    let mut rng = rand::thread_rng();
+  pub fn new(width: u32, height: u32, delay: u32, rain_type: RainType, rng: &mut ThreadRng) -> Self {
     let x = rng.gen_range(0..width);
     let y = rng.gen_range(0..height);
 
@@ -37,7 +35,7 @@ impl Drop {
       len,
       size
     ) = Self::reset_drop_static(
-      &mut rng,
+      rng,
       delay
     );
 
@@ -59,7 +57,6 @@ impl Drop {
     }
 
     Self {
-      rng,
       width,
       height,
       delay,
@@ -85,13 +82,13 @@ impl Drop {
     (speed, len, size)
   }
 
-  fn reset_drop(&mut self) {
+  fn reset_drop(&mut self, rng: &mut ThreadRng) {
     let (
       speed,
       len,
       size
     ) = Self::reset_drop_static(
-      &mut self.rng,
+      rng,
       self.delay
     );
 
@@ -100,12 +97,12 @@ impl Drop {
     self.size = size;
   }
 
-  fn fall(&mut self) {
+  fn fall(&mut self, rng: &mut ThreadRng) {
     self.y += self.speed;
 
     if self.y > self.height {
       self.y = 0;
-      self.reset_drop();
+      self.reset_drop(rng);
     }
   }
 }
@@ -122,27 +119,26 @@ pub fn rain(frames: &mut [Frame], rain_type: f32) {
   let height = frame.buffer().height();
   let (numerator, denominator) = frame.delay().numer_denom_ms();
   let delay_centisecs = (numerator * denominator) / 10;
-  let mut drops = create_drops(width, height, rain_type, delay_centisecs);
+  let mut rng = rand::thread_rng();
+  let mut drops = create_drops(width, height, rain_type, delay_centisecs, &mut rng);
 
   for frame in frames {
-    write_drops(&mut drops, frame.buffer_mut());
+    write_drops(&mut drops, frame.buffer_mut(), &mut rng);
   }
 }
 
-fn create_drops(width: u32, height: u32, rain_type: RainType, delay: u32) -> Vec<Drop> {
-  let mut drops: Vec<Drop> = Vec::new();
+fn create_drops(width: u32, height: u32, rain_type: RainType, delay: u32, rng: &mut ThreadRng) -> Vec<Drop> {
   let amount = (width + height) / 5;
 
-  for _i in 0..amount {
-    drops.push(Drop::new(width, height, delay, &rain_type));
-  }
-
-  drops
+  (0..amount)
+    .map(|_| Drop::new(width, height, delay, rain_type, rng))
+    .collect()
 }
 
 fn write_drops(
   drops: &mut [Drop],
-  buffer: &mut RgbaImage
+  buffer: &mut RgbaImage,
+  rng: &mut ThreadRng,
 ) {
   for drop in drops {
     for i in 0..drop.len {
@@ -156,6 +152,6 @@ fn write_drops(
       }
     }
 
-    drop.fall();
+    drop.fall(rng);
   }
 }
