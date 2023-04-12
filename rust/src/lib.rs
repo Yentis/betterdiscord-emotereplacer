@@ -12,6 +12,7 @@ use flip::flip;
 use slide::slide;
 use spin::spin;
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use wiggle::wiggle;
 
 mod flip;
 mod rain;
@@ -22,6 +23,7 @@ mod spin;
 mod infinite;
 mod utils;
 mod slide;
+mod wiggle;
 
 #[wasm_bindgen]
 extern "C" {
@@ -85,6 +87,7 @@ pub fn apply_commands(data: Vec<u8>, commands: JsValue) -> Result<Vec<u8>, Strin
                 "infinite" => infinite(&mut frames, command.param),
                 "slide" => slide(&mut frames, command.param, slide::Direction::Forwards),
                 "sliderev" => slide(&mut frames, command.param, slide::Direction::Backwards),
+                "wiggle" => wiggle(&mut frames, command.param),
                 _ => log(name),
             };
         }
