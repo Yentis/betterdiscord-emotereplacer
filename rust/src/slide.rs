@@ -30,17 +30,16 @@ pub fn slide(frames: &mut Vec<Frame>, speed: f32, direction: Direction) {
 }
 
 fn shift_frame_data(frame: &mut Frame, shift: i64, width: u32, height: u32, direction: Direction) {
-    let old_buffer = frame.buffer().clone();
     let mut shifted_buffer = RgbaImage::new(width, height);
 
-    imageops::overlay(&mut shifted_buffer, &old_buffer, shift, 0);
+    imageops::overlay(&mut shifted_buffer, frame.buffer(), shift, 0);
 
     let x = match direction {
         Direction::Forwards => -(width as i64 - shift),
         Direction::Backwards => width as i64 + shift,
     };
 
-    imageops::overlay(&mut shifted_buffer, &old_buffer, x, 0);
+    imageops::overlay(&mut shifted_buffer, frame.buffer(), x, 0);
 
     *frame.buffer_mut() = shifted_buffer;
 }
