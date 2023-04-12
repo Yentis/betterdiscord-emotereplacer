@@ -1,6 +1,5 @@
 use image::{Frame, Rgba, RgbaImage};
 use rand::{Rng, rngs::ThreadRng};
-use wasm_bindgen::UnwrapThrowExt;
 
 #[derive(Copy, Clone)]
 enum RainType {
@@ -114,7 +113,7 @@ pub fn rain(frames: &mut [Frame], rain_type: f32) {
     RainType::Glitter
   };
 
-  let frame = frames.get(0).expect_throw("No frames found");
+  let Some(frame) = frames.first() else { return; };
   let width = frame.buffer().width();
   let height = frame.buffer().height();
   let (numerator, denominator) = frame.delay().numer_denom_ms();

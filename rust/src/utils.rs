@@ -9,7 +9,7 @@ pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
       aligned_frames.extend_from_slice(frames);
   }
 
-  let mut frames_to_delete = aligned_frames.len() % interval as usize;
+  let mut frames_to_delete = aligned_frames.len() % interval;
   /*
     Removing more than 20% of frames makes it look sucky => add copies until it's below 20%
     Worst case: interval = (frames.length / 2) + 1 e.g. interval 17 with 32 frames
@@ -17,7 +17,7 @@ pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
    */
   while frames_to_delete as f32 / frames.len() as f32 > 0.2 {
       aligned_frames.extend_from_slice(frames);
-      frames_to_delete = aligned_frames.len() % interval as usize;
+      frames_to_delete = aligned_frames.len() % interval;
   }
 
   let amount_copies = aligned_frames.len() / frames.len();

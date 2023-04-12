@@ -126,10 +126,17 @@ fn set_speed(frame: &mut Frame, speed: u32) {
     );
 }
 
-fn hyperspeed(frames: &mut [Frame]) {
-    if frames.len() > 4 {
-        speed(frames, 2.0);
-    }
+fn hyperspeed(frames: &mut Vec<Frame>) {
+    if frames.len() <= 4 { return speed(frames, 2.0); }
+
+    let mut index = 0;
+    frames.retain_mut(|frame| {
+        let retain = index % 2 == 0;
+        index += 1;
+
+        if retain { set_speed(frame, 2); }
+        retain
+    });
 }
 
 fn reverse(frames: &mut [Frame]) {
