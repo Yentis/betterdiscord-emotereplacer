@@ -24,9 +24,9 @@ pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
   let mut current_copy = 0;
   let mut rng = rand::thread_rng();
 
-  for _i in 0..frames_to_delete {
-      let frame_to_delete = rng.gen_range(0..frames.len());
-      let index = frame_to_delete + current_copy * frames.len();
+  for i in 0..frames_to_delete {
+      let frame_to_delete = rng.gen_range(0..frames.len() - i);
+      let index = frame_to_delete + current_copy * (frames.len() - i - 1);
       aligned_frames.remove(index);
 
       // Keep shifting copy so each copy loses about the same amount of frames
