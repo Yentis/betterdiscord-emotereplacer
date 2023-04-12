@@ -1,6 +1,6 @@
 use image::{
     imageops::{self, FilterType},
-    Frame, GenericImageView,
+    Frame,
 };
 
 use crate::utils::align_gif;
@@ -60,18 +60,7 @@ fn infinite_shift_frame(scales: &[f32], frame: &mut Frame) {
         let dx = ((scaled_width - buffer_width) / 2.0).round() as i64;
         let dy = ((scaled_height - buffer_height) / 2.0).round() as i64;
 
-        if scale > 1.0 {
-            let sub_img = scaled_buffer.view(
-                dx as u32,
-                dy as u32,
-                buffer_width as u32,
-                buffer_height as u32,
-            );
-
-            imageops::overlay(&mut stacked_img, &sub_img.to_image(), 0, 0);
-        } else {
-            imageops::overlay(&mut stacked_img, &scaled_buffer, -dx, -dy);
-        }
+        imageops::overlay(&mut stacked_img, &scaled_buffer, -dx, -dy);
     }
 
     *frame.buffer_mut() = stacked_img;
