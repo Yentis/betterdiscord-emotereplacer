@@ -21,6 +21,7 @@ pub fn shake(frames: &mut Vec<Frame>, strength: f32) {
     let strength_width = (strength_base * multiplier_width).ceil() as i64;
     let strength_height = (strength_base * multiplier_height).ceil() as i64;
 
+    // TODO: min speed = 3
     *frames = align_gif(frames, interval);
 
     for (index, frame) in frames.iter_mut().enumerate() {
