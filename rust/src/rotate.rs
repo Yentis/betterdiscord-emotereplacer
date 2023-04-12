@@ -1,11 +1,10 @@
 use image::{Frame, Rgba};
 use imageproc::geometric_transformations::{self, Interpolation};
 
-pub fn rotate(frames: Vec<Frame>, degrees: f32) -> Vec<Frame> {
-    frames
-        .into_iter()
-        .map(|frame| rotate_frame(&frame, degrees))
-        .collect()
+pub fn rotate(frames: &mut [Frame], degrees: f32) {
+    for frame in frames {
+        *frame = rotate_frame(frame, degrees);
+    }
 }
 
 pub fn rotate_frame(frame: &Frame, degrees: f32) -> Frame {
@@ -15,11 +14,11 @@ pub fn rotate_frame(frame: &Frame, degrees: f32) -> Frame {
         Interpolation::Nearest,
         Rgba([0, 0, 0, 0])
     );
-
+    
     Frame::from_parts(
-      new_buffer,
-      frame.left(),
-      frame.top(),
-      frame.delay()
+        new_buffer,
+        frame.left(),
+        frame.top(),
+        frame.delay()
     )
 }
