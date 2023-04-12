@@ -77,7 +77,7 @@ export class GifsicleService extends BaseService {
         case 'rain':
           commands.push({
             name: option[0],
-            param: option[1] === 'glitter' ? 0 : 1
+            param: option[1] === 'glitter' ? 1 : 0
           })
           break
         case 'spin':

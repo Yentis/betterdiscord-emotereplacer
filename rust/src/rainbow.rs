@@ -8,7 +8,7 @@ pub fn rainbow(frames: &mut [Frame], speed: f32) {
   let random_black = rng.gen_range(0.0..=360.0);
   let random_white = rng.gen_range(0.0..=360.0);
 
-  for (index, frame) in frames.into_iter().enumerate() {
+  for (index, frame) in frames.iter_mut().enumerate() {
     let cycle = (index as f32) % speed;
     let shift = (cycle / speed) * (330.0 - 30.0) + 30.0;
 

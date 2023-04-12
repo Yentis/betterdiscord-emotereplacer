@@ -23,9 +23,8 @@ pub fn spin(frames: &mut Vec<Frame>, speed: f32, direction: Direction) {
 
     *frames = align_gif(frames, interval as usize);
 
-    for (index, frame) in frames.into_iter().enumerate() {
+    for (index, frame) in frames.iter_mut().enumerate() {
         let degrees = (index as f32 * degrees) % 360.0;
         *frame = rotate_frame(frame, degrees);
     }
 }
-

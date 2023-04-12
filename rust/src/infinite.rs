@@ -29,7 +29,7 @@ fn set_scales(scales: &mut Vec<f32>, scales_amount: u32, scale_diff: f32, scale_
 }
 
 fn shift_infinite_scales(scales: &mut Vec<f32>, scale_diff: f32, scale_step: f32) {
-    let scale = scales.get(0).unwrap_or(&0.0);
+    let scale = scales.first().unwrap_or(&0.0);
 
     if scale >= &((scales.len() as f32) * scale_diff) {
         set_scales(scales, scales.len() as u32, scale_diff, scale_step);
