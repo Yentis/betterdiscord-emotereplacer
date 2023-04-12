@@ -1,5 +1,5 @@
 use colors_transform::{Rgb, Color, Hsl};
-use image::{Frame, ImageBuffer, Rgba, Pixel};
+use image::{Frame, Pixel, RgbaImage};
 use rand::Rng;
 
 pub fn rainbow(frames: &mut [Frame], speed: f32) {
@@ -17,7 +17,7 @@ pub fn rainbow(frames: &mut [Frame], speed: f32) {
 }
 
 fn shift_colors(
-  buffer: &mut ImageBuffer<Rgba<u8>, Vec<u8>>,
+  buffer: &mut RgbaImage,
   interval: f32,
   random_black: f32,
   random_white: f32
