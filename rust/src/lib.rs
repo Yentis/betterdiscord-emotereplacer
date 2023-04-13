@@ -87,7 +87,7 @@ pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Re
                 "sliderev" => slide(&mut frames, command.param, slide::Direction::Backwards),
                 "wiggle" => wiggle(&mut frames, command.param),
                 "shake" => shake(&mut frames, command.param),
-                _ => log(name),
+                _ => {},
             };
         }
 
