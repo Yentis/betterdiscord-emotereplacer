@@ -9,7 +9,7 @@ pub fn shake(frames: &mut Vec<Frame>, strength: f32) {
     let (numerator, denominator) = frame.delay().numer_denom_ms();
     let delay_centisecs = ((numerator * denominator) / 10) as f32;
 
-    let centisecs_per_shake = 15.0;
+    let centisecs_per_shake = 20.0;
     let divisor = (4.0 * delay_centisecs) / centisecs_per_shake;
     let interval = (4.0 / divisor).floor().max(4.0) as usize;
 
@@ -21,7 +21,7 @@ pub fn shake(frames: &mut Vec<Frame>, strength: f32) {
     let strength_width = (strength_base * multiplier_width).ceil() as i64;
     let strength_height = (strength_base * multiplier_height).ceil() as i64;
 
-    // TODO: min speed = 3
+    // TODO: min speed = 5
     *frames = align_gif(frames, interval);
 
     for (index, frame) in frames.iter_mut().enumerate() {

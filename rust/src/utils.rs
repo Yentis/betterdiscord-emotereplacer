@@ -1,5 +1,42 @@
-use image::Frame;
+use std::io::Cursor;
+use image::{Frame, codecs::{gif::GifDecoder, png::PngDecoder}, AnimationDecoder, RgbaImage, ImageDecoder, Delay};
 use rand::Rng;
+
+pub fn get_frames(data: &[u8], extension: &str) -> Result<Vec<Frame>, String> {
+    let frames = match extension {
+        "gif" => {
+            let reader = GifDecoder::new(Cursor::new(data))
+                .map_err(|e| format!("Failed to create reader: {}", e))?;
+
+            let mut frames: Vec<Frame> = Vec::new();
+            for frame in reader.into_frames() {
+                let frame = frame.map_err(|e| format!("Failed to get next frame: {}", e))?;
+                frames.push(frame);
+            }
+
+            frames
+        },
+        "png" => {
+            let reader = PngDecoder::new(Cursor::new(data))
+                .map_err(|e| format!("Failed to create reader: {}", e))?;
+
+            let (width, height) = reader.dimensions();
+            let mut data: Vec<u8> = vec![0; reader.total_bytes() as usize];
+
+            reader.read_image(&mut data)
+                .map_err(|e| format!("Failed to read image: {}", e))?;
+            
+            let image = RgbaImage::from_raw(width, height, data).ok_or("Failed to create RGBA image")?;
+            // Set delay as low as it can go for maximum support for modifiers
+            let frame = Frame::from_parts(image, 0, 0, get_delay(2));
+
+            vec![frame]
+        },
+        _ => return Err(format!("Unsupported extension: {}", extension))
+    };
+
+    Ok(frames)
+}
 
 // TODO: make gifs faster if needed so that shake works better on slow gifs
 pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
@@ -35,4 +72,8 @@ pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
     }
 
     aligned_frames
+}
+
+pub fn get_delay(delay_centisecs: u32) -> Delay {
+    Delay::from_numer_denom_ms(delay_centisecs * 10, 1)
 }

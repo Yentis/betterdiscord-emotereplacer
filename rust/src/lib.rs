@@ -1,7 +1,7 @@
 extern crate console_error_panic_hook;
 
-use std::{io::Cursor, mem};
-use image::{codecs::gif::{GifEncoder, GifDecoder, Repeat}, ImageDecoder, Frame, AnimationDecoder, Delay};
+use std::mem;
+use image::{codecs::gif::{GifEncoder, Repeat}, Frame};
 use infinite::infinite;
 use rain::rain;
 use rainbow::rainbow;
@@ -12,6 +12,7 @@ use flip::flip;
 use shake::shake;
 use slide::slide;
 use spin::spin;
+use utils::{get_frames, get_delay};
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 use wiggle::wiggle;
 
@@ -45,14 +46,15 @@ pub fn init_panic_hook() {
 }
 
 #[wasm_bindgen(js_name = "applyCommands")]
-pub fn apply_commands(data: Vec<u8>, commands: JsValue) -> Result<Vec<u8>, String> {
+pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Result<Vec<u8>, String> {
     let commands: Vec<Command> = serde_wasm_bindgen::from_value(commands)
         .map_err(|e| format!("Failed to parse commands: {}", e))?;
 
-    let reader = GifDecoder::new(Cursor::new(data))
-        .map_err(|e| format!("Failed to create reader: {}", e))?;
+    let mut frames = get_frames(&data, &extension)?;
+    let Some(frame) = frames.first() else { return Ok(data); };
+    let width = frame.buffer().width();
+    let height = frame.buffer().height();
 
-    let (width, height) = reader.dimensions();
     let target_size = get_target_size(&commands);
     let target_width = ((width as f32) * target_size).round() as u32;
     let target_height = ((height as f32) * target_size).round() as u32;
@@ -63,12 +65,6 @@ pub fn apply_commands(data: Vec<u8>, commands: JsValue) -> Result<Vec<u8>, Strin
         writer
             .set_repeat(Repeat::Infinite)
             .map_err(|e| format!("Failed to set repeat: {}", e))?;
-
-        let mut frames: Vec<Frame> = Vec::new();
-        for frame in reader.into_frames() {
-            let frame = frame.map_err(|e| format!("Failed to get next frame: {}", e))?;
-            frames.push(frame);
-        }
 
         if target_size < 1.0 {
             resize(&mut frames, target_width, target_height);
@@ -132,7 +128,7 @@ fn set_speed(frame: &mut Frame, speed: u32) {
         mem::take(frame.buffer_mut()),
         left,
         top,
-        Delay::from_numer_denom_ms(speed * 10, 1),
+        get_delay(speed),
     );
 }
 
