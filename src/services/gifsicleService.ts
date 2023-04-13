@@ -107,6 +107,7 @@ export class GifsicleService extends BaseService {
 
   private async processCommands (url: string, commands: Command[]): Promise<Buffer> {
     let buffer = await PromiseUtils.urlGetBuffer(url)
+    const extension = url.substring(url.lastIndexOf('.')).replace('.', '')
 
     commands.forEach((command) => {
       const value = (command.param ?? 0).toString()
@@ -114,7 +115,7 @@ export class GifsicleService extends BaseService {
     })
 
     console.log('Commands:', commands)
-    const result = applyCommands(buffer, commands)
+    const result = applyCommands(buffer, extension, commands)
     buffer = Buffer.from(result)
 
     if (!(buffer instanceof Buffer)) throw Error('Did not process gif!')
