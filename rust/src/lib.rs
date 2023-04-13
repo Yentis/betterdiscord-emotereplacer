@@ -1,13 +1,13 @@
 extern crate console_error_panic_hook;
 
 use std::mem;
+use command::Command;
 use image::{codecs::gif::{GifEncoder, Repeat}, Frame};
 use infinite::infinite;
 use rain::rain;
 use rainbow::rainbow;
 use resize::resize;
 use rotate::rotate;
-use serde::Deserialize;
 use flip::flip;
 use shake::shake;
 use slide::slide;
@@ -16,6 +16,7 @@ use utils::{get_frames, get_delay};
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 use wiggle::wiggle;
 
+mod command;
 mod flip;
 mod rain;
 mod rainbow;
@@ -32,12 +33,6 @@ mod shake;
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
-}
-
-#[derive(Deserialize)]
-struct Command {
-    pub name: String,
-    pub param: f32,
 }
 
 #[wasm_bindgen(js_name = "initPanicHook")]
