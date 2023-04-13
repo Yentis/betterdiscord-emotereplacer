@@ -1,6 +1,6 @@
 use std::io::Cursor;
 use image::{Frame, codecs::{gif::GifDecoder, png::PngDecoder}, AnimationDecoder, RgbaImage, ImageDecoder, Delay};
-use rand::Rng;
+use js_sys::Math;
 
 pub fn get_frames(data: &[u8], extension: &str) -> Result<Vec<Frame>, String> {
     let frames = match extension {
@@ -60,10 +60,9 @@ pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
 
     let amount_copies = aligned_frames.len() / frames.len();
     let mut current_copy = 0;
-    let mut rng = rand::thread_rng();
 
     for i in 0..frames_to_delete {
-        let frame_to_delete = rng.gen_range(0..frames.len() - i);
+        let frame_to_delete = get_random_u32(0, frames.len() as u32 - 1) as usize;
         let index = frame_to_delete + current_copy * (frames.len() - i - 1);
         aligned_frames.remove(index);
 
@@ -76,4 +75,18 @@ pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
 
 pub fn get_delay(delay_centisecs: u32) -> Delay {
     Delay::from_numer_denom_ms(delay_centisecs * 10, 1)
+}
+
+pub fn get_random_u32(min: u32, max: u32) -> u32 {
+    let min = min as f64;
+    let max = max as f64;
+
+    (Math::random() * (max - min) + min).floor() as u32
+}
+
+pub fn get_random_f32(min: f32, max: f32) -> f32 {
+    let min = min as f64;
+    let max = max as f64;
+
+    (Math::random() * (max - min) + min) as f32
 }

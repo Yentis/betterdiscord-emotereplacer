@@ -114,7 +114,6 @@ export class GifsicleService extends BaseService {
       command.param = parseFloat(value)
     })
 
-    console.log('Commands:', commands)
     const result = applyCommands(buffer, extension, commands)
     buffer = Buffer.from(result)
 
