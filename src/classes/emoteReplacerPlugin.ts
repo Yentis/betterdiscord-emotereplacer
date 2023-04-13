@@ -14,7 +14,7 @@ import { CompletionsService } from 'services/completionsService'
 import { AttachService } from 'services/attachService'
 import { SettingsService } from 'services/settingsService'
 import { ListenersService } from 'services/listenersService'
-import { GifsicleService } from 'services/gifsicleService'
+import { GifProcessingService } from 'services/gifProcessingService'
 import { ModulesService } from 'services/modulesService'
 import { SendMessageService } from 'services/sendMessageService'
 import { CurrentVersionInfo } from 'interfaces/currentVersionInfo'
@@ -28,7 +28,7 @@ export class EmoteReplacerPlugin implements Plugin {
   completionsService: CompletionsService | undefined
   attachService: AttachService | undefined
   listenersService: ListenersService | undefined
-  gifsicleService: GifsicleService | undefined
+  gifProcessingService: GifProcessingService | undefined
   modulesService: ModulesService | undefined
   sendMessageService: SendMessageService | undefined
   htmlService: HtmlService | undefined
@@ -109,8 +109,8 @@ export class EmoteReplacerPlugin implements Plugin {
       this.attachService
     )
 
-    this.gifsicleService = new GifsicleService(this, zeresPluginLibrary)
-    await this.gifsicleService.start()
+    this.gifProcessingService = new GifProcessingService(this, zeresPluginLibrary)
+    await this.gifProcessingService.start()
 
     this.sendMessageService = new SendMessageService(this, zeresPluginLibrary)
     await this.sendMessageService.start(
@@ -118,7 +118,7 @@ export class EmoteReplacerPlugin implements Plugin {
       this.attachService,
       this.modulesService,
       this.settingsService,
-      this.gifsicleService
+      this.gifProcessingService
     )
 
     const pluginName = this.meta.name
@@ -171,8 +171,8 @@ export class EmoteReplacerPlugin implements Plugin {
     this.sendMessageService?.stop()
     this.sendMessageService = undefined
 
-    this.gifsicleService?.stop()
-    this.gifsicleService = undefined
+    this.gifProcessingService?.stop()
+    this.gifProcessingService = undefined
 
     this.completionsService?.stop()
     this.completionsService = undefined

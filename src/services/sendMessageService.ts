@@ -8,7 +8,7 @@ import { ModulesService } from './modulesService'
 import { Logger } from 'utils/logger'
 import * as PromiseUtils from 'utils/promiseUtils'
 import { SettingsService } from './settingsService'
-import { GifsicleService } from './gifsicleService'
+import { GifProcessingService } from './gifProcessingService'
 import { UploadOptions } from 'interfaces/modules/uploader'
 
 export class SendMessageService extends BaseService {
@@ -16,20 +16,20 @@ export class SendMessageService extends BaseService {
   attachService!: AttachService
   modulesService!: ModulesService
   settingsService!: SettingsService
-  gifsicleService!: GifsicleService
+  gifProcessingService!: GifProcessingService
 
   public start (
     emoteService: EmoteService,
     attachService: AttachService,
     modulesService: ModulesService,
     settingsService: SettingsService,
-    gifsicleService: GifsicleService
+    gifProcessingService: GifProcessingService
   ): Promise<void> {
     this.emoteService = emoteService
     this.attachService = attachService
     this.modulesService = modulesService
     this.settingsService = settingsService
-    this.gifsicleService = gifsicleService
+    this.gifProcessingService = gifProcessingService
 
     BdApi.Patcher.instead(
       this.plugin.meta.name,
@@ -283,7 +283,7 @@ export class SendMessageService extends BaseService {
     this.addResizeCommand(commands, image)
     BdApi.showToast('Processing gif...', { type: 'info' })
 
-    const buffer = await this.gifsicleService.modifyGif(emote.url, commands)
+    const buffer = await this.gifProcessingService.modifyGif(emote.url, commands)
     if (buffer.length === 0) throw Error('Failed to process gif')
 
     this.uploadFile({

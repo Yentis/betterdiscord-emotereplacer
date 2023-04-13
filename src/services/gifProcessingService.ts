@@ -6,7 +6,7 @@ import { Buffer } from 'buffer'
 import init, { applyCommands, initPanicHook } from '../../rust/pkg/gif_wasm'
 import wasm from '../../rust/pkg/gif_wasm_bg.wasm'
 
-export class GifsicleService extends BaseService {
+export class GifProcessingService extends BaseService {
   public async start (): Promise<void> {
     const instance = await wasm()
     await init(instance)
