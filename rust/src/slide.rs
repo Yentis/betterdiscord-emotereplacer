@@ -1,4 +1,4 @@
-use image::{imageops, Frame, RgbaImage};
+use image::{Frame, Pixel, Rgba};
 
 use crate::utils::align_gif;
 
@@ -8,38 +8,37 @@ pub enum Direction {
     Backwards,
 }
 
-pub fn slide(frames: &mut Vec<Frame>, speed: f32, direction: Direction) {
-    let Some(frame) = frames.first() else { return };
-    let interval = speed * 2.0;
-    let width = frame.buffer().width();
-    let height = frame.buffer().height();
-
-    let mut shift: i64 = 0;
-    let shift_size = (width as f32 / interval).round() as i64;
-    *frames = align_gif(frames, interval as usize);
-
-    let direction_num: i64 = match direction {
-        Direction::Forwards => 1,
-        Direction::Backwards => -1,
-    };
-
-    for frame in frames {
-        shift_frame_data(frame, shift, width, height, direction);
-        shift = (shift + direction_num * shift_size) % width as i64
+impl Direction {
+    fn rotate_fn(self) -> fn(&mut [u8], usize) {
+        match self {
+            Direction::Forwards => <[u8]>::rotate_right,
+            Direction::Backwards => <[u8]>::rotate_left,
+        }
     }
 }
 
-fn shift_frame_data(frame: &mut Frame, shift: i64, width: u32, height: u32, direction: Direction) {
-    let mut shifted_buffer = RgbaImage::new(width, height);
+const CHANNEL_COUNT: usize = <Rgba<u8> as Pixel>::CHANNEL_COUNT as usize;
 
-    imageops::overlay(&mut shifted_buffer, frame.buffer(), shift, 0);
+pub fn slide(frames: &mut Vec<Frame>, speed: f32, direction: Direction) {
+    let Some(frame) = frames.first() else { return };
+    let interval = speed * 2.0;
+    let width = frame.buffer().width() as usize;
 
-    let x = match direction {
-        Direction::Forwards => -(width as i64 - shift),
-        Direction::Backwards => width as i64 + shift,
-    };
+    let mut shift: usize = 0;
+    let shift_size = (width as f32 / interval).round() as usize;
+    *frames = align_gif(frames, interval as usize);
 
-    imageops::overlay(&mut shifted_buffer, frame.buffer(), x, 0);
+    let row_len = width * CHANNEL_COUNT;
+    let rotate_fn = direction.rotate_fn();
 
-    *frame.buffer_mut() = shifted_buffer;
+    for frame in frames {
+        shift_frame_data(frame, shift * CHANNEL_COUNT, row_len, rotate_fn);
+        shift = (shift + shift_size) % width;
+    }
+}
+
+fn shift_frame_data(frame: &mut Frame, shift: usize, row_len: usize, rotate: fn(&mut [u8], usize)) {
+    for row in frame.buffer_mut().chunks_exact_mut(row_len) {
+        rotate(row, shift);
+    }
 }
