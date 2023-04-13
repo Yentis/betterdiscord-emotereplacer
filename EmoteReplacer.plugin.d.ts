@@ -390,7 +390,7 @@ declare class CompletionsService extends BaseService {
     private scrollWindow;
     stop(): void;
 }
-declare class GifsicleService extends BaseService {
+declare class GifProcessingService extends BaseService {
     start(): Promise<void>;
     modifyGif(url: string, options: (string | undefined)[][]): Promise<Buffer>;
     private getCommands;
@@ -402,8 +402,8 @@ declare class SendMessageService extends BaseService {
     attachService: AttachService;
     modulesService: ModulesService;
     settingsService: SettingsService;
-    gifsicleService: GifsicleService;
-    start(emoteService: EmoteService, attachService: AttachService, modulesService: ModulesService, settingsService: SettingsService, gifsicleService: GifsicleService): Promise<void>;
+    gifProcessingService: GifProcessingService;
+    start(emoteService: EmoteService, attachService: AttachService, modulesService: ModulesService, settingsService: SettingsService, gifProcessingService: GifProcessingService): Promise<void>;
     private onSendMessage;
     private getTargetEmoteFromMessage;
     private getTextPos;
@@ -428,7 +428,7 @@ declare class EmoteReplacerPlugin implements Plugin {
     completionsService: CompletionsService | undefined;
     attachService: AttachService | undefined;
     listenersService: ListenersService | undefined;
-    gifsicleService: GifsicleService | undefined;
+    gifProcessingService: GifProcessingService | undefined;
     modulesService: ModulesService | undefined;
     sendMessageService: SendMessageService | undefined;
     htmlService: HtmlService | undefined;
