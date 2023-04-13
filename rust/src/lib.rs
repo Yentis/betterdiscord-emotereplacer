@@ -8,7 +8,6 @@ use rain::rain;
 use rainbow::rainbow;
 use resize::resize;
 use rotate::rotate;
-use serde::Deserialize;
 use flip::flip;
 use shake::shake;
 use slide::slide;
