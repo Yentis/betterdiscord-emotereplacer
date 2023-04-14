@@ -1,13 +1,9 @@
 import { Plugin } from 'betterdiscord'
-import changeDraftPatch from 'patches/changeDraft'
-import pendingReplyPatch from 'patches/pendingReply'
-import emojiSearchPatch from 'patches/emojiSearch'
-import lockedEmojisPatch from 'patches/lockedEmojis'
 import {
   CURRENT_VERSION_INFO_KEY,
   PLUGIN_CHANGELOG
 } from 'pluginConstants'
-import { Logger, setLogger } from 'utils/logger'
+import { Logger } from 'utils/logger'
 import { BdWindow } from 'index'
 import { EmoteService } from 'services/emoteService'
 import { CompletionsService } from 'services/completionsService'
@@ -21,6 +17,7 @@ import { CurrentVersionInfo } from 'interfaces/currentVersionInfo'
 import ZeresPluginLibrary from 'interfaces/zeresPluginLibrary'
 import { HtmlService } from 'services/htmlService'
 import { ExtendedMeta } from 'interfaces/extendedMeta'
+import { PatchesService } from 'services/patchesService'
 
 export class EmoteReplacerPlugin implements Plugin {
   settingsService: SettingsService | undefined
@@ -32,13 +29,13 @@ export class EmoteReplacerPlugin implements Plugin {
   modulesService: ModulesService | undefined
   sendMessageService: SendMessageService | undefined
   htmlService: HtmlService | undefined
+  patchesService: PatchesService | undefined
 
   public meta: ExtendedMeta
-  private updateInterval: ReturnType<typeof setInterval> | undefined
 
   constructor (meta: ExtendedMeta) {
     this.meta = meta
-    setLogger(meta.name)
+    Logger.setLogger(meta.name)
   }
 
   start (): void {
@@ -121,19 +118,13 @@ export class EmoteReplacerPlugin implements Plugin {
       this.gifProcessingService
     )
 
-    const pluginName = this.meta.name
-
-    changeDraftPatch(
-      pluginName,
+    this.patchesService = new PatchesService(this, zeresPluginLibrary)
+    await this.patchesService.start(
       this.attachService,
       this.completionsService,
       this.emoteService,
       this.modulesService
     )
-
-    pendingReplyPatch(pluginName, this.attachService, this.modulesService)
-    emojiSearchPatch(pluginName, this.attachService, this.modulesService)
-    lockedEmojisPatch(pluginName, this.attachService, this.modulesService)
   }
 
   observer (e: MutationRecord) {
@@ -161,12 +152,8 @@ export class EmoteReplacerPlugin implements Plugin {
   }
 
   stop (): void {
-    BdApi.Patcher.unpatchAll(this.meta.name)
-
-    if (this.updateInterval) {
-      clearTimeout(this.updateInterval)
-      this.updateInterval = undefined
-    }
+    this.patchesService?.stop()
+    this.patchesService = undefined
 
     this.sendMessageService?.stop()
     this.sendMessageService = undefined

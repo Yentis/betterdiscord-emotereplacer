@@ -2,12 +2,12 @@ import Cached from 'interfaces/cached'
 import Completion from 'interfaces/completion'
 import Modifier from 'interfaces/modifier'
 import { Logger } from 'utils/logger'
-import * as PromiseUtils from 'utils/promiseUtils'
 import { BaseService } from './baseService'
 import { CompletionsService } from './completionsService'
 import { HtmlService } from './htmlService'
 import { ListenersService } from './listenersService'
 import { SettingsService } from './settingsService'
+import { PromiseUtils } from 'utils/promiseUtils'
 
 export class EmoteService extends BaseService {
   listenersService!: ListenersService

@@ -1,19 +1,59 @@
 import { BaseService } from './baseService'
 import { Logger } from 'utils/logger'
 import { Command } from 'interfaces/gifData'
-import * as PromiseUtils from 'utils/promiseUtils'
 import { Buffer } from 'buffer'
-import init, { applyCommands, initPanicHook } from '../../rust/pkg/gif_wasm'
-import wasm from '../../rust/pkg/gif_wasm_bg.wasm'
+import Worker from 'web-worker:../worker.ts'
+import { WorkerMessage, WorkerMessageType } from 'interfaces/workerData'
+import { PromiseUtils } from 'utils/promiseUtils'
 
 export class GifProcessingService extends BaseService {
+  public isProcessing = false
+  private worker?: Worker
+
   public async start (): Promise<void> {
-    const instance = await wasm()
-    await init(instance)
-    initPanicHook()
+    await this.getWorker()
   }
 
-  public async modifyGif (url: string, options: (string | undefined)[][]): Promise<Buffer> {
+  private async getWorker (): Promise<Worker> {
+    if (this.worker) return this.worker
+
+    const worker = new Worker()
+    const request: WorkerMessage = {
+      type: WorkerMessageType.INIT
+    }
+
+    await PromiseUtils.workerMessagePromise(worker, request)
+
+    this.worker = worker
+    return worker
+  }
+
+  private stopWorker () {
+    this.isProcessing = false
+    if (!this.worker) return
+
+    this.worker.terminate()
+    this.worker = undefined
+  }
+
+  public modifyGif (url: string, options: string[][]): {
+    cancel?: () => void,
+    result: Promise<Buffer>
+  } {
+    if (this.isProcessing) {
+      return { result: Promise.reject(new Error('Already processing, please wait.')) }
+    }
+    this.isProcessing = true
+
+    return {
+      cancel: () => { this.stopWorker() },
+      result: this.modifyGifImpl(url, options).finally(() => {
+        this.isProcessing = false
+      })
+    }
+  }
+
+  private async modifyGifImpl (url: string, options: string[][]): Promise<Buffer> {
     Logger.info('Got GIF request', url, options)
     const commands = this.getCommands(options)
     Logger.info('Processed request commands', commands)
@@ -24,7 +64,7 @@ export class GifProcessingService extends BaseService {
     return buffer
   }
 
-  private getCommands (options: (string | undefined)[][]): Command[] {
+  private getCommands (options: string[][]): Command[] {
     const commands: Command[] = []
 
     options.forEach((option) => {
@@ -108,20 +148,21 @@ export class GifProcessingService extends BaseService {
   private async processCommands (url: string, commands: Command[]): Promise<Buffer> {
     let buffer = await PromiseUtils.urlGetBuffer(url)
     const extension = url.substring(url.lastIndexOf('.')).replace('.', '')
+    const worker = await this.getWorker()
 
-    commands.forEach((command) => {
-      const value = (command.param ?? 0).toString()
-      command.param = parseFloat(value)
-    })
+    const request: WorkerMessage = {
+      type: WorkerMessageType.APPLY_COMMANDS,
+      data: { buffer, extension, commands }
+    }
 
-    const result = applyCommands(buffer, extension, commands)
-    buffer = Buffer.from(result)
+    const response = await PromiseUtils.workerMessagePromise(worker, request)
+    buffer = Buffer.from(response as Uint8Array)
 
     if (!(buffer instanceof Buffer)) throw Error('Did not process gif!')
     return buffer
   }
 
   public stop (): void {
-    // Do nothing
+    this.stopWorker()
   }
 }

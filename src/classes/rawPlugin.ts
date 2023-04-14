@@ -4,14 +4,14 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { Plugin } from 'betterdiscord'
 import { ExtendedMeta } from 'interfaces/extendedMeta'
-import { Logger, setLogger } from 'utils/logger'
+import { Logger } from 'utils/logger'
 
 export class RawPlugin implements Plugin {
   private meta: ExtendedMeta
 
   constructor (meta: ExtendedMeta) {
     this.meta = meta
-    setLogger(meta.name)
+    Logger.setLogger(meta.name)
   }
 
   start (): void {

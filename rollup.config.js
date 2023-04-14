@@ -3,10 +3,22 @@ import ts from "rollup-plugin-ts";
 import commonjs from "@rollup/plugin-commonjs";
 import {terser} from "rollup-plugin-terser";
 import replace from "@rollup/plugin-replace";
-import license from "rollup-plugin-license";
 import json from '@rollup/plugin-json';
 import {main as outputFile} from "./package.json";
 import wasm from "@rollup/plugin-wasm";
+import webWorkerLoader from 'rollup-plugin-web-worker-loader';
+import packageJson from './package.json';
+
+const banner = `/**
+ * @name ${packageJson.name}
+ * @version ${packageJson.version}
+ * @description ${packageJson.description}
+ * @license ${packageJson.license}
+ * @author ${packageJson.author}
+ * @authorId ${packageJson.authorId}
+ * @website ${packageJson.website}
+ * @source ${packageJson.source}
+ */`
 
 const onwarn = (warning, rollupWarn) => {
     const ignoredWarnings = [
@@ -32,7 +44,8 @@ export default {
         file: outputFile,
         format: 'cjs',
         exports: 'auto',
-        interop: 'esModule'
+        interop: 'esModule',
+        banner
     },
     treeshake: 'smallest',
     // These modules already exist in Discord, don't package them
@@ -53,6 +66,10 @@ export default {
         wasm({
             targetEnv: 'auto-inline'
         }),
+        webWorkerLoader({
+            targetPlatform: 'browser',
+            preserveSource: true
+        }),
         ts(),
         commonjs(),
         terser({
@@ -71,15 +88,6 @@ export default {
             values: {
                 '    ': '\t'
             } 
-        }),
-        license({
-            banner: {
-                commentStyle: 'regular',
-                content: {
-                    file: 'src/banner.txt',
-                    encoding: 'utf-8'
-                }
-            }
         }),
         json()
     ],

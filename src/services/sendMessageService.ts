@@ -6,10 +6,11 @@ import { EmoteService } from './emoteService'
 import { AttachService } from './attachService'
 import { ModulesService } from './modulesService'
 import { Logger } from 'utils/logger'
-import * as PromiseUtils from 'utils/promiseUtils'
 import { SettingsService } from './settingsService'
 import { GifProcessingService } from './gifProcessingService'
 import { UploadOptions } from 'interfaces/modules/uploader'
+import { PromiseUtils } from 'utils/promiseUtils'
+import { CloseNotice } from 'betterdiscord'
 
 export class SendMessageService extends BaseService {
   emoteService!: EmoteService
@@ -184,8 +185,8 @@ export class SendMessageService extends BaseService {
               const split = command.split('-')
 
               return [
-                split[0] ?? undefined,
-                split[1] ?? undefined
+                split[0] ?? '',
+                split[1] ?? ''
               ]
             })
 
@@ -278,13 +279,40 @@ export class SendMessageService extends BaseService {
 
   private async getMetaAndModifyGif (emote: InternalEmote): Promise<void> {
     const image = await PromiseUtils.loadImagePromise(emote.url)
+
     const commands = emote.commands
-
     this.addResizeCommand(commands, image)
-    BdApi.UI.showToast('Processing gif...', { type: 'info' })
+    let closeNotice: CloseNotice | undefined
 
-    const buffer = await this.gifProcessingService.modifyGif(emote.url, commands)
-    if (buffer.length === 0) throw Error('Failed to process gif')
+    // Wait a bit before showing to prevent flickering
+    const timeout = setTimeout(() => {
+      closeNotice = BdApi.UI.showNotice(`Processing gif ${emote.name}...`, {
+        type: 'info',
+        buttons: [{
+          label: 'Cancel',
+          onClick: () => {
+            cancel?.()
+            cancel = undefined
+
+            closeNotice?.()
+            closeNotice = undefined
+          }
+        }]
+      })
+    }, 250)
+
+    let { cancel, result } = this.gifProcessingService.modifyGif(emote.url, commands)
+    const buffer = await result.finally(() => {
+      cancel = undefined
+      clearTimeout(timeout)
+
+      closeNotice?.()
+      closeNotice = undefined
+    })
+
+    if (buffer.length === 0) {
+      throw Error('Failed to process gif')
+    }
 
     this.uploadFile({
       fileData: buffer,

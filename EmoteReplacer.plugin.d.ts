@@ -391,8 +391,16 @@ declare class CompletionsService extends BaseService {
     stop(): void;
 }
 declare class GifProcessingService extends BaseService {
+    isProcessing: boolean;
+    private worker?;
     start(): Promise<void>;
-    modifyGif(url: string, options: (string | undefined)[][]): Promise<Buffer>;
+    private getWorker;
+    private stopWorker;
+    modifyGif(url: string, options: string[][]): {
+        cancel?: () => void;
+        result: Promise<Buffer>;
+    };
+    private modifyGifImpl;
     private getCommands;
     private processCommands;
     stop(): void;
@@ -422,6 +430,23 @@ declare class SendMessageService extends BaseService {
     private applyCommands;
     stop(): void;
 }
+declare class PatchesService extends BaseService {
+    attachService: AttachService;
+    completionsService: CompletionsService;
+    emoteService: EmoteService;
+    modulesService: ModulesService;
+    start(attachService: AttachService, completionsService: CompletionsService, emoteService: EmoteService, modulesService: ModulesService): Promise<void>;
+    private changeDraftPatch;
+    private onChangeDraft;
+    private pendingReplyPatch;
+    private onDeletePendingReply;
+    private emojiSearchPatch;
+    private onEmojiSearch;
+    private lockedEmojisPatch;
+    private onGetEmojiUnavailableReason;
+    private onIsEmojiDisabled;
+    stop(): void;
+}
 declare class EmoteReplacerPlugin implements Plugin {
     settingsService: SettingsService | undefined;
     emoteService: EmoteService | undefined;
@@ -432,8 +457,8 @@ declare class EmoteReplacerPlugin implements Plugin {
     modulesService: ModulesService | undefined;
     sendMessageService: SendMessageService | undefined;
     htmlService: HtmlService | undefined;
+    patchesService: PatchesService | undefined;
     meta: ExtendedMeta;
-    private updateInterval;
     constructor(meta: ExtendedMeta);
     start(): void;
     private doStart;

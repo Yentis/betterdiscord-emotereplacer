@@ -23,7 +23,9 @@ module.exports = {
         BufferConstructor: true,
         _: true,
         process: true,
-        createImageBitmap: true
+        createImageBitmap: true,
+        onmessage: true,
+        postMessage: true
     },
     rules: {
         // allow async-await

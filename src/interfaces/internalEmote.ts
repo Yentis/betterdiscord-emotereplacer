@@ -8,7 +8,7 @@ export interface InternalEmote extends InternalEmoteSimple {
   emoteLength: number
   pos: number
   spoiler: boolean
-  commands: (string | undefined)[][]
+  commands: string[][]
   content?: string
   channel?: string
 }

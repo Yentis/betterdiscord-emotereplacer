@@ -2,10 +2,11 @@ import { Listener } from 'interfaces/listener'
 import Settings from 'interfaces/settings'
 import { SettingGroup, SettingsField } from 'interfaces/zeresPluginLibrary'
 import { DEFAULT_SETTINGS, SETTINGS_KEY } from 'pluginConstants'
-import { loadImagePromise } from 'utils/promiseUtils'
 import { BaseService } from './baseService'
 import { EmoteService } from './emoteService'
 import { ListenersService } from './listenersService'
+import { Logger } from 'utils/logger'
+import { PromiseUtils } from 'utils/promiseUtils'
 
 export class SettingsService extends BaseService {
   private static readonly ADD_BUTTON_CLICK_LISTENER = 'addButtonClick'
@@ -85,7 +86,7 @@ export class SettingsService extends BaseService {
           results.forEach((result) => {
             if (result.status === 'fulfilled') return
             errors.push(result.reason as Error)
-            console.error(result.reason)
+            Logger.error(result.reason)
           })
 
           const firstError = errors[0]
@@ -299,7 +300,7 @@ export class SettingsService extends BaseService {
     containerImage.style.marginRight = '0.5rem'
 
     customEmoteContainer.append(containerImage)
-    loadImagePromise(url, false, containerImage).catch(console.error)
+    PromiseUtils.loadImagePromise(url, false, containerImage).catch((error) => Logger.error(error))
 
     const deleteButton = document.createElement('button')
     deleteButton.type = 'button'

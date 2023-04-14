@@ -1,29 +1,23 @@
-export function setLogger (pluginName: string) {
-  Logger = new LoggerClass(pluginName)
-}
+export class Logger {
+  private static pluginName: string
 
-class LoggerClass {
-  private pluginName: string
-
-  constructor (pluginName: string) {
+  public static setLogger (pluginName: string) {
     this.pluginName = pluginName
   }
 
-  public debug (...args: unknown[]) {
+  public static debug (...args: unknown[]) {
     console.debug(this.pluginName, ...args)
   }
 
-  public info (...args: unknown[]) {
+  public static info (...args: unknown[]) {
     console.info(this.pluginName, ...args)
   }
 
-  public warn (...args: unknown[]) {
+  public static warn (...args: unknown[]) {
     console.warn(this.pluginName, ...args)
   }
 
-  public error (...args: unknown[]) {
+  public static error (...args: unknown[]) {
     console.error(this.pluginName, ...args)
   }
 }
-
-export let Logger: LoggerClass
