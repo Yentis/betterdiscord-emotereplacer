@@ -1,7 +1,7 @@
 import * as https from 'https'
 import * as fs from 'fs'
 import { Buffer } from 'buffer'
-import { WorkerMessage } from 'interfaces/workerData'
+import { GifWorker, WorkerMessage } from 'interfaces/workerData'
 
 export class PromiseUtils {
   public static urlGetBuffer (url: string): Promise<Buffer> {
@@ -72,10 +72,18 @@ export class PromiseUtils {
   }
 
   public static workerMessagePromise (
-    worker: Worker,
+    worker: GifWorker,
     request: WorkerMessage
   ): Promise<unknown> {
     return new Promise((resolve, reject) => {
+      worker.onterminate = () => {
+        reject(new Error('Cancelled'))
+      }
+
+      worker.onerror = (error) => {
+        reject(error)
+      }
+
       worker.onmessage = (message) => {
         const response = message.data as WorkerMessage
         if (response.type !== request.type) return

@@ -164,6 +164,12 @@ class PromiseUtils {
     }
     static workerMessagePromise(worker, request) {
         return new Promise(((resolve, reject) => {
+            worker.onterminate = () => {
+                reject(new Error('Cancelled'));
+            };
+            worker.onerror = error => {
+                reject(error);
+            };
             worker.onmessage = message => {
                 const response = message.data;
                 if (response.type !== request.type) return;
@@ -1573,6 +1579,29 @@ var WorkerMessageType;
     WorkerMessageType[WorkerMessageType["APPLY_COMMANDS"] = 1] = "APPLY_COMMANDS";
 })(WorkerMessageType || (WorkerMessageType = {}));
 
+class GifWorker {
+    worker;
+    onterminate;
+    onerror;
+    onmessage;
+    constructor(worker) {
+        this.worker = worker;
+        worker.onerror = error => {
+            this.onerror?.(error);
+        };
+        worker.onmessage = message => {
+            this.onmessage?.(message);
+        };
+    }
+    postMessage(message) {
+        this.worker.postMessage(message);
+    }
+    terminate() {
+        this.onterminate?.();
+        this.worker.terminate();
+    }
+}
+
 class GifProcessingService extends BaseService {
     isProcessing=false;
     worker;
@@ -1581,7 +1610,7 @@ class GifProcessingService extends BaseService {
     }
     async getWorker() {
         if (this.worker) return this.worker;
-        const worker = new WorkerFactory;
+        const worker = new GifWorker(new WorkerFactory);
         const request = {
             type: WorkerMessageType.INIT
         };

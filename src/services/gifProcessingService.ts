@@ -3,21 +3,21 @@ import { Logger } from 'utils/logger'
 import { Command } from 'interfaces/gifData'
 import { Buffer } from 'buffer'
 import Worker from 'web-worker:../worker.ts'
-import { WorkerMessage, WorkerMessageType } from 'interfaces/workerData'
+import { GifWorker, WorkerMessage, WorkerMessageType } from 'interfaces/workerData'
 import { PromiseUtils } from 'utils/promiseUtils'
 
 export class GifProcessingService extends BaseService {
   public isProcessing = false
-  private worker?: Worker
+  private worker?: GifWorker
 
   public async start (): Promise<void> {
     await this.getWorker()
   }
 
-  private async getWorker (): Promise<Worker> {
+  private async getWorker (): Promise<GifWorker> {
     if (this.worker) return this.worker
 
-    const worker = new Worker()
+    const worker = new GifWorker(new Worker())
     const request: WorkerMessage = {
       type: WorkerMessageType.INIT
     }
