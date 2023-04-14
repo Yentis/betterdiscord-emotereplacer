@@ -22,7 +22,7 @@ pub fn get_frames(data: &[u8], extension: &str) -> Result<Vec<Frame>, String> {
 
             let mut image = DynamicImage::from_decoder(reader)
                 .map_err(|e| format!("Failed to create dynamic image: {}", e))?
-                .to_rgba8();
+                .into_rgba8();
 
             // GIFs only have one pixel value indicating transparency, so if alpha is 0 then change the pixel to that pixel value
             for pixel in image.pixels_mut() {
