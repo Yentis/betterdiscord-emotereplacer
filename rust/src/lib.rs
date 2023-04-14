@@ -46,7 +46,7 @@ pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Re
         .map_err(|e| format!("Failed to parse commands: {}", e))?;
 
     let mut frames = get_frames(&data, &extension)?;
-    let Some(frame) = frames.first() else { return Ok(data); };
+    let frame = frames.first().ok_or("No frames")?;
     let width = frame.buffer().width();
     let height = frame.buffer().height();
 

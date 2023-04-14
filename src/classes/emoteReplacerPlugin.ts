@@ -74,7 +74,7 @@ export class EmoteReplacerPlugin implements Plugin {
         hasShownChangelog: true
       }
 
-      BdApi.saveData(this.meta.name, CURRENT_VERSION_INFO_KEY, newVersionInfo)
+      BdApi.Data.save(this.meta.name, CURRENT_VERSION_INFO_KEY, newVersionInfo)
     }
   }
 

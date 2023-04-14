@@ -39,6 +39,7 @@
     "electron": "^23.2.0",
     "eslint": "^8.11.0",
     "eslint-config-standard": "17.0.0",
+    "eslint-plugin-deprecation": "^1.4.1",
     "request": "^2.88.2",
     "rollup": "2.78.0",
     "rollup-plugin-license": "2.8.1",
