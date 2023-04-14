@@ -2,11 +2,19 @@ use std::io::Cursor;
 use image::{Frame, codecs::{gif::GifDecoder, png::PngDecoder}, AnimationDecoder, Delay, DynamicImage, Rgba};
 use js_sys::Math;
 
-pub fn get_frames(data: &[u8], extension: &str) -> Result<Vec<Frame>, String> {
+use crate::command::Command;
+
+pub fn get_frames_and_size(data: &[u8], extension: &str, commands: &mut Vec<Command>) -> Result<(Vec<Frame>, f32), String> {
+    let target_size = get_target_size(commands);
+
     let frames = match extension {
         "gif" => {
             let reader = GifDecoder::new(Cursor::new(data))
                 .map_err(|e| format!("Failed to create reader: {}", e))?;
+
+            if target_size == 1.0 && commands.is_empty() {
+                return Ok((vec![], target_size));
+            }
 
             reader
                 .into_frames()
@@ -34,7 +42,7 @@ pub fn get_frames(data: &[u8], extension: &str) -> Result<Vec<Frame>, String> {
         _ => return Err(format!("Unsupported extension: {}", extension))
     };
 
-    Ok(frames)
+    Ok((frames, target_size))
 }
 
 // TODO: make gifs faster if needed so that shake works better on slow gifs
@@ -88,4 +96,18 @@ pub fn get_random_f32(min: f32, max: f32) -> f32 {
     let max = max as f64;
 
     (Math::random() * (max - min) + min) as f32
+}
+
+fn get_target_size(commands: &mut Vec<Command>) -> f32 {
+    let mut size: f32 = 1.0;
+
+    commands
+        .retain(|command| {
+            let retain = command.name != "resize";
+            if !retain { size = command.param; }
+
+            retain
+        });
+
+    size
 }

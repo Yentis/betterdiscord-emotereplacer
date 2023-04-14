@@ -12,7 +12,7 @@ use flip::flip;
 use shake::shake;
 use slide::slide;
 use spin::spin;
-use utils::{get_frames, get_delay};
+use utils::{get_frames_and_size, get_delay};
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 use wiggle::wiggle;
 
@@ -42,15 +42,14 @@ pub fn init_panic_hook() {
 
 #[wasm_bindgen(js_name = "applyCommands")]
 pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Result<Vec<u8>, String> {
-    let commands: Vec<Command> = serde_wasm_bindgen::from_value(commands)
+    let mut commands: Vec<Command> = serde_wasm_bindgen::from_value(commands)
         .map_err(|e| format!("Failed to parse commands: {}", e))?;
 
-    let mut frames = get_frames(&data, &extension)?;
-    let frame = frames.first().ok_or("No frames")?;
+    let (mut frames, target_size) = get_frames_and_size(&data, &extension, &mut commands)?;
+    let Some(frame) = frames.first() else { return Ok(data); };
     let width = frame.buffer().width();
     let height = frame.buffer().height();
 
-    let target_size = get_target_size(&commands);
     let target_width = ((width as f32) * target_size).round() as u32;
     let target_height = ((height as f32) * target_size).round() as u32;
 
@@ -100,14 +99,6 @@ pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Re
     Ok(output)
 }
 
-fn get_target_size(commands: &[Command]) -> f32 {
-    commands
-        .iter()
-        .rev()
-        .find(|command| command.name == "resize")
-        .map(|command| command.param)
-        .unwrap_or(1.0)
-}
 
 fn speed(frames: &mut [Frame], value: f32) {
     for frame in frames {
@@ -133,9 +124,9 @@ fn hyperspeed(frames: &mut Vec<Frame>) {
     let mut index = 0;
     frames.retain_mut(|frame| {
         let retain = index % 2 == 0;
-        index += 1;
-
         if retain { set_speed(frame, 2); }
+
+        index += 1;
         retain
     });
 }
