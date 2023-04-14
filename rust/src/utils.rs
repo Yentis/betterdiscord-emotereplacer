@@ -8,13 +8,10 @@ pub fn get_frames(data: &[u8], extension: &str) -> Result<Vec<Frame>, String> {
             let reader = GifDecoder::new(Cursor::new(data))
                 .map_err(|e| format!("Failed to create reader: {}", e))?;
 
-            let mut frames: Vec<Frame> = Vec::new();
-            for frame in reader.into_frames() {
-                let frame = frame.map_err(|e| format!("Failed to get next frame: {}", e))?;
-                frames.push(frame);
-            }
-
-            frames
+            reader
+                .into_frames()
+                .collect_frames()
+                .map_err(|e| format!("Failed to collect frames: {}", e))?
         },
         "png" => {
             let reader = PngDecoder::new(Cursor::new(data))
