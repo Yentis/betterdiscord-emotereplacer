@@ -1,5 +1,5 @@
 use std::io::Cursor;
-use image::{Frame, codecs::{gif::GifDecoder, png::PngDecoder}, AnimationDecoder, RgbaImage, ImageDecoder, Delay};
+use image::{Frame, codecs::{gif::GifDecoder, png::PngDecoder}, AnimationDecoder, Delay, DynamicImage, Rgba};
 use js_sys::Math;
 
 pub fn get_frames(data: &[u8], extension: &str) -> Result<Vec<Frame>, String> {
@@ -20,13 +20,15 @@ pub fn get_frames(data: &[u8], extension: &str) -> Result<Vec<Frame>, String> {
             let reader = PngDecoder::new(Cursor::new(data))
                 .map_err(|e| format!("Failed to create reader: {}", e))?;
 
-            let (width, height) = reader.dimensions();
-            let mut data: Vec<u8> = vec![0; reader.total_bytes() as usize];
+            let mut image = DynamicImage::from_decoder(reader)
+                .map_err(|e| format!("Failed to create dynamic image: {}", e))?
+                .to_rgba8();
 
-            reader.read_image(&mut data)
-                .map_err(|e| format!("Failed to read image: {}", e))?;
-            
-            let image = RgbaImage::from_raw(width, height, data).ok_or("Failed to create RGBA image")?;
+            // GIFs only have one pixel value indicating transparency, so if alpha is 0 then change the pixel to that pixel value
+            for pixel in image.pixels_mut() {
+                if pixel.0[3] == 0 { *pixel = Rgba([0, 0, 0, 0]) }
+            }
+
             // Set delay as low as it can go for maximum support for modifiers
             let frame = Frame::from_parts(image, 0, 0, get_delay(2));
 

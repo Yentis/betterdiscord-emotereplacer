@@ -48,12 +48,12 @@ export class EmoteService extends BaseService {
 
   public refreshEmotes (): void {
     this.emoteNames = undefined
-    BdApi.showToast('Reloading emote database...', { type: 'info' })
+    BdApi.UI.showToast('Reloading emote database...', { type: 'info' })
 
     this.getEmoteNames()
       .then((names) => {
         this.setEmoteNames(names)
-        BdApi.showToast('Emote database reloaded!', { type: 'success' })
+        BdApi.UI.showToast('Emote database reloaded!', { type: 'success' })
       }).catch((error) => {
         Logger.warn('Failed to get emote names', error)
       })

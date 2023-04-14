@@ -69,7 +69,7 @@ export class SendMessageService extends BaseService {
       }
 
       if (!this.attachService.canAttach) {
-        BdApi.showToast('This channel does not allow sending images!', { type: 'error' })
+        BdApi.UI.showToast('This channel does not allow sending images!', { type: 'error' })
         callDefault(...args)
         return
       }
@@ -91,7 +91,7 @@ export class SendMessageService extends BaseService {
           ? error.message
           : error as string
 
-        BdApi.showToast(errorMessage, { type: 'error' })
+        BdApi.UI.showToast(errorMessage, { type: 'error' })
         if (content === '') return
 
         message.content = content
@@ -281,7 +281,7 @@ export class SendMessageService extends BaseService {
     const commands = emote.commands
 
     this.addResizeCommand(commands, image)
-    BdApi.showToast('Processing gif...', { type: 'info' })
+    BdApi.UI.showToast('Processing gif...', { type: 'info' })
 
     const buffer = await this.gifProcessingService.modifyGif(emote.url, commands)
     if (buffer.length === 0) throw Error('Failed to process gif')
