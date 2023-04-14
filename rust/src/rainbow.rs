@@ -1,16 +1,18 @@
 use colors_transform::{Color, Hsl, Rgb};
 use image::{Frame, Pixel, RgbaImage};
 
-use crate::utils::get_random_f32;
+use crate::utils::{get_random_f32, align_gif};
 
-pub fn rainbow(frames: &mut [Frame], speed: f32) {
+pub fn rainbow(frames: &mut Vec<Frame>, speed: f32) {
     let speed = 4.0 * speed;
     let random_black = get_random_f32(0.0, 360.0);
     let random_white = get_random_f32(0.0, 360.0);
 
+    *frames = align_gif(frames, speed as usize);
+
     for (index, frame) in frames.iter_mut().enumerate() {
         let cycle = (index as f32) % speed;
-        let shift = (cycle / speed) * (330.0 - 30.0) + 30.0;
+        let shift = (cycle / speed) * 360.0;
 
         shift_colors(frame.buffer_mut(), shift, random_black, random_white);
     }

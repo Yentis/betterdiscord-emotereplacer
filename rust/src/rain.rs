@@ -1,7 +1,7 @@
 use image::{Frame, Rgba, RgbaImage};
 use js_sys::Math;
 
-use crate::utils::get_random_u32;
+use crate::utils::{get_random_u32, align_gif};
 
 #[derive(Copy, Clone)]
 enum RainType {
@@ -99,7 +99,7 @@ impl Drop {
     }
 }
 
-pub fn rain(frames: &mut [Frame], rain_type: f32) {
+pub fn rain(frames: &mut Vec<Frame>, rain_type: f32) {
     let rain_type = if rain_type == 0.0 {
         RainType::Regular
     } else {
@@ -112,6 +112,10 @@ pub fn rain(frames: &mut [Frame], rain_type: f32) {
     let (numerator, denominator) = frame.delay().numer_denom_ms();
     let delay_centisecs = (numerator * denominator) / 10;
     let mut drops = create_drops(width, height, rain_type, delay_centisecs);
+
+    if frames.len() < 12 {
+        *frames = align_gif(frames, 12);
+    }
 
     for frame in frames {
         write_drops(&mut drops, frame.buffer_mut());
