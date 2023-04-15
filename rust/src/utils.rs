@@ -68,8 +68,10 @@ pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
     let mut current_copy = 0;
 
     for i in 0..frames_to_delete {
-        let frame_to_delete = get_random_u32(0, frames.len() as u32 - 1) as usize;
-        let index = frame_to_delete + current_copy * (frames.len() - i - 1);
+        let cur_frame_len = frames.len() - i;
+
+        let frame_to_delete = get_random_u32(0, cur_frame_len as u32) as usize;
+        let index = frame_to_delete + current_copy * (cur_frame_len - 1);
         aligned_frames.remove(index);
 
         // Keep shifting copy so each copy loses about the same amount of frames
