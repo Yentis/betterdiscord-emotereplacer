@@ -1,9 +1,12 @@
 use colors_transform::{Color, Hsl, Rgb};
 use image::{Frame, Pixel, RgbaImage};
 
-use crate::utils::{get_random_f32, align_gif};
+use crate::utils::{get_random_f32, align_gif, align_speed};
 
+// TODO: normalize speed (see spin.rs)
 pub fn rainbow(frames: &mut Vec<Frame>, speed: f32) {
+    align_speed(frames, 4.0);
+
     let speed = 4.0 * speed;
     let random_black = get_random_f32(0.0, 360.0);
     let random_white = get_random_f32(0.0, 360.0);

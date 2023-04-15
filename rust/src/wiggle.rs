@@ -1,6 +1,6 @@
 use image::{imageops, Frame, GenericImageView, RgbaImage};
 
-use crate::utils::align_gif;
+use crate::utils::{align_gif, align_speed};
 
 #[derive(Copy, Clone)]
 struct WiggleData {
@@ -45,7 +45,9 @@ impl WiggleData {
     }
 }
 
+// TODO: normalize speed (see spin.rs)
 pub fn wiggle(frames: &mut Vec<Frame>, speed: f32) {
+    align_speed(frames, 8.0);
     let Some(frame) = frames.first() else { return };
     let buffer_width = frame.buffer().width() as f32;
     let buffer_height = frame.buffer().height() as f32;

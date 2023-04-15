@@ -1,9 +1,6 @@
 import nodeResolve from "@rollup/plugin-node-resolve";
 import ts from "rollup-plugin-ts";
-import commonjs from "@rollup/plugin-commonjs";
 import {terser} from "rollup-plugin-terser";
-import replace from "@rollup/plugin-replace";
-import json from '@rollup/plugin-json';
 import {main as outputFile} from "./package.json";
 import wasm from "@rollup/plugin-wasm";
 import webWorkerLoader from 'rollup-plugin-web-worker-loader';
@@ -71,7 +68,6 @@ export default {
             preserveSource: true
         }),
         ts(),
-        commonjs(),
         terser({
             compress: false,
             mangle: false,
@@ -82,14 +78,7 @@ export default {
                 indent_level: 4,
                 quote_style: 3
             }
-        }),
-        replace({
-            preventAssignment: false,
-            values: {
-                '    ': '\t'
-            } 
-        }),
-        json()
+        })
     ],
     onwarn
 };

@@ -2,7 +2,7 @@ use std::io::Cursor;
 use image::{Frame, codecs::{gif::GifDecoder, png::PngDecoder}, AnimationDecoder, Delay, DynamicImage, Rgba};
 use js_sys::Math;
 
-use crate::command::Command;
+use crate::{command::Command, log, speed};
 
 pub fn get_frames_and_size(data: &[u8], extension: &str, commands: &mut Vec<Command>) -> Result<(Vec<Frame>, f32), String> {
     let target_size = get_target_size(commands);
@@ -45,7 +45,6 @@ pub fn get_frames_and_size(data: &[u8], extension: &str, commands: &mut Vec<Comm
     Ok((frames, target_size))
 }
 
-// TODO: make gifs faster if needed so that shake works better on slow gifs
 pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
     // Duplicate frames until interval is reached
     let copies = (interval.saturating_sub(1) / frames.len()) + 1;
@@ -80,8 +79,39 @@ pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
     aligned_frames
 }
 
+pub fn align_speed(frames: &mut Vec<Frame>, target_delay_centisecs: f32) {
+    let Some(frame) = frames.first() else { return; };
+    let delay_centisecs = get_delay_centisecs(frame.delay());
+
+    if delay_centisecs <= target_delay_centisecs { return; }
+    let mut new_delay_centisecs = delay_centisecs;
+
+    let mut aligned_frames = frames.to_vec();
+    let mut cur_copy = 1;
+
+    while new_delay_centisecs > target_delay_centisecs {
+        if new_delay_centisecs <= 2.0 { break; }
+
+        frames.iter().enumerate().for_each(|(index, frame)| {
+            let target = index + index + cur_copy;
+            aligned_frames.insert(target, frame.clone());
+        });
+
+        cur_copy += 1;
+        new_delay_centisecs = delay_centisecs / (aligned_frames.len() as f32 / frames.len() as f32);
+    }
+
+    speed(&mut aligned_frames, new_delay_centisecs);
+    *frames = aligned_frames
+}
+
 pub fn get_delay(delay_centisecs: u32) -> Delay {
     Delay::from_numer_denom_ms(delay_centisecs * 10, 1)
+}
+
+pub fn get_delay_centisecs(delay: Delay) -> f32 {
+    let (numerator, denominator) = delay.numer_denom_ms();
+    (numerator as f32 * denominator as f32) / 10.0
 }
 
 pub fn get_random_u32(min: u32, max: u32) -> u32 {

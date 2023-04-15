@@ -1,6 +1,6 @@
 use image::Frame;
 
-use crate::{rotate::rotate_frame, utils::align_gif};
+use crate::{rotate::rotate_frame, utils::{align_gif, get_delay_centisecs, align_speed}};
 
 pub enum Direction {
     Clockwise,
@@ -8,10 +8,10 @@ pub enum Direction {
 }
 
 pub fn spin(frames: &mut Vec<Frame>, speed: f32, direction: Direction) {
+    align_speed(frames, 8.0);
     let Some(frame) = frames.first() else { return };
-    let (numerator, denominator) = frame.delay().numer_denom_ms();
 
-    let delay_centisecs = (numerator as f32 * denominator as f32) / 10.0;
+    let delay_centisecs = get_delay_centisecs(frame.delay());
     let centisecs_per_rotation = (200.0 * speed) / 8.0;
     let mut degrees = (360.0 * delay_centisecs) / centisecs_per_rotation;
     let interval = (360.0 / degrees).floor();

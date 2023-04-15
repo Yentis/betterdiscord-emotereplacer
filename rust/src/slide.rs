@@ -1,6 +1,6 @@
 use image::{Frame, Pixel, Rgba};
 
-use crate::utils::align_gif;
+use crate::utils::{align_gif, align_speed, get_delay_centisecs};
 
 #[derive(Copy, Clone)]
 pub enum Direction {
@@ -20,20 +20,23 @@ impl Direction {
 const CHANNEL_COUNT: usize = <Rgba<u8> as Pixel>::CHANNEL_COUNT as usize;
 
 pub fn slide(frames: &mut Vec<Frame>, speed: f32, direction: Direction) {
+    align_speed(frames, 6.0);
     let Some(frame) = frames.first() else { return };
-    let interval = speed * 2.0;
     let width = frame.buffer().width() as usize;
 
-    let mut shift: usize = 0;
-    let shift_size = (width as f32 / interval).round() as usize;
+    let delay_centisecs = get_delay_centisecs(frame.delay());
+    let centisecs_per_slide = (50.0 * speed) / 8.0;
+    let shift_size = (width as f32 * delay_centisecs) / centisecs_per_slide;
+    let interval = (width as f32 / shift_size).floor();
+
     *frames = align_gif(frames, interval as usize);
 
     let row_len = width * CHANNEL_COUNT;
     let rotate_vec = direction.rotate_vec();
 
-    for frame in frames {
+    for (index, frame) in frames.iter_mut().enumerate() {
+        let shift = ((index as f32 * shift_size) % width as f32).round() as usize;
         shift_frame_data(frame, shift * CHANNEL_COUNT, row_len, rotate_vec);
-        shift = (shift + shift_size) % width;
     }
 }
 

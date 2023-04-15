@@ -1,7 +1,7 @@
 use image::{Frame, Rgba, RgbaImage};
 use js_sys::Math;
 
-use crate::utils::{get_random_u32, align_gif};
+use crate::utils::{get_random_u32, align_gif, get_delay_centisecs, align_speed};
 
 #[derive(Copy, Clone)]
 enum RainType {
@@ -12,7 +12,7 @@ enum RainType {
 struct Drop {
     width: u32,
     height: u32,
-    delay: u32,
+    delay: f32,
 
     x: u32,
     y: u32,
@@ -30,7 +30,7 @@ impl Drop {
     pub fn new(
         width: u32,
         height: u32,
-        delay: u32,
+        delay: f32,
         rain_type: RainType,
     ) -> Self {
         let x = get_random_u32(0, width);
@@ -70,7 +70,7 @@ impl Drop {
         }
     }
 
-    fn reset_drop_static(delay: u32) -> (u32, u32, u32) {
+    fn reset_drop_static(delay: f32) -> (u32, u32, u32) {
         let random = Math::random();
         let delay = delay as f64;
 
@@ -100,6 +100,8 @@ impl Drop {
 }
 
 pub fn rain(frames: &mut Vec<Frame>, rain_type: f32) {
+    align_speed(frames, 8.0);
+
     let rain_type = if rain_type == 0.0 {
         RainType::Regular
     } else {
@@ -109,8 +111,7 @@ pub fn rain(frames: &mut Vec<Frame>, rain_type: f32) {
     let Some(frame) = frames.first() else { return; };
     let width = frame.buffer().width();
     let height = frame.buffer().height();
-    let (numerator, denominator) = frame.delay().numer_denom_ms();
-    let delay_centisecs = (numerator * denominator) / 10;
+    let delay_centisecs = get_delay_centisecs(frame.delay());
     let mut drops = create_drops(width, height, rain_type, delay_centisecs);
 
     if frames.len() < 12 {
@@ -126,7 +127,7 @@ fn create_drops(
     width: u32,
     height: u32,
     rain_type: RainType,
-    delay: u32,
+    delay: f32,
 ) -> Vec<Drop> {
     let amount = (width + height) / 5;
 
