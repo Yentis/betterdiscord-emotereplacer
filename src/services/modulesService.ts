@@ -14,11 +14,13 @@ import Uploader from 'interfaces/modules/uploader'
 import UserStore from 'interfaces/modules/userStore'
 import { BaseService } from './baseService'
 import { CloudUploader } from 'interfaces/modules/cloudUploader'
+import DraftStore from 'interfaces/modules/draftStore'
 
 export class ModulesService extends BaseService {
   channelStore!: ChannelStore
   uploader!: Uploader
   draft!: Draft
+  draftStore!: DraftStore
   permissions!: Permissions
   discordPermissions!: DiscordPermissions
   dispatcher!: Dispatcher
@@ -44,6 +46,10 @@ export class ModulesService extends BaseService {
     this.draft = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byProps('changeDraft')
     ) as Draft
+
+    this.draftStore = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('getDraft', 'getRecentlyEditedDrafts')
+    ) as DraftStore
 
     this.permissions = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byProps('getChannelPermissions')

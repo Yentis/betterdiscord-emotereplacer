@@ -243,10 +243,15 @@ interface CloudUploader {
         }, channelId: string): Upload;
     };
 }
+interface DraftStore {
+    addChangeListener: (listener: () => void) => void;
+    removeChangeListener: (listener: () => void) => void;
+}
 declare class ModulesService extends BaseService {
     channelStore: ChannelStore;
     uploader: Uploader;
     draft: Draft;
+    draftStore: DraftStore;
     permissions: Permissions;
     discordPermissions: DiscordPermissions;
     dispatcher: Dispatcher;
@@ -384,6 +389,7 @@ declare class CompletionsService extends BaseService {
     browseCompletions(event: KeyboardEvent): void;
     private prepareCompletions;
     private insertSelectedCompletion;
+    private insertDraft;
     destroyCompletions(): void;
     renderCompletions: import("lodash").DebouncedFunc<() => void>;
     scrollCompletions(e: WheelEvent, options?: ScrollOptions): void;

@@ -235,9 +235,6 @@ export class CompletionsService extends BaseService {
       return
     }
 
-    this.modulesService.draft.clearDraft(channelId, 0)
-    await PromiseUtils.delay(100)
-
     const selectedCompletion = completions[selectedIndex]
     if (!selectedCompletion) return
     const completionValueArguments = typeof selectedCompletion.data === 'string'
@@ -257,10 +254,23 @@ export class CompletionsService extends BaseService {
     const newDraft = curDraft.substring(0, curDraft.length - matchTextLength)
     this.destroyCompletions()
 
-    await PromiseUtils.delay(0)
+    await this.insertDraft(channelId, newDraft + selectedCompletion.name)
+  }
+
+  private async insertDraft (channelId: string, draft: string): Promise<void> {
+    await new Promise<void>((resolve) => {
+      const listener = () => {
+        resolve()
+        this.modulesService.draftStore.removeChangeListener(listener)
+      }
+
+      this.modulesService.draftStore.addChangeListener(listener)
+      this.modulesService.draft.clearDraft(channelId, 0)
+    })
+
     this.modulesService.componentDispatcher.dispatchToLastSubscribed(
       'INSERT_TEXT',
-      { plainText: newDraft + selectedCompletion.name }
+      { plainText: draft }
     )
   }
 

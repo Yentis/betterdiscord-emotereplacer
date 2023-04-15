@@ -93,7 +93,7 @@ pub fn align_speed(frames: &mut Vec<Frame>, target_delay_centisecs: f32) {
         if new_delay_centisecs <= 2.0 { break; }
 
         frames.iter().enumerate().for_each(|(index, frame)| {
-            let target = index + index + cur_copy;
+            let target = (index * 2) + cur_copy;
             aligned_frames.insert(target, frame.clone());
         });
 
