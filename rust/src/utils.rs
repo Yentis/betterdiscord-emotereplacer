@@ -2,7 +2,7 @@ use std::io::Cursor;
 use image::{Frame, codecs::{gif::GifDecoder, png::PngDecoder}, AnimationDecoder, Delay, DynamicImage, Rgba};
 use js_sys::Math;
 
-use crate::{command::Command, log, speed};
+use crate::{command::Command, speed};
 
 pub fn get_frames_and_size(data: &[u8], extension: &str, commands: &mut Vec<Command>) -> Result<(Vec<Frame>, f32), String> {
     let target_size = get_target_size(commands);
