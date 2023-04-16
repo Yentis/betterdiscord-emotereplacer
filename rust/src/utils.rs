@@ -123,13 +123,6 @@ pub fn get_random_u32(min: u32, max: u32) -> u32 {
     (Math::random() * (max - min) + min).floor() as u32
 }
 
-pub fn get_random_f32(min: f32, max: f32) -> f32 {
-    let min = min as f64;
-    let max = max as f64;
-
-    (Math::random() * (max - min) + min) as f32
-}
-
 fn get_target_size(commands: &mut Vec<Command>) -> f32 {
     let mut size: f32 = 1.0;
 
