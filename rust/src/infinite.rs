@@ -3,16 +3,21 @@ use image::{
     Frame, RgbaImage,
 };
 
-use crate::utils::{align_gif, align_speed};
+use crate::utils::{align_gif, align_speed, get_delay_centisecs};
 
-// TODO: normalize speed (see spin.rs)
 pub fn infinite(frames: &mut Vec<Frame>, speed: f32)  {
     align_speed(frames, 8.0);
+    let Some(frame) = frames.first() else { return; };
+
+    let delay_centisecs = get_delay_centisecs(frame.delay());
+    let centisecs_per_infinite = (100.0 * speed) / 8.0;
 
     let scales_amount: u32 = 5;
-    let scale_diff: f32 = 0.9; // Difference between each scale
-    let scale_step = (0.03 * 8.0) / speed; // Scale shift between frames
-    *frames = align_gif(frames, (scale_diff / scale_step) as usize);
+    let scale_diff: f32 = 1.0; // Difference between each scale
+    let scale_step = delay_centisecs / centisecs_per_infinite; // Scale shift between frames
+    let interval = (scale_diff / scale_step).floor() as usize;
+
+    *frames = align_gif(frames, interval);
 
     let mut scales: Vec<f32> = Vec::new();
     set_scales(&mut scales, scales_amount, scale_diff, scale_step);
