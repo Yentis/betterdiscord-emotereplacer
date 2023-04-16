@@ -1,81 +1,114 @@
 use image::{imageops, Frame, GenericImageView, RgbaImage};
 
-use crate::utils::{align_gif, align_speed};
+use crate::utils::{align_gif, align_speed, get_delay_centisecs};
 
 #[derive(Copy, Clone)]
 struct WiggleData {
     shift: f32,
     shift_size: f32,
     stripe_height: f32,
-    left: bool,
-    margin: f32,
+    step: usize,
 }
 
 impl WiggleData {
-    pub fn new(buffer_width: f32, buffer_height: f32, speed: f32) -> Self {
-        let width = buffer_width + 2.0 * ((buffer_width * speed * 0.1) / 15.0).floor();
-        let margin = width - buffer_width;
-        let shift = margin / 2.0; // Initial offset of wiggle
-        let shift_size = (margin / 6.0).max(1.0);
-        let stripe_height = (buffer_height / 32.0).floor().max(1.0);
+    pub fn new(buffer_width: f32, buffer_height: f32) -> Self {
+        // Shift by 2%
+        let shift_size = ((buffer_width / 100.0) * 2.0).max(1.0);
+        let stripe_height = (buffer_height / 48.0).floor().max(1.0);
 
         Self {
-            shift,
+            shift: 0.0,
             shift_size,
             stripe_height,
-            left: true,
-            margin,
+            step: 0,
         }
     }
 
-    fn shift_wiggle_step(&mut self) {
-        if self.left {
-            self.shift -= self.shift_size;
+    fn set_shift(&mut self, cycle: f32, interval: f32) {
+        let shift_step = interval / 8.0;
 
-            if self.shift < -self.shift_size {
-                self.left = false;
-            }
-        } else {
-            self.shift += self.shift_size;
+        let mut cur_shift_step = shift_step;
+        let mut step = 0;
 
-            if self.shift > self.margin + self.shift_size {
-                self.left = true;
-            }
+        while cycle >= cur_shift_step {
+            cur_shift_step += shift_step;
+            step += 1;
         }
+
+        self.step = step;
+        self.set_shift_by_step(0);
+    }
+
+    fn set_shift_by_step(&mut self, offset: usize) {
+        let step = (self.step + offset) % 8;
+
+        let shift = match step {
+            0 => 0,
+            1 => -1,
+            2 => -2,
+            3 => -1,
+            4 => 0,
+            5 => 1,
+            6 => 2,
+            7 => 1,
+            _ => 0,
+        };
+
+        self.shift = shift as f32 * self.shift_size;
+        self.step = step;
     }
 }
 
-// TODO: normalize speed (see spin.rs)
 pub fn wiggle(frames: &mut Vec<Frame>, speed: f32) {
-    align_speed(frames, 8.0);
+    align_speed(frames, 6.0);
     let Some(frame) = frames.first() else { return };
     let buffer_width = frame.buffer().width() as f32;
     let buffer_height = frame.buffer().height() as f32;
 
-    let mut wiggle_data = WiggleData::new(buffer_width, buffer_height, speed);
-    let interval = 2.0 * (wiggle_data.margin / wiggle_data.shift_size + 4.0);
+    let delay_centisecs = get_delay_centisecs(frame.delay());
+    let centisecs_per_wiggle = (64.0 * speed) / 8.0;
+    let frame_cycle = 32.0;
 
-    *frames = align_gif(frames, interval as usize);
+    let wiggle_step = (frame_cycle * delay_centisecs) / centisecs_per_wiggle;
+    let interval = frame_cycle / wiggle_step;
+    let wiggle_data = WiggleData::new(buffer_width, buffer_height);
 
-    for frame in frames {
+    *frames = align_gif(frames, interval.floor() as usize);
+
+    for (index, frame) in frames.iter_mut().enumerate() {
         wiggle_frame_data(
             frame,
             buffer_width as u32,
             buffer_height as u32,
             wiggle_data,
+            index as f32,
+            interval,
         );
-
-        // Set initial wiggle offset for next frame
-        wiggle_data.shift_wiggle_step();
     }
 }
 
-fn wiggle_frame_data(frame: &mut Frame, width: u32, height: u32, mut wiggle_data: WiggleData) {
+fn wiggle_frame_data(
+    frame: &mut Frame,
+    width: u32,
+    height: u32,
+    mut wiggle_data: WiggleData,
+    frame_index: f32,
+    interval: f32,
+) {
     let mut wiggled_buffer = RgbaImage::new(width, height);
 
     (0..height)
         .step_by(wiggle_data.stripe_height as usize)
-        .for_each(|stripe| {
+        .enumerate()
+        .for_each(|(index, stripe)| {
+            if stripe + wiggle_data.stripe_height as u32 > height {
+                return;
+            }
+
+            let cycle = frame_index % interval;
+            wiggle_data.set_shift(cycle, interval);
+            wiggle_data.set_shift_by_step(index);
+
             let cropped_buffer = frame
                 .buffer()
                 .view(0, stripe, width, wiggle_data.stripe_height as u32)
@@ -87,8 +120,6 @@ fn wiggle_frame_data(frame: &mut Frame, width: u32, height: u32, mut wiggle_data
                 wiggle_data.shift as i64,
                 stripe as i64,
             );
-
-            wiggle_data.shift_wiggle_step();
         });
 
     *frame.buffer_mut() = wiggled_buffer;

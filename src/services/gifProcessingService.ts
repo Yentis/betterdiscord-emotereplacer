@@ -103,17 +103,6 @@ export class GifProcessingService extends BaseService {
         case 'rotate':
           commands.push({ name: option[0], param: option[1] })
           break
-        case 'wiggle': {
-          let size = 2
-          const param = option[1]
-
-          if (param === 'big') size = 4
-          else if (param === 'bigger') size = 6
-          else if (param === 'huge') size = 10
-
-          commands.push({ name: option[0], param: size })
-          break
-        }
         case 'rain':
           commands.push({
             name: option[0],
@@ -126,7 +115,8 @@ export class GifProcessingService extends BaseService {
         case 'rainbow':
         case 'infinite':
         case 'slide':
-        case 'sliderev': {
+        case 'sliderev':
+        case 'wiggle': {
           let speed = 8
           const param = option[1]
 

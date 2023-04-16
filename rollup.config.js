@@ -17,24 +17,6 @@ const banner = `/**
  * @source ${packageJson.source}
  */`
 
-const onwarn = (warning, rollupWarn) => {
-    const ignoredWarnings = [
-        {
-            ignoredCode: 'CIRCULAR_DEPENDENCY',
-            ignoredPath: 'node_modules/xmlbuilder'
-        }
-    ]
-
-    // Only show warning when code and path doesn't match
-    // anything in above list of ignored warnings
-    if (!ignoredWarnings.some(({ ignoredCode, ignoredPath }) => (
-        warning.code === ignoredCode &&
-        warning.importer.startsWith(ignoredPath)))
-    ) {
-        rollupWarn(warning)
-    }
-}
-
 export default {
     input: 'src/index.ts',
     output: {
@@ -51,10 +33,7 @@ export default {
         'electron',
         'fs',
         'path',
-        'https',
-        'http',
-        'lodash',
-        'events'
+        'https'
     ],
     plugins: [
         nodeResolve({
@@ -75,6 +54,5 @@ export default {
             parser: 'babel',
             singleQuote: true
         })
-    ],
-    onwarn
+    ]
 };

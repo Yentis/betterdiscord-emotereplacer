@@ -46,12 +46,6 @@ pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Re
         .map_err(|e| format!("Failed to parse commands: {}", e))?;
 
     let (mut frames, target_size) = get_frames_and_size(&data, &extension, &mut commands)?;
-    let Some(frame) = frames.first() else { return Ok(data); };
-    let width = frame.buffer().width();
-    let height = frame.buffer().height();
-
-    let target_width = ((width as f32) * target_size).round() as u32;
-    let target_height = ((height as f32) * target_size).round() as u32;
 
     let mut output = Vec::new();
     {
@@ -61,7 +55,7 @@ pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Re
             .map_err(|e| format!("Failed to set repeat: {}", e))?;
 
         if target_size < 1.0 {
-            resize(&mut frames, target_width, target_height);
+            resize(&mut frames, target_size);
         }
 
         for command in &commands {
@@ -86,7 +80,7 @@ pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Re
         }
 
         if target_size > 1.0 {
-            resize(&mut frames, target_width, target_height);
+            resize(&mut frames, target_size);
         }
 
         for frame in frames {
@@ -98,7 +92,6 @@ pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Re
 
     Ok(output)
 }
-
 
 fn speed(frames: &mut [Frame], value: f32) {
     for frame in frames {

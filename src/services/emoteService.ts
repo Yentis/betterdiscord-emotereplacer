@@ -8,6 +8,7 @@ import { HtmlService } from './htmlService'
 import { ListenersService } from './listenersService'
 import { SettingsService } from './settingsService'
 import { PromiseUtils } from '../utils/promiseUtils'
+import { EMOTE_MODIFIERS } from '../pluginConstants'
 
 export class EmoteService extends BaseService {
   listenersService!: ListenersService
@@ -15,7 +16,7 @@ export class EmoteService extends BaseService {
   htmlService!: HtmlService
 
   emoteNames: Record<string, string> | undefined
-  modifiers: Modifier[] = []
+  modifiers: Modifier[] = EMOTE_MODIFIERS
 
   public start (
     listenersService: ListenersService,
@@ -31,12 +32,8 @@ export class EmoteService extends BaseService {
   }
 
   private initEmotes () {
-    Promise.all([
-      this.getEmoteNames(),
-      this.getModifiers()
-    ]).then(([emoteNames, modifiers]) => {
+    this.getEmoteNames().then((emoteNames) => {
       this.setEmoteNames(emoteNames)
-      this.modifiers = modifiers
 
       if (this.htmlService.getEditors().length > 0) {
         this.listenersService.requestAddListeners(CompletionsService.TAG)
@@ -97,13 +94,6 @@ export class EmoteService extends BaseService {
     })
 
     this.emoteNames = { ...standardNames, ...customEmotes }
-  }
-
-  private async getModifiers (): Promise<Modifier[]> {
-    const data = await PromiseUtils.urlGetBuffer(
-      'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/modifiers.json'
-    )
-    return JSON.parse(data.toString()) as Modifier[]
   }
 
   public getPrefixedName (name: string): string {
