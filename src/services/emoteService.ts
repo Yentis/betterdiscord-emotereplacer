@@ -1,13 +1,14 @@
-import Cached from 'interfaces/cached'
-import Completion from 'interfaces/completion'
-import Modifier from 'interfaces/modifier'
-import { Logger } from 'utils/logger'
-import * as PromiseUtils from 'utils/promiseUtils'
+import Cached from '../interfaces/cached'
+import Completion from '../interfaces/completion'
+import Modifier from '../interfaces/modifier'
+import { Logger } from '../utils/logger'
 import { BaseService } from './baseService'
 import { CompletionsService } from './completionsService'
 import { HtmlService } from './htmlService'
 import { ListenersService } from './listenersService'
 import { SettingsService } from './settingsService'
+import { PromiseUtils } from '../utils/promiseUtils'
+import { EMOTE_MODIFIERS } from '../pluginConstants'
 
 export class EmoteService extends BaseService {
   listenersService!: ListenersService
@@ -15,7 +16,7 @@ export class EmoteService extends BaseService {
   htmlService!: HtmlService
 
   emoteNames: Record<string, string> | undefined
-  modifiers: Modifier[] = []
+  modifiers: Modifier[] = EMOTE_MODIFIERS
 
   public start (
     listenersService: ListenersService,
@@ -31,12 +32,8 @@ export class EmoteService extends BaseService {
   }
 
   private initEmotes () {
-    Promise.all([
-      this.getEmoteNames(),
-      this.getModifiers()
-    ]).then(([emoteNames, modifiers]) => {
+    this.getEmoteNames().then((emoteNames) => {
       this.setEmoteNames(emoteNames)
-      this.modifiers = modifiers
 
       if (this.htmlService.getEditors().length > 0) {
         this.listenersService.requestAddListeners(CompletionsService.TAG)
@@ -48,12 +45,12 @@ export class EmoteService extends BaseService {
 
   public refreshEmotes (): void {
     this.emoteNames = undefined
-    BdApi.showToast('Reloading emote database...', { type: 'info' })
+    BdApi.UI.showToast('Reloading emote database...', { type: 'info' })
 
     this.getEmoteNames()
       .then((names) => {
         this.setEmoteNames(names)
-        BdApi.showToast('Emote database reloaded!', { type: 'success' })
+        BdApi.UI.showToast('Emote database reloaded!', { type: 'success' })
       }).catch((error) => {
         Logger.warn('Failed to get emote names', error)
       })
@@ -97,13 +94,6 @@ export class EmoteService extends BaseService {
     })
 
     this.emoteNames = { ...standardNames, ...customEmotes }
-  }
-
-  private async getModifiers (): Promise<Modifier[]> {
-    const data = await PromiseUtils.urlGetBuffer(
-      'https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/modifiers.json'
-    )
-    return JSON.parse(data.toString()) as Modifier[]
   }
 
   public getPrefixedName (name: string): string {

@@ -9,7 +9,8 @@ module.exports = {
         project: resolve(__dirname, './tsconfig.json')
     },
     plugins: [
-        '@typescript-eslint'
+        '@typescript-eslint',
+        'deprecation'
     ],
     extends: [
         'plugin:@typescript-eslint/recommended',
@@ -21,7 +22,10 @@ module.exports = {
         Image: true,
         BufferConstructor: true,
         _: true,
-        process: true
+        process: true,
+        createImageBitmap: true,
+        onmessage: true,
+        postMessage: true
     },
     rules: {
         // allow async-await
@@ -43,6 +47,7 @@ module.exports = {
         'import/no-unresolved': 'off',
         'import/no-extraneous-dependencies': 'off',
         'prefer-promise-reject-errors': 'off',
+        'deprecation/deprecation': 'warn',
 
         // TypeScript
         quotes: ['warn', 'single', { avoidEscape: true }],

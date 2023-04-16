@@ -1,7 +1,6 @@
-import Cached from 'interfaces/cached'
-import { Listener } from 'interfaces/listener'
-import ScrollOptions from 'interfaces/scrollOptions'
-import { delay, loadImagePromise } from 'utils/promiseUtils'
+import Cached from '../interfaces/cached'
+import { Listener } from '../interfaces/listener'
+import ScrollOptions from '../interfaces/scrollOptions'
 import { AttachService } from './attachService'
 import { BaseService } from './baseService'
 import { EmoteService } from './emoteService'
@@ -9,6 +8,8 @@ import { HtmlService } from './htmlService'
 import { ListenersService } from './listenersService'
 import { ModulesService } from './modulesService'
 import { SettingsService } from './settingsService'
+import { Logger } from '../utils/logger'
+import { PromiseUtils } from '../utils/promiseUtils'
 
 export class CompletionsService extends BaseService {
   public static readonly TAG = CompletionsService.name
@@ -146,7 +147,7 @@ export class CompletionsService extends BaseService {
         // Prevent adding a tab or line break to text
         event.preventDefault()
 
-        this.insertSelectedCompletion().catch(console.error)
+        this.insertSelectedCompletion().catch((error) => Logger.error(error))
         break
 
       // Up
@@ -234,9 +235,6 @@ export class CompletionsService extends BaseService {
       return
     }
 
-    this.modulesService.draft.clearDraft(channelId, 0)
-    await delay(0)
-
     const selectedCompletion = completions[selectedIndex]
     if (!selectedCompletion) return
     const completionValueArguments = typeof selectedCompletion.data === 'string'
@@ -256,10 +254,23 @@ export class CompletionsService extends BaseService {
     const newDraft = curDraft.substring(0, curDraft.length - matchTextLength)
     this.destroyCompletions()
 
-    await delay(0)
+    await this.insertDraft(channelId, newDraft + selectedCompletion.name)
+  }
+
+  private async insertDraft (channelId: string, draft: string): Promise<void> {
+    await new Promise<void>((resolve) => {
+      const listener = () => {
+        resolve()
+        this.modulesService.draftStore.removeChangeListener(listener)
+      }
+
+      this.modulesService.draftStore.addChangeListener(listener)
+      this.modulesService.draft.clearDraft(channelId, 0)
+    })
+
     this.modulesService.componentDispatcher.dispatchToLastSubscribed(
       'INSERT_TEXT',
-      { plainText: newDraft + selectedCompletion.name }
+      { plainText: draft }
     )
   }
 
@@ -396,7 +407,7 @@ export class CompletionsService extends BaseService {
 
           if (!this.cached) this.cached = {}
           this.cached.selectedIndex = index + firstIndex
-          this.insertSelectedCompletion().catch(console.error)
+          this.insertSelectedCompletion().catch((error) => Logger.error(error))
         }
       }
       emoteRow.addEventListener(mouseDownListener.name, mouseDownListener.callback)
@@ -439,7 +450,11 @@ export class CompletionsService extends BaseService {
         containerIcon.append(containerImage)
 
         if (typeof data === 'string') {
-          loadImagePromise(data, false, containerImage).catch(console.error)
+          PromiseUtils.loadImagePromise(
+            data,
+            false,
+            containerImage
+          ).catch((error) => Logger.error(error))
         }
       }
 

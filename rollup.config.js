@@ -1,85 +1,58 @@
 import nodeResolve from "@rollup/plugin-node-resolve";
-import ts from "rollup-plugin-ts";
-import commonjs from "@rollup/plugin-commonjs";
-import {terser} from "rollup-plugin-terser";
-import replace from "@rollup/plugin-replace";
-import license from "rollup-plugin-license";
-import json from '@rollup/plugin-json';
 import {main as outputFile} from "./package.json";
+import wasm from "@rollup/plugin-wasm";
+import webWorkerLoader from 'rollup-plugin-web-worker-loader';
+import packageJson from './package.json';
+import sucrase from "@rollup/plugin-sucrase";
+import prettier from "rollup-plugin-prettier";
 
-const onwarn = (warning, rollupWarn) => {
-    const ignoredWarnings = [
-        {
-            ignoredCode: 'CIRCULAR_DEPENDENCY',
-            ignoredPath: 'node_modules/xmlbuilder'
-        }
-    ]
-
-    // Only show warning when code and path doesn't match
-    // anything in above list of ignored warnings
-    if (!ignoredWarnings.some(({ ignoredCode, ignoredPath }) => (
-        warning.code === ignoredCode &&
-        warning.importer.startsWith(ignoredPath)))
-    ) {
-        rollupWarn(warning)
-    }
-}
+const banner = `/**
+ * @name ${packageJson.name}
+ * @version ${packageJson.version}
+ * @description ${packageJson.description}
+ * @license ${packageJson.license}
+ * @author ${packageJson.author}
+ * @authorId ${packageJson.authorId}
+ * @website ${packageJson.website}
+ * @source ${packageJson.source}
+ */`
 
 export default {
-    input: "src/index.ts",
+    input: 'src/index.ts',
     output: {
         file: outputFile,
-        format: "cjs",
-        exports: "auto"
+        format: 'cjs',
+        exports: 'auto',
+        interop: 'esModule',
+        banner
     },
+    treeshake: 'smallest',
     // These modules already exist in Discord, don't package them
     external: [
         'request',
         'electron',
         'fs',
         'path',
-        'https',
-        'http',
-        'lodash',
-        'events'
+        'https'
     ],
     plugins: [
         nodeResolve({
             preferBuiltins: true
         }),
-        ts(),
-        commonjs(),
-        terser({
-            compress: {
-                ecma: 2019,
-                keep_classnames: true,
-                keep_fnames: true,
-                passes: 3
-            },
-            mangle: false,
-            format: {
-                beautify: true,
-                ecma: 2019,
-                keep_numbers: true,
-                indent_level: 4
-            }
+        wasm({
+            targetEnv: 'auto-inline'
         }),
-        replace({
-            preventAssignment: false,
-            values: {
-                "    ": "\t"
-            } 
+        webWorkerLoader({
+            targetPlatform: 'browser',
+            preserveSource: true
         }),
-        license({
-            banner: {
-                commentStyle: "regular",
-                content: {
-                    file: "src/banner.txt",
-                    encoding: "utf-8"
-                }
-            }
+        sucrase({
+            transforms: ['typescript'],
+            disableESTransforms: true
         }),
-        json()
-    ],
-    onwarn
+        prettier({
+            parser: 'babel',
+            singleQuote: true
+        })
+    ]
 };

@@ -1,6 +1,6 @@
 {
   "name": "EmoteReplacer",
-  "version": "1.13.1",
+  "version": "2.0.0",
   "description": "Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/",
   "author": "Yentis",
   "authorId": "68834122860077056",
@@ -9,7 +9,10 @@
   "source": "https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js",
   "main": "EmoteReplacer.plugin.js",
   "scripts": {
-    "build": "rollup --config",
+    "build": "npm run build-wasm && npm run build-js",
+    "build-js": "rollup --config",
+    "build-wasm": "cd rust && cargo clippy && wasm-pack build --target web && cd .. && npm run append-wasm-type",
+    "append-wasm-type": "(echo import { InitInput } from './gif_wasm'&& echo export default function wasm^(^): Promise^<InitInput^>) >> rust/pkg/gif_wasm_bg.wasm.d.ts",
     "lint": "eslint src"
   },
   "repository": {
@@ -21,35 +24,26 @@
   },
   "homepage": "https://github.com/Yentis/betterdiscord-emotereplacer#readme",
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^21.0.2",
-    "@rollup/plugin-json": "^4.1.0",
     "@rollup/plugin-node-resolve": "^13.1.3",
-    "@rollup/plugin-replace": "^4.0.0",
+    "@rollup/plugin-sucrase": "^5.0.1",
+    "@rollup/plugin-wasm": "^6.1.2",
     "@tsconfig/recommended": "^1.0.1",
     "@types/betterdiscord": "github:zerthox/betterdiscord-types",
     "@types/node": "^17.0.21",
-    "@types/pica": "^9.0.1",
     "@types/react": "^17.0.40",
     "@types/request": "^2.48.8",
     "@typescript-eslint/eslint-plugin": "^5.14.0",
     "@typescript-eslint/parser": "^5.14.0",
+    "electron": "^23.2.0",
     "eslint": "^8.11.0",
     "eslint-config-standard": "17.0.0",
-    "jimp": "0.16.2",
+    "eslint-plugin-deprecation": "^1.4.1",
+    "prettier": "^2.8.7",
     "request": "^2.88.2",
     "rollup": "2.78.0",
-    "rollup-plugin-license": "2.8.1",
-    "rollup-plugin-terser": "7.0.2",
-    "rollup-plugin-ts": "3.0.2",
+    "rollup-plugin-prettier": "^3.0.0",
+    "rollup-plugin-web-worker-loader": "^1.6.1",
     "sass": "^1.49.9",
     "typescript": "^4.6.2"
-  },
-  "dependencies": {
-    "gifsicle-wasm-browser": "^1.5.16",
-    "gifwrap": "github:Yentis/gifwrap",
-    "glur": "^1.1.2",
-    "multimath": "^2.0.0",
-    "omggif": "^1.0.10",
-    "webworkify": "^1.5.0"
   }
 }

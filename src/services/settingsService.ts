@@ -1,11 +1,12 @@
-import { Listener } from 'interfaces/listener'
-import Settings from 'interfaces/settings'
-import { SettingGroup, SettingsField } from 'interfaces/zeresPluginLibrary'
-import { DEFAULT_SETTINGS, SETTINGS_KEY } from 'pluginConstants'
-import { loadImagePromise } from 'utils/promiseUtils'
+import { Listener } from '../interfaces/listener'
+import Settings from '../interfaces/settings'
+import { SettingGroup, SettingsField } from '../interfaces/zeresPluginLibrary'
+import { DEFAULT_SETTINGS, SETTINGS_KEY } from '../pluginConstants'
 import { BaseService } from './baseService'
 import { EmoteService } from './emoteService'
 import { ListenersService } from './listenersService'
+import { Logger } from '../utils/logger'
+import { PromiseUtils } from '../utils/promiseUtils'
 
 export class SettingsService extends BaseService {
   private static readonly ADD_BUTTON_CLICK_LISTENER = 'addButtonClick'
@@ -19,7 +20,7 @@ export class SettingsService extends BaseService {
   public start (listenersService: ListenersService): Promise<void> {
     this.listenersService = listenersService
 
-    const savedSettings = BdApi.loadData(this.plugin.meta.name, SETTINGS_KEY) as Settings
+    const savedSettings = BdApi.Data.load(this.plugin.meta.name, SETTINGS_KEY) as Settings
     this.settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings)
 
     return Promise.resolve()
@@ -76,7 +77,7 @@ export class SettingsService extends BaseService {
         ).map(async (promise) => {
           const emoteName = await promise
           customEmotesContainer.append(
-            this.createCustomEmoteContainer(emoteName, customEmotesContainer, emoteService)
+            this.createCustomEmoteContainer(emoteName, emoteService)
           )
         })
 
@@ -85,12 +86,12 @@ export class SettingsService extends BaseService {
           results.forEach((result) => {
             if (result.status === 'fulfilled') return
             errors.push(result.reason as Error)
-            console.error(result.reason)
+            Logger.error(result.reason)
           })
 
           const firstError = errors[0]
           if (firstError) {
-            BdApi.showToast(
+            BdApi.UI.showToast(
               `${firstError.message}${errors.length > 1 ? '\nSee console for all errors' : ''}`,
               { type: 'error' }
             )
@@ -105,13 +106,13 @@ export class SettingsService extends BaseService {
           const imageUrlTextboxInput = imageUrlTextbox.getElement().querySelector('input')
           if (imageUrlTextboxInput) imageUrlTextboxInput.value = ''
 
-          BdApi.saveData(this.plugin.meta.name, SETTINGS_KEY, this.settings)
-          BdApi.showToast(
+          BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings)
+          BdApi.UI.showToast(
             'Emote(s) have been saved',
             { type: 'success' }
           )
         }).catch((error: Error) => {
-          BdApi.showToast(error.message, { type: 'error' })
+          BdApi.UI.showToast(error.message, { type: 'error' })
         })
       }
     }
@@ -120,7 +121,7 @@ export class SettingsService extends BaseService {
 
     Object.keys(this.settings.customEmotes).forEach((key) => {
       customEmotesContainer.append(
-        this.createCustomEmoteContainer(key, customEmotesContainer, emoteService)
+        this.createCustomEmoteContainer(key, emoteService)
       )
     })
 
@@ -158,7 +159,7 @@ export class SettingsService extends BaseService {
     settings.push(refreshSettingField)
 
     return Settings.SettingPanel.build(
-      () => { BdApi.saveData(this.plugin.meta.name, SETTINGS_KEY, this.settings) },
+      () => { BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings) },
       ...settings
     )
   }
@@ -250,7 +251,7 @@ export class SettingsService extends BaseService {
 
         const previousPrefix = this.settings.prefix
         this.settings.prefix = val
-        BdApi.saveData(this.plugin.meta.name, SETTINGS_KEY, this.settings)
+        BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings)
 
         const previousEmoteNames = Object.assign({}, emoteService.emoteNames)
         const emoteNames: Record<string, string> = {}
@@ -281,7 +282,6 @@ export class SettingsService extends BaseService {
 
   private createCustomEmoteContainer (
     emoteName: string,
-    container: HTMLDivElement,
     emoteService: EmoteService
   ): Element {
     const Settings = this.zeresPluginLibrary.Settings
@@ -300,7 +300,7 @@ export class SettingsService extends BaseService {
     containerImage.style.marginRight = '0.5rem'
 
     customEmoteContainer.append(containerImage)
-    loadImagePromise(url, false, containerImage).catch(console.error)
+    PromiseUtils.loadImagePromise(url, false, containerImage).catch((error) => Logger.error(error))
 
     const deleteButton = document.createElement('button')
     deleteButton.type = 'button'
@@ -321,8 +321,8 @@ export class SettingsService extends BaseService {
           delete emoteService.emoteNames[emoteService.getPrefixedName(emoteName)]
         }
 
-        BdApi.saveData(this.plugin.meta.name, SETTINGS_KEY, this.settings)
-        BdApi.showToast(`Emote ${emoteName} has been deleted!`, { type: 'success' })
+        BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings)
+        BdApi.UI.showToast(`Emote ${emoteName} has been deleted!`, { type: 'success' })
 
         document.getElementById(emoteName)?.remove()
       }

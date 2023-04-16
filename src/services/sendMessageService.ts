@@ -1,44 +1,36 @@
 import { BaseService } from './baseService'
-import Message from 'interfaces/message'
-import { InternalEmote, InternalEmoteSimple } from 'interfaces/internalEmote'
-import Emoji from 'interfaces/emoji'
+import Message from '../interfaces/message'
+import { InternalEmote, InternalEmoteSimple } from '../interfaces/internalEmote'
+import Emoji from '../interfaces/emoji'
 import { EmoteService } from './emoteService'
 import { AttachService } from './attachService'
 import { ModulesService } from './modulesService'
-import { Logger } from 'utils/logger'
-import * as PromiseUtils from 'utils/promiseUtils'
+import { Logger } from '../utils/logger'
 import { SettingsService } from './settingsService'
-import { Pica } from 'pica'
-
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import pica from 'libraries/pica/index'
-import { GifsicleService } from './gifsicleService'
-import { UploadOptions } from 'interfaces/modules/uploader'
+import { GifProcessingService } from './gifProcessingService'
+import { UploadOptions } from '../interfaces/modules/uploader'
+import { PromiseUtils } from '../utils/promiseUtils'
+import { CloseNotice } from 'betterdiscord'
 
 export class SendMessageService extends BaseService {
   emoteService!: EmoteService
   attachService!: AttachService
   modulesService!: ModulesService
   settingsService!: SettingsService
-  gifsicleService!: GifsicleService
-
-  picaInstance!: Pica
+  gifProcessingService!: GifProcessingService
 
   public start (
     emoteService: EmoteService,
     attachService: AttachService,
     modulesService: ModulesService,
     settingsService: SettingsService,
-    gifsicleService: GifsicleService
+    gifProcessingService: GifProcessingService
   ): Promise<void> {
     this.emoteService = emoteService
     this.attachService = attachService
     this.modulesService = modulesService
     this.settingsService = settingsService
-    this.gifsicleService = gifsicleService
-
-    this.picaInstance = pica()
+    this.gifProcessingService = gifProcessingService
 
     BdApi.Patcher.instead(
       this.plugin.meta.name,
@@ -78,7 +70,7 @@ export class SendMessageService extends BaseService {
       }
 
       if (!this.attachService.canAttach) {
-        BdApi.showToast('This channel does not allow sending images!', { type: 'error' })
+        BdApi.UI.showToast('This channel does not allow sending images!', { type: 'error' })
         callDefault(...args)
         return
       }
@@ -100,7 +92,7 @@ export class SendMessageService extends BaseService {
           ? error.message
           : error as string
 
-        BdApi.showToast(errorMessage, { type: 'error' })
+        BdApi.UI.showToast(errorMessage, { type: 'error' })
         if (content === '') return
 
         message.content = content
@@ -193,8 +185,8 @@ export class SendMessageService extends BaseService {
               const split = command.split('-')
 
               return [
-                split[0] ?? undefined,
-                split[1] ?? undefined
+                split[0] ?? '',
+                split[1] ?? ''
               ]
             })
 
@@ -287,13 +279,40 @@ export class SendMessageService extends BaseService {
 
   private async getMetaAndModifyGif (emote: InternalEmote): Promise<void> {
     const image = await PromiseUtils.loadImagePromise(emote.url)
+
     const commands = emote.commands
-
     this.addResizeCommand(commands, image)
-    BdApi.showToast('Processing gif...', { type: 'info' })
+    let closeNotice: CloseNotice | undefined
 
-    const buffer = await this.gifsicleService.modifyGif(emote.url, commands)
-    if (buffer.length === 0) throw Error('Failed to process gif')
+    // Wait a bit before showing to prevent flickering
+    const timeout = setTimeout(() => {
+      closeNotice = BdApi.UI.showNotice(`Processing gif ${emote.name}...`, {
+        type: 'info',
+        buttons: [{
+          label: 'Cancel',
+          onClick: () => {
+            cancel?.()
+            cancel = undefined
+
+            closeNotice?.()
+            closeNotice = undefined
+          }
+        }]
+      })
+    }, 250)
+
+    let { cancel, result } = this.gifProcessingService.modifyGif(emote.url, commands)
+    const buffer = await result.finally(() => {
+      cancel = undefined
+      clearTimeout(timeout)
+
+      closeNotice?.()
+      closeNotice = undefined
+    })
+
+    if (buffer.length === 0) {
+      throw Error('Failed to process gif')
+    }
 
     this.uploadFile({
       fileData: buffer,
@@ -434,11 +453,8 @@ export class SendMessageService extends BaseService {
     const image = await PromiseUtils.loadImagePromise(url)
     const canvas = await this.applyScaling(image, commands)
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return undefined
-
     return await new Promise((resolve) => {
-      ctx.canvas.toBlob((blob) => {
+      canvas.toBlob((blob) => {
         resolve(blob ?? undefined)
       }, 'image/png', 1)
     })
@@ -460,19 +476,24 @@ export class SendMessageService extends BaseService {
       canvas.getContext('2d')?.drawImage(image, 0, 0)
     }
 
-    const resizedCanvas = document.createElement('canvas')
-    resizedCanvas.width = Math.ceil(canvas.width * scaleFactor)
-    resizedCanvas.height = Math.ceil(canvas.height * scaleFactor)
-
-    return await this.picaInstance.resize(
+    const scaledBitmap = await createImageBitmap(
       canvas,
-      resizedCanvas,
       {
-        unsharpAmount: 70,
-        unsharpRadius: 0.8,
-        unsharpThreshold: 105
+        resizeWidth: Math.ceil(canvas.width * scaleFactor),
+        resizeHeight: Math.ceil(canvas.height * scaleFactor),
+        resizeQuality: 'high'
       }
     )
+
+    const resizedCanvas = document.createElement('canvas')
+    resizedCanvas.width = scaledBitmap.width
+    resizedCanvas.height = scaledBitmap.height
+
+    const resizedContext = resizedCanvas.getContext('bitmaprenderer')
+    if (!resizedContext) throw new Error('Bitmap context not found')
+    resizedContext.transferFromImageBitmap(scaledBitmap)
+
+    return resizedCanvas
   }
 
   private applyCommands (
