@@ -1,6 +1,6 @@
-import Cached from 'interfaces/cached'
-import { Listener } from 'interfaces/listener'
-import ScrollOptions from 'interfaces/scrollOptions'
+import Cached from '../interfaces/cached'
+import { Listener } from '../interfaces/listener'
+import ScrollOptions from '../interfaces/scrollOptions'
 import { AttachService } from './attachService'
 import { BaseService } from './baseService'
 import { EmoteService } from './emoteService'
@@ -8,8 +8,8 @@ import { HtmlService } from './htmlService'
 import { ListenersService } from './listenersService'
 import { ModulesService } from './modulesService'
 import { SettingsService } from './settingsService'
-import { Logger } from 'utils/logger'
-import { PromiseUtils } from 'utils/promiseUtils'
+import { Logger } from '../utils/logger'
+import { PromiseUtils } from '../utils/promiseUtils'
 
 export class CompletionsService extends BaseService {
   public static readonly TAG = CompletionsService.name

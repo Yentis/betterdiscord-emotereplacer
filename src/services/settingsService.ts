@@ -1,12 +1,12 @@
-import { Listener } from 'interfaces/listener'
-import Settings from 'interfaces/settings'
-import { SettingGroup, SettingsField } from 'interfaces/zeresPluginLibrary'
-import { DEFAULT_SETTINGS, SETTINGS_KEY } from 'pluginConstants'
+import { Listener } from '../interfaces/listener'
+import Settings from '../interfaces/settings'
+import { SettingGroup, SettingsField } from '../interfaces/zeresPluginLibrary'
+import { DEFAULT_SETTINGS, SETTINGS_KEY } from '../pluginConstants'
 import { BaseService } from './baseService'
 import { EmoteService } from './emoteService'
 import { ListenersService } from './listenersService'
-import { Logger } from 'utils/logger'
-import { PromiseUtils } from 'utils/promiseUtils'
+import { Logger } from '../utils/logger'
+import { PromiseUtils } from '../utils/promiseUtils'
 
 export class SettingsService extends BaseService {
   private static readonly ADD_BUTTON_CLICK_LISTENER = 'addButtonClick'

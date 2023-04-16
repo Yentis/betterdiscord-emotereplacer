@@ -1,10 +1,10 @@
 import nodeResolve from "@rollup/plugin-node-resolve";
-import ts from "rollup-plugin-ts";
-import {terser} from "rollup-plugin-terser";
 import {main as outputFile} from "./package.json";
 import wasm from "@rollup/plugin-wasm";
 import webWorkerLoader from 'rollup-plugin-web-worker-loader';
 import packageJson from './package.json';
+import sucrase from "@rollup/plugin-sucrase";
+import prettier from "rollup-plugin-prettier";
 
 const banner = `/**
  * @name ${packageJson.name}
@@ -67,17 +67,13 @@ export default {
             targetPlatform: 'browser',
             preserveSource: true
         }),
-        ts(),
-        terser({
-            compress: false,
-            mangle: false,
-            format: {
-                beautify: true,
-                ecma: 2019,
-                keep_numbers: true,
-                indent_level: 4,
-                quote_style: 3
-            }
+        sucrase({
+            transforms: ['typescript'],
+            disableESTransforms: true
+        }),
+        prettier({
+            parser: 'babel',
+            singleQuote: true
         })
     ],
     onwarn

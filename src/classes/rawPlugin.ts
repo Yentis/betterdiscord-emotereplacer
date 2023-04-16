@@ -3,8 +3,8 @@ import * as electron from 'electron'
 import * as fs from 'fs'
 import * as path from 'path'
 import { Plugin } from 'betterdiscord'
-import { ExtendedMeta } from 'interfaces/extendedMeta'
-import { Logger } from 'utils/logger'
+import { ExtendedMeta } from '../interfaces/extendedMeta'
+import { Logger } from '../utils/logger'
 
 export class RawPlugin implements Plugin {
   private meta: ExtendedMeta

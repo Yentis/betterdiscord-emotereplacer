@@ -1,12 +1,12 @@
-import { Logger } from 'utils/logger'
+import { Logger } from '../utils/logger'
 import { AttachService } from './attachService'
 import { BaseService } from './baseService'
 import { CompletionsService } from './completionsService'
 import { EmoteService } from './emoteService'
 import { ModulesService } from './modulesService'
-import { PendingReply } from 'interfaces/pendingReply'
-import Emoji from 'interfaces/emoji'
-import EmojiStore from 'interfaces/modules/emojiStore'
+import { PendingReply } from '../interfaces/pendingReply'
+import Emoji from '../interfaces/emoji'
+import EmojiStore from '../interfaces/modules/emojiStore'
 
 export class PatchesService extends BaseService {
   attachService!: AttachService

@@ -1,10 +1,10 @@
 import { BaseService } from './baseService'
-import { Logger } from 'utils/logger'
-import { Command } from 'interfaces/gifData'
+import { Logger } from '../utils/logger'
+import { Command } from '../interfaces/gifData'
 import { Buffer } from 'buffer'
 import Worker from 'web-worker:../worker.ts'
-import { GifWorker, WorkerMessage, WorkerMessageType } from 'interfaces/workerData'
-import { PromiseUtils } from 'utils/promiseUtils'
+import { GifWorker, WorkerMessage, WorkerMessageType } from '../interfaces/workerData'
+import { PromiseUtils } from '../utils/promiseUtils'
 
 export class GifProcessingService extends BaseService {
   public isProcessing = false
@@ -58,10 +58,10 @@ export class GifProcessingService extends BaseService {
     const commands = this.getCommands(options)
     Logger.info('Processed request commands', commands)
 
-    const buffer = await this.processCommands(url, commands)
-    Logger.info('Processed modified emote', { length: buffer.length })
+    const result = await this.processCommands(url, commands)
+    Logger.info('Processed modified emote', { length: result.length })
 
-    return buffer
+    return result
   }
 
   private getCommands (options: string[][]): Command[] {
@@ -146,20 +146,20 @@ export class GifProcessingService extends BaseService {
   }
 
   private async processCommands (url: string, commands: Command[]): Promise<Buffer> {
-    let buffer = await PromiseUtils.urlGetBuffer(url)
+    let data = await PromiseUtils.urlGetBuffer(url)
     const extension = url.substring(url.lastIndexOf('.')).replace('.', '')
     const worker = await this.getWorker()
 
     const request: WorkerMessage = {
       type: WorkerMessageType.APPLY_COMMANDS,
-      data: { buffer, extension, commands }
+      data: { data, extension, commands }
     }
 
     const response = await PromiseUtils.workerMessagePromise(worker, request)
-    buffer = Buffer.from(response as Uint8Array)
+    data = Buffer.from(response as Uint8Array)
 
-    if (!(buffer instanceof Buffer)) throw Error('Did not process gif!')
-    return buffer
+    if (!(data instanceof Buffer)) throw Error('Did not process gif!')
+    return data
   }
 
   public stop (): void {

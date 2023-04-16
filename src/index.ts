@@ -1,6 +1,6 @@
-import { RawPlugin } from 'classes/rawPlugin'
-import { EmoteReplacerPlugin } from 'classes/emoteReplacerPlugin'
-import ZeresPluginLibrary from 'interfaces/zeresPluginLibrary'
+import { RawPlugin } from './classes/rawPlugin'
+import { EmoteReplacerPlugin } from './classes/emoteReplacerPlugin'
+import ZeresPluginLibrary from './interfaces/zeresPluginLibrary'
 
 export interface BdWindow {
   ZeresPluginLibrary: ZeresPluginLibrary

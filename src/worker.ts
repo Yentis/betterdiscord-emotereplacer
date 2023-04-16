@@ -1,7 +1,7 @@
-import { WorkerMessage, WorkerMessageType } from 'interfaces/workerData'
+import { WorkerMessage, WorkerMessageType } from './interfaces/workerData'
 import init, { applyCommands, initPanicHook } from '../rust/pkg/gif_wasm'
-import wasm from '../rust/pkg/gif_wasm_bg.wasm'
-import { Command } from 'interfaces/gifData'
+import gifWasm from '../rust/pkg/gif_wasm_bg.wasm'
+import { Command } from './interfaces/gifData'
 
 onmessage = (message) => {
   const request = message.data as WorkerMessage
@@ -13,7 +13,7 @@ onmessage = (message) => {
       promise = initWasm()
       break
     case WorkerMessageType.APPLY_COMMANDS:
-      promise = doApplyCommands(request.data)
+      promise = doApplyCommands(request)
       break
     default:
       promise = Promise.reject(new Error('Unknown request type'))
@@ -38,18 +38,18 @@ onmessage = (message) => {
 }
 
 async function initWasm (): Promise<void> {
-  const instance = await wasm()
+  const instance = await gifWasm()
   await init(instance)
   initPanicHook()
 }
 
-function doApplyCommands (data: unknown): Promise<Uint8Array> {
+function doApplyCommands (message: WorkerMessage): Promise<Uint8Array> {
   const {
-    buffer,
+    data,
     extension,
     commands
-  } = data as {
-    buffer: Buffer,
+  } = message.data as {
+    data: Buffer,
     extension: string,
     commands: Command[]
   }
@@ -59,6 +59,6 @@ function doApplyCommands (data: unknown): Promise<Uint8Array> {
     command.param = parseFloat(value)
   })
 
-  const result = applyCommands(buffer, extension, commands)
+  const result = applyCommands(data, extension, commands)
   return Promise.resolve(result)
 }
