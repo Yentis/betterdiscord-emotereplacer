@@ -83,17 +83,17 @@ export class GifProcessingService extends BaseService {
           break
         }
         case 'flip':
-          commands.push({ name: option[0], param: 0 })
+          commands.push({ name: option[0], param: '0' })
           break
         case 'flap':
-          commands.push({ name: 'flip', param: 1 })
+          commands.push({ name: 'flip', param: '1' })
           break
         case 'speed': {
           const param = option[1]?.toString() ?? ''
 
           commands.push({
             name: option[0],
-            param: Math.max(2, parseFloat(param))
+            param: Math.max(2, parseFloat(param)).toString()
           })
           break
         }
@@ -106,7 +106,7 @@ export class GifProcessingService extends BaseService {
         case 'rain':
           commands.push({
             name: option[0],
-            param: option[1] === 'glitter' ? 1 : 0
+            param: option[1] === 'glitter' ? '1' : '0'
           })
           break
         case 'spin':
@@ -117,12 +117,12 @@ export class GifProcessingService extends BaseService {
         case 'slide':
         case 'sliderev':
         case 'wiggle': {
-          let speed = 8
+          let speed = '8'
           const param = option[1]
 
-          if (param === 'fast') speed = 6
-          else if (param === 'faster') speed = 4
-          else if (param === 'hyper') speed = 2
+          if (param === 'fast') speed = '6'
+          else if (param === 'faster') speed = '4'
+          else if (param === 'hyper') speed = '2'
 
           commands.push({ name: option[0], param: speed })
           break

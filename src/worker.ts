@@ -54,11 +54,6 @@ function doApplyCommands (message: WorkerMessage): Promise<Uint8Array> {
     commands: Command[]
   }
 
-  commands.forEach((command) => {
-    const value = (command.param ?? 0).toString()
-    command.param = parseFloat(value)
-  })
-
   const result = applyCommands(data, extension, commands)
   return Promise.resolve(result)
 }

@@ -12,7 +12,7 @@ use flip::flip;
 use shake::shake;
 use slide::slide;
 use spin::spin;
-use utils::{get_frames_and_size, get_delay};
+use utils::{get_frames_and_scale, get_delay};
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 use wiggle::wiggle;
 
@@ -45,7 +45,8 @@ pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Re
     let mut commands: Vec<Command> = serde_wasm_bindgen::from_value(commands)
         .map_err(|e| format!("Failed to parse commands: {}", e))?;
 
-    let (mut frames, target_size) = get_frames_and_size(&data, &extension, &mut commands)?;
+    let (mut frames, scale) = get_frames_and_scale(&data, &extension, &mut commands)?;
+    let overall_size = scale.0 * scale.1;
 
     let mut output = Vec::new();
     {
@@ -54,8 +55,8 @@ pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Re
             .set_repeat(Repeat::Infinite)
             .map_err(|e| format!("Failed to set repeat: {}", e))?;
 
-        if target_size < 1.0 {
-            resize(&mut frames, target_size);
+        if overall_size < 1.0  {
+            resize(&mut frames, scale);
         }
 
         for command in &commands {
@@ -79,8 +80,8 @@ pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Re
             };
         }
 
-        if target_size > 1.0 {
-            resize(&mut frames, target_size);
+        if overall_size > 1.0 {
+            resize(&mut frames, scale);
         }
 
         for frame in frames {

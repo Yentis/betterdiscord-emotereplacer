@@ -4,16 +4,16 @@ use js_sys::Math;
 
 use crate::{command::Command, speed};
 
-pub fn get_frames_and_size(data: &[u8], extension: &str, commands: &mut Vec<Command>) -> Result<(Vec<Frame>, f32), String> {
-    let target_size = get_target_size(commands);
+pub fn get_frames_and_scale(data: &[u8], extension: &str, commands: &mut Vec<Command>) -> Result<(Vec<Frame>, (f32, f32)), String> {
+    let scale = get_scale(commands);
 
     let frames = match extension {
         "gif" => {
             let reader = GifDecoder::new(Cursor::new(data))
                 .map_err(|e| format!("Failed to create reader: {}", e))?;
 
-            if target_size == 1.0 && commands.is_empty() {
-                return Ok((vec![], target_size));
+            if scale.0 == 1.0 && scale.1 == 1.0 && commands.is_empty() {
+                return Ok((vec![], scale));
             }
 
             reader
@@ -42,7 +42,7 @@ pub fn get_frames_and_size(data: &[u8], extension: &str, commands: &mut Vec<Comm
         _ => return Err(format!("Unsupported extension: {}", extension))
     };
 
-    Ok((frames, target_size))
+    Ok((frames, scale))
 }
 
 pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
@@ -123,16 +123,24 @@ pub fn get_random_u32(min: u32, max: u32) -> u32 {
     (Math::random() * (max - min) + min).floor() as u32
 }
 
-fn get_target_size(commands: &mut Vec<Command>) -> f32 {
-    let mut size: f32 = 1.0;
+fn get_scale(commands: &mut Vec<Command>) -> (f32, f32) {
+    let mut scale_x: f32 = 1.0;
+    let mut scale_y: f32 = 1.0;
 
     commands
         .retain(|command| {
             let retain = command.name != "resize";
-            if !retain { size = command.param; }
+
+            if !retain {
+                scale_x = command.param;
+                scale_y = match command.param_extra {
+                    Some(y) => y,
+                    None => command.param
+                };
+            }
 
             retain
         });
 
-    size
+    (scale_x, scale_y)
 }

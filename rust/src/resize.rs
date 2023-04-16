@@ -1,12 +1,13 @@
 use image::{imageops::{self, FilterType}, Frame};
 
-pub fn resize(frames: &mut [Frame], target_size: f32) {
+pub fn resize(frames: &mut [Frame], scale: (f32, f32)) {
     let Some(frame) = frames.first() else { return; };
     let width = frame.buffer().width() as f32;
     let height = frame.buffer().height() as f32;
 
-    let target_width = (width * target_size).round() as u32;
-    let target_height = (height * target_size).round() as u32;
+    let (scale_x, scale_y) = scale;
+    let target_width = (width * scale_x).round() as u32;
+    let target_height = (height * scale_y).round() as u32;
 
     for frame in frames {
         let new_buffer = imageops::resize(
