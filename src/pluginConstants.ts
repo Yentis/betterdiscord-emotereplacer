@@ -1,27 +1,22 @@
 import Modifier from './interfaces/modifier'
 
 export const PLUGIN_CHANGELOG = [{
-  title: '1.13.1',
-  type: 'fixed',
+  title: 'Improved',
+  type: 'improved',
   items: [
-    'Fix emote upload not working',
-    'Fix emotes with reply always pinging even when turned off',
-    'Fix emotes not working in threads when using split view'
+    'Drastically reduced plugin size',
+    'Drastically improved code readability',
+    'GIF quality improved',
+    'GIF processing now happens much faster using WASM',
+    'GIF processing no longer freezes the client and can be cancelled',
+    'All modifiers were improved to behave more consistently',
   ]
 }, {
-  title: '1.13.0',
-  type: 'added',
-  items: [
-    'It\'s now possible to add custom emotes directly from your PC instead of entering a URL',
-    'Allow uploading images to channels that don\'t allow external emotes',
-    'Emotes are now shown as disabled in the reactions menu, as they cannot be used for reacting'
-  ]
-}, {
-  title: '1.13.0',
+  title: 'Fixed',
   type: 'fixed',
   items: [
-    'Custom emote menu no longer shows broken emotes from the standard set',
-    'Custom emotes starting with numbers or containing spaces can now be removed'
+    'Rain modifier now works for PNGs',
+    'Fixed issues with custom emote selection'
   ]
 }]
 
