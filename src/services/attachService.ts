@@ -54,6 +54,8 @@ export class AttachService extends BaseService {
     this.externalEmotes.clear()
 
     const channelId = _channelId ?? ''
+    this.curChannelId = channelId
+
     if (!channelId) {
       this.canAttach = true
       return
@@ -82,8 +84,6 @@ export class AttachService extends BaseService {
       channel,
       this.userId
     )
-
-    this.curChannelId = channelId
   }
 
   public stop (): void {

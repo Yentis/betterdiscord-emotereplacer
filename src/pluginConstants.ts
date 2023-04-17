@@ -1,6 +1,12 @@
 import Modifier from './interfaces/modifier'
 
 export const PLUGIN_CHANGELOG = [{
+  title: '2.0.1',
+  type: 'fixed',
+  items: [
+    'Fix custom emote autocomplete not working in DMs'
+  ]
+}, {
   title: 'Improved',
   type: 'improved',
   items: [

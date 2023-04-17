@@ -13,7 +13,7 @@ use shake::shake;
 use slide::slide;
 use spin::spin;
 use utils::{get_frames_and_scale, get_delay};
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use wasm_bindgen::{prelude::wasm_bindgen, JsValue, JsError};
 use wiggle::wiggle;
 
 mod command;
@@ -41,9 +41,8 @@ pub fn init_panic_hook() {
 }
 
 #[wasm_bindgen(js_name = "applyCommands")]
-pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Result<Vec<u8>, String> {
-    let mut commands: Vec<Command> = serde_wasm_bindgen::from_value(commands)
-        .map_err(|e| format!("Failed to parse commands: {}", e))?;
+pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Result<Vec<u8>, JsError> {
+    let mut commands: Vec<Command> = serde_wasm_bindgen::from_value(commands)?;
 
     let (mut frames, scale) = get_frames_and_scale(&data, &extension, &mut commands)?;
     let overall_size = scale.0 * scale.1;
@@ -51,9 +50,7 @@ pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Re
     let mut output = Vec::new();
     {
         let mut writer = GifEncoder::new_with_speed(&mut output, 10);
-        writer
-            .set_repeat(Repeat::Infinite)
-            .map_err(|e| format!("Failed to set repeat: {}", e))?;
+        writer.set_repeat(Repeat::Infinite)?;
 
         if overall_size < 1.0  {
             resize(&mut frames, scale);
@@ -85,9 +82,7 @@ pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Re
         }
 
         for frame in frames {
-            writer
-                .encode_frame(frame)
-                .map_err(|e| format!("Failed to write frame: {}", e))?;
+            writer.encode_frame(frame)?;
         }
     };
 

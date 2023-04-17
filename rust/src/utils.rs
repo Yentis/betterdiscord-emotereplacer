@@ -1,16 +1,16 @@
 use std::io::Cursor;
 use image::{Frame, codecs::{gif::GifDecoder, png::PngDecoder}, AnimationDecoder, Delay, DynamicImage, Rgba};
 use js_sys::Math;
+use wasm_bindgen::JsError;
 
 use crate::{command::Command, speed};
 
-pub fn get_frames_and_scale(data: &[u8], extension: &str, commands: &mut Vec<Command>) -> Result<(Vec<Frame>, (f32, f32)), String> {
+pub fn get_frames_and_scale(data: &[u8], extension: &str, commands: &mut Vec<Command>) -> Result<(Vec<Frame>, (f32, f32)), JsError> {
     let scale = get_scale(commands);
 
     let frames = match extension {
         "gif" => {
-            let reader = GifDecoder::new(Cursor::new(data))
-                .map_err(|e| format!("Failed to create reader: {}", e))?;
+            let reader = GifDecoder::new(Cursor::new(data))?;
 
             if scale.0 == 1.0 && scale.1 == 1.0 && commands.is_empty() {
                 return Ok((vec![], scale));
@@ -18,15 +18,12 @@ pub fn get_frames_and_scale(data: &[u8], extension: &str, commands: &mut Vec<Com
 
             reader
                 .into_frames()
-                .collect_frames()
-                .map_err(|e| format!("Failed to collect frames: {}", e))?
+                .collect_frames()?
         },
         "png" => {
-            let reader = PngDecoder::new(Cursor::new(data))
-                .map_err(|e| format!("Failed to create reader: {}", e))?;
+            let reader = PngDecoder::new(Cursor::new(data))?;
 
-            let mut image = DynamicImage::from_decoder(reader)
-                .map_err(|e| format!("Failed to create dynamic image: {}", e))?
+            let mut image = DynamicImage::from_decoder(reader)?
                 .into_rgba8();
 
             // GIFs only have one pixel value indicating transparency, so if alpha is 0 then change the pixel to that pixel value
@@ -39,7 +36,7 @@ pub fn get_frames_and_scale(data: &[u8], extension: &str, commands: &mut Vec<Com
 
             vec![frame]
         },
-        _ => return Err(format!("Unsupported extension: {}", extension))
+        _ => return Err(JsError::new(format!("Unsupported extension: {}", extension).as_str()))
     };
 
     Ok((frames, scale))
