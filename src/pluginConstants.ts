@@ -9,7 +9,7 @@ export const PLUGIN_CHANGELOG = [{
     'GIF quality improved',
     'GIF processing now happens much faster using WASM',
     'GIF processing no longer freezes the client and can be cancelled',
-    'All modifiers were improved to behave more consistently',
+    'All modifiers were improved to behave more consistently'
   ]
 }, {
   title: 'Fixed',

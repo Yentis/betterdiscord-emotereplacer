@@ -43,7 +43,7 @@ async function initWasm (): Promise<void> {
   initPanicHook()
 }
 
-function doApplyCommands (message: WorkerMessage): Promise<Uint8Array> {
+async function doApplyCommands (message: WorkerMessage): Promise<Uint8Array> {
   const {
     data,
     extension,
@@ -55,5 +55,5 @@ function doApplyCommands (message: WorkerMessage): Promise<Uint8Array> {
   }
 
   const result = applyCommands(data, extension, commands)
-  return Promise.resolve(result)
+  return await Promise.resolve(result)
 }
