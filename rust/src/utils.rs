@@ -3,22 +3,22 @@ use image::{Frame, codecs::{gif::GifDecoder, png::PngDecoder}, AnimationDecoder,
 use js_sys::Math;
 use wasm_bindgen::JsError;
 
-use crate::{command::Command, speed};
+use crate::command::{Commands, speed};
 
-pub fn get_frames_and_scale(data: &[u8], extension: &str, commands: &mut Vec<Command>) -> Result<(Vec<Frame>, (f32, f32)), JsError> {
-    let scale = get_scale(commands);
-
-    let frames = match extension {
+pub fn get_frames(data: &[u8], extension: &str, commands: &mut Commands) -> Result<Option<Vec<Frame>>, JsError> {
+    match extension {
         "gif" => {
-            let reader = GifDecoder::new(Cursor::new(data))?;
-
-            if scale.0 == 1.0 && scale.1 == 1.0 && commands.is_empty() {
-                return Ok((vec![], scale));
+            if !commands.require_work() {
+                return Ok(None);
             }
+
+            let reader = GifDecoder::new(Cursor::new(data))?;
 
             reader
                 .into_frames()
-                .collect_frames()?
+                .collect_frames()
+                .map(Some)
+                .map_err(JsError::from)
         },
         "png" => {
             let reader = PngDecoder::new(Cursor::new(data))?;
@@ -34,12 +34,10 @@ pub fn get_frames_and_scale(data: &[u8], extension: &str, commands: &mut Vec<Com
             // Set delay as low as it can go for maximum support for modifiers
             let frame = Frame::from_parts(image, 0, 0, get_delay(2));
 
-            vec![frame]
+            Ok(Some(vec![frame]))
         },
-        _ => return Err(JsError::new(format!("Unsupported extension: {}", extension).as_str()))
-    };
-
-    Ok((frames, scale))
+        _ => Err(JsError::new(format!("Unsupported extension: {}", extension).as_str()))
+    }
 }
 
 pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {
@@ -118,26 +116,4 @@ pub fn get_random_u32(min: u32, max: u32) -> u32 {
     let max = max as f64;
 
     (Math::random() * (max - min) + min).floor() as u32
-}
-
-fn get_scale(commands: &mut Vec<Command>) -> (f32, f32) {
-    let mut scale_x: f32 = 1.0;
-    let mut scale_y: f32 = 1.0;
-
-    commands
-        .retain(|command| {
-            let retain = command.name != "resize";
-
-            if !retain {
-                scale_x = command.param;
-                scale_y = match command.param_extra {
-                    Some(y) => y,
-                    None => command.param
-                };
-            }
-
-            retain
-        });
-
-    (scale_x, scale_y)
 }

@@ -4,9 +4,19 @@ use js_sys::Math;
 use crate::utils::{get_random_u32, align_gif, get_delay_centisecs, align_speed};
 
 #[derive(Copy, Clone)]
-enum RainType {
+pub enum RainType {
     Regular,
     Glitter,
+}
+
+impl From<u8> for RainType {
+    fn from(value: u8) -> Self {
+        if value == 0 {
+            Self::Regular
+        } else {
+            Self::Glitter
+        }
+    }
 }
 
 struct Drop {
@@ -99,14 +109,8 @@ impl Drop {
     }
 }
 
-pub fn rain(frames: &mut Vec<Frame>, rain_type: f32) {
+pub fn rain(frames: &mut Vec<Frame>, rain_type: RainType) {
     align_speed(frames, 8.0);
-
-    let rain_type = if rain_type == 0.0 {
-        RainType::Regular
-    } else {
-        RainType::Glitter
-    };
 
     let Some(frame) = frames.first() else { return; };
     let width = frame.buffer().width();

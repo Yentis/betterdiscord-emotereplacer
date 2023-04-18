@@ -1,60 +1,119 @@
-use std::fmt::{Formatter, Result as FmtResult};
+use std::mem;
 
-use serde::{
-    de::{Error as DeError, MapAccess, Visitor},
-    Deserialize, Deserializer,
+use image::Frame;
+
+use crate::{
+    flip, infinite, rain, rainbow, resize::Resize, rotate, shake, slide, spin, utils::get_delay,
+    wiggle,
 };
 
-pub struct Command {
-    pub name: String,
-    pub param: f32,
-    pub param_extra: Option<f32>,
+pub struct Commands {
+    pub resize: Resize,
+    commands: Vec<Command>,
 }
 
-impl<'de> Deserialize<'de> for Command {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        struct CommandVisitor;
-
-        impl<'de> Visitor<'de> for CommandVisitor {
-            type Value = Command;
-
-            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
-                f.write_str("a Command")
-            }
-
-            #[inline]
-            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-                let mut name: Option<String> = None;
-                let mut param: Option<f32> = None;
-                let mut param_extra: Option<f32> = None;
-
-                // serde_wasm_bindgen's Deserializer unfortunately only deals with allocated Strings
-                while let Some(key) = map.next_key::<String>()? {
-                    match key.as_str() {
-                        "name" => name = Some(map.next_value()?),
-                        "param" => {
-                            let value = map.next_value::<String>()?;
-
-                            if !value.contains('x') {
-                                param = Some(js_sys::parse_float(&value) as f32);
-                            } else {
-                                let mut split = value.split('x');
-                                param = split.next().map(|item| js_sys::parse_float(item) as f32);
-                                param_extra = split.next().map(|item| js_sys::parse_float(item) as f32);
-                            }
-                        },
-                        other => return Err(DeError::unknown_field(other, &["name", "param"])),
-                    }
-                }
-
-                Ok(Command {
-                    name: name.ok_or_else(|| DeError::missing_field("name"))?,
-                    param: param.ok_or_else(|| DeError::missing_field("param"))?,
-                    param_extra,
-                })
-            }
-        }
-
-        d.deserialize_map(CommandVisitor)
+impl Commands {
+    pub fn new(commands: Vec<Command>, resize: Resize) -> Self {
+        Self { commands, resize }
     }
+
+    pub fn require_work(&self) -> bool {
+        !self.commands.is_empty() || self.resize.requires_work()
+    }
+
+    pub fn apply(&self, frames: &mut Vec<Frame>) {
+        for command in self.commands.iter() {
+            command.apply(frames);
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum Command {
+    Flip {
+        direction: flip::Direction,
+    },
+    Hyperspeed,
+    Infinite {
+        speed: f32,
+    },
+    Rain {
+        ty: rain::RainType,
+    },
+    Rainbow {
+        speed: f32,
+    },
+    Reverse,
+    Rotate {
+        degrees: f32,
+    },
+    Shake {
+        strength: f32,
+    },
+    Slide {
+        direction: slide::Direction,
+        speed: f32,
+    },
+    Speed {
+        value: f32,
+    },
+    Spin {
+        direction: spin::Direction,
+        speed: f32,
+    },
+    Wiggle {
+        speed: f32,
+    },
+}
+
+impl Command {
+    pub fn apply(self, frames: &mut Vec<Frame>) {
+        match self {
+            Self::Flip { direction } => flip::flip(frames, direction),
+            Self::Hyperspeed => hyperspeed(frames),
+            Self::Infinite { speed } => infinite::infinite(frames, speed),
+            Self::Rain { ty } => rain::rain(frames, ty),
+            Self::Rainbow { speed } => rainbow::rainbow(frames, speed),
+            Self::Reverse => reverse(frames),
+            Self::Rotate { degrees } => rotate::rotate(frames, degrees),
+            Self::Shake { strength } => shake::shake(frames, strength),
+            Self::Slide { direction, speed } => slide(frames, speed, direction),
+            Self::Speed { value } => speed(frames, value),
+            Self::Spin { direction, speed } => spin(frames, speed, direction),
+            Self::Wiggle { speed } => wiggle::wiggle(frames, speed),
+        }
+    }
+}
+
+pub fn speed(frames: &mut [Frame], value: f32) {
+    for frame in frames {
+        set_speed(frame, value as u32);
+    }
+}
+
+pub fn set_speed(frame: &mut Frame, speed: u32) {
+    let left = frame.left();
+    let top = frame.top();
+
+    *frame = Frame::from_parts(mem::take(frame.buffer_mut()), left, top, get_delay(speed));
+}
+
+fn hyperspeed(frames: &mut Vec<Frame>) {
+    if frames.len() <= 4 {
+        return speed(frames, 2.0);
+    }
+
+    let mut index = 0;
+    
+    frames.retain_mut(|frame| {
+        let retain = index % 2 == 0;
+        if retain { set_speed(frame, 2) }
+        index += 1;
+
+        retain
+    });
+}
+
+fn reverse(frames: &mut [Frame]) {
+    frames.reverse();
 }

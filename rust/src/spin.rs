@@ -2,6 +2,7 @@ use image::Frame;
 
 use crate::{rotate::rotate_frame, utils::{align_gif, get_delay_centisecs, align_speed}};
 
+#[derive(Copy, Clone)]
 pub enum Direction {
     Clockwise,
     CounterClockwise
