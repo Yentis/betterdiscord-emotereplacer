@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub struct Commands {
-    pub resize: Resize,
+    resize: Resize,
     commands: Vec<Command>,
 }
 
@@ -22,9 +22,13 @@ impl Commands {
     }
 
     pub fn apply(&self, frames: &mut Vec<Frame>) {
+        self.resize.apply_before_commands(frames);
+
         for command in self.commands.iter() {
             command.apply(frames);
         }
+
+        self.resize.apply_after_commands(frames);
     }
 }
 

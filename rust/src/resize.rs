@@ -43,6 +43,18 @@ pub struct Scale {
 }
 
 impl Resize {
+    pub fn apply_before_commands(self, frames: &mut [Frame]) {
+        if self.overall_size() < 1.0 {
+            resize(frames, self);
+        }
+    }
+    
+    pub fn apply_after_commands(self, frames: &mut [Frame]) {
+        if self.overall_size() > 1.0 {
+            resize(frames, self);
+        }
+    }
+
     pub fn requires_work(self) -> bool {
         match self {
             Resize::Scale { scale } => scale != 1.0,
@@ -60,14 +72,6 @@ impl Resize {
             },
             Resize::None => Scale { x: 1.0, y: 1.0 },
         }
-    }
-
-    pub fn pre_commands(self) -> bool {
-        self.overall_size() < 1.0
-    }
-
-    pub fn post_commands(self) -> bool {
-        self.overall_size() > 1.0
     }
 
     pub fn overall_size(self) -> f32 {

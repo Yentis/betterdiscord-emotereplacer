@@ -5,7 +5,6 @@ use image::codecs::gif::{GifEncoder, Repeat};
 use infinite::infinite;
 use rain::rain;
 use rainbow::rainbow;
-use resize::resize;
 use rotate::rotate;
 use flip::flip;
 use shake::shake;
@@ -54,15 +53,7 @@ pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Re
         let mut writer = GifEncoder::new_with_speed(&mut output, 10);
         writer.set_repeat(Repeat::Infinite)?;
 
-        if commands.resize.pre_commands() {
-            resize(&mut frames, commands.resize);
-        }
-
         commands.apply(&mut frames);
-
-        if commands.resize.post_commands() {
-            resize(&mut frames, commands.resize);
-        }
 
         for frame in frames {
             writer.encode_frame(frame)?;
