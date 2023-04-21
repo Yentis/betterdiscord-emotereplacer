@@ -1,6 +1,13 @@
 import Modifier from './interfaces/modifier'
 
 export const PLUGIN_CHANGELOG = [{
+  title: '2.1.0',
+  type: 'added',
+  items: [
+    'Sticker support!',
+    'Fix processing failed for gifs where no resize is necessary'
+  ]
+}, {
   title: '2.0.1',
   type: 'fixed',
   items: [

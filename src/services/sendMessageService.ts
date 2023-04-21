@@ -32,17 +32,10 @@ export class SendMessageService extends BaseService {
     this.settingsService = settingsService
     this.gifProcessingService = gifProcessingService
 
-    BdApi.Patcher.instead(
-      this.plugin.meta.name,
-      modulesService.messageStore,
-      'sendMessage',
-      (_, args, original: unknown) => this.onSendMessage(args, original)
-    )
-
     return Promise.resolve()
   }
 
-  private async onSendMessage (
+  public async onSendMessage (
     args: unknown[],
     original: unknown
   ): Promise<void> {
@@ -50,9 +43,17 @@ export class SendMessageService extends BaseService {
 
     const channelId = args[0] as string | undefined
     const message = args[1] as Message | undefined
+    const attachments = args[3] as { stickerIds?: string[] } | undefined
+
     if (channelId === undefined || !message) {
       callDefault(...args)
       return
+    }
+
+    const stickerId = attachments?.stickerIds?.[0]
+    if (stickerId !== undefined) {
+      const sentSticker = await this.sendSticker(stickerId, channelId, message.content)
+      if (sentSticker) return
     }
 
     try {
@@ -105,6 +106,82 @@ export class SendMessageService extends BaseService {
     } catch (error) {
       Logger.warn('Error in onSendMessage', error)
     }
+  }
+
+  public async onSendSticker (args: unknown[], original: unknown): Promise<void> {
+    const callDefault = original as (...args: unknown[]) => unknown
+
+    const channelId = args[0] as string | undefined
+    const stickerIdList = args[1] as string[] | undefined
+    const stickerId = stickerIdList?.[0]
+
+    if (channelId === undefined || stickerId === undefined) {
+      callDefault(...args)
+      return
+    }
+
+    const sentSticker = await this.sendSticker(stickerId, channelId)
+    if (!sentSticker) callDefault(...args)
+  }
+
+  private async sendSticker (
+    stickerId: string,
+    channelId: string,
+    content?: string
+  ): Promise<boolean> {
+    const userId = this.attachService.userId
+    if (userId === undefined) return false
+
+    const sticker = this.modulesService.stickerStore.getStickerById(stickerId)
+    const channel = this.modulesService.channelStore.getChannel(channelId)
+    if (!channel) return false
+
+    const stickerSendable = this.modulesService.stickerSendable.stickerSendable
+    if (stickerSendable?.(sticker, userId, channel) === true) return false
+
+    const url = `https://media.discordapp.net/stickers/${stickerId}`
+    const formatType = this.modulesService.stickerFormatType
+    let format: string
+
+    switch (sticker.format_type) {
+      case formatType.APNG:
+        format = 'apng'
+        break
+      case formatType.GIF:
+        format = 'gif'
+        break
+      default:
+        format = 'png'
+        break
+    }
+
+    const emote: InternalEmote = {
+      url,
+      name: sticker.name,
+      nameAndCommand: sticker.name,
+      emoteLength: sticker.name.length,
+      pos: 0,
+      spoiler: false,
+      commands: [['resize', '160']],
+      channel: channelId,
+      formatType: format,
+      content
+    }
+
+    try {
+      this.attachService.pendingUpload = this.fetchBlobAndUpload(emote)
+      await this.attachService.pendingUpload
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error
+        ? error.message
+        : error as string
+
+      BdApi.UI.showToast(errorMessage, { type: 'error' })
+    } finally {
+      this.attachService.pendingUpload = undefined
+    }
+
+    return true
   }
 
   private getTargetEmoteFromMessage (message: Message): Record<string, InternalEmoteSimple> {
@@ -167,14 +244,17 @@ export class SendMessageService extends BaseService {
       if (!matches || matches.length === 0) return
       for (let i = 0; i < matches.length; i++) {
         const pos = this.getNthIndexOf(content, key, i)
+        const url = typeof value === 'string' ? value : value.url
+
         const emote: InternalEmote = {
           name: typeof value === 'string' ? key : value.name,
           nameAndCommand: key,
-          url: typeof value === 'string' ? value : value.url,
+          url,
           emoteLength: key.length,
           pos,
           spoiler: false,
-          commands: []
+          commands: [],
+          formatType: url.endsWith('.gif') ? 'gif' : 'png'
         }
 
         if (command) {
@@ -234,9 +314,13 @@ export class SendMessageService extends BaseService {
   }
 
   private async fetchBlobAndUpload (emote: InternalEmote): Promise<void> {
-    const url = emote.url, name = emote.name, commands = emote.commands
+    const { url, name, commands, formatType } = emote
 
-    if (url.endsWith('.gif') || this.findCommand(commands, this.getGifModifiers())) {
+    if (
+      formatType === 'apng' ||
+      formatType === 'gif' ||
+      this.findCommand(commands, this.getGifModifiers())
+    ) {
       return this.getMetaAndModifyGif(emote)
     }
 
@@ -301,7 +385,12 @@ export class SendMessageService extends BaseService {
       })
     }, 250)
 
-    let { cancel, result } = this.gifProcessingService.modifyGif(emote.url, commands)
+    let { cancel, result } = this.gifProcessingService.modifyGif(
+      emote.url,
+      emote.formatType,
+      commands
+    )
+
     const buffer = await result.finally(() => {
       cancel = undefined
       clearTimeout(timeout)
@@ -352,7 +441,7 @@ export class SendMessageService extends BaseService {
   }
 
   private getEmoteSize (commands: InternalEmote['commands']): number {
-    let resizeCommand: (string | undefined)[] = []
+    let resizeCommand: string[] = []
     let size: number | string
 
     commands.forEach((command, index, object) => {
@@ -376,7 +465,7 @@ export class SendMessageService extends BaseService {
     } else {
       const sizeNumber = typeof size === 'string' ? parseInt(size) : size
       if (!isNaN(sizeNumber)) {
-        return Math.min(Math.max(sizeNumber, 32), 128)
+        return Math.min(Math.max(sizeNumber, 32), 160)
       }
 
       return 48

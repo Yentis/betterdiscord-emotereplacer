@@ -46,14 +46,14 @@ async function initWasm (): Promise<void> {
 async function doApplyCommands (message: WorkerMessage): Promise<Uint8Array> {
   const {
     data,
-    extension,
+    formatType,
     commands
   } = message.data as {
     data: Buffer,
-    extension: string,
+    formatType: string,
     commands: Command[]
   }
 
-  const result = applyCommands(data, extension, commands)
+  const result = applyCommands(data, formatType, commands)
   return await Promise.resolve(result)
 }

@@ -1,22 +1,20 @@
 use std::io::Cursor;
-use image::{Frame, codecs::{gif::GifDecoder, png::PngDecoder}, AnimationDecoder, Delay, DynamicImage, Rgba};
+use image::{Frame, codecs::{gif::GifDecoder, png::PngDecoder}, AnimationDecoder, Delay, DynamicImage, Rgba, RgbaImage};
 use js_sys::Math;
 use wasm_bindgen::JsError;
 
 use crate::{command::Command, speed};
 
-pub fn get_frames_and_scale(data: &[u8], extension: &str, commands: &mut Vec<Command>) -> Result<(Vec<Frame>, (f32, f32)), JsError> {
+pub fn get_frames_and_scale(data: &[u8], format_type: &str, commands: &mut Vec<Command>) -> Result<(Vec<Frame>, (f32, f32)), JsError> {
     let scale = get_scale(commands);
 
-    let frames = match extension {
+    let frames = match format_type {
         "gif" => {
-            let reader = GifDecoder::new(Cursor::new(data))?;
-
             if scale.0 == 1.0 && scale.1 == 1.0 && commands.is_empty() {
                 return Ok((vec![], scale));
             }
 
-            reader
+            GifDecoder::new(Cursor::new(data))?
                 .into_frames()
                 .collect_frames()?
         },
@@ -25,21 +23,35 @@ pub fn get_frames_and_scale(data: &[u8], extension: &str, commands: &mut Vec<Com
 
             let mut image = DynamicImage::from_decoder(reader)?
                 .into_rgba8();
-
-            // GIFs only have one pixel value indicating transparency, so if alpha is 0 then change the pixel to that pixel value
-            for pixel in image.pixels_mut() {
-                if pixel.0[3] == 0 { *pixel = Rgba([0, 0, 0, 0]) }
-            }
+            adjust_png_transparency_for_gif(&mut image);
 
             // Set delay as low as it can go for maximum support for modifiers
             let frame = Frame::from_parts(image, 0, 0, get_delay(2));
 
             vec![frame]
         },
-        _ => return Err(JsError::new(format!("Unsupported extension: {}", extension).as_str()))
+        "apng" => {
+            let mut frames = PngDecoder::new(Cursor::new(data))?.apng()
+                .into_frames()
+                .collect_frames()?;
+
+            frames.iter_mut().for_each(|frame| {
+                adjust_png_transparency_for_gif(frame.buffer_mut())
+            });
+
+            frames
+        },
+        _ => return Err(JsError::new(format!("Unsupported format: {}", format_type).as_str()))
     };
 
     Ok((frames, scale))
+}
+
+fn adjust_png_transparency_for_gif(image: &mut RgbaImage) {
+    // GIFs only have one pixel value indicating transparency, so if alpha is 0 then change the pixel to that pixel value
+    for pixel in image.pixels_mut() {
+        if pixel.0[3] == 0 { *pixel = Rgba([0, 0, 0, 0]) }
+    }
 }
 
 pub fn align_gif(frames: &[Frame], interval: usize) -> Vec<Frame> {

@@ -15,6 +15,16 @@ import UserStore from 'interfaces/modules/userStore'
 import { BaseService } from './baseService'
 import { CloudUploader } from 'interfaces/modules/cloudUploader'
 import DraftStore from 'interfaces/modules/draftStore'
+import { StickerSendable } from 'interfaces/modules/stickerSendable'
+import {
+  StickerFormatType,
+  StickerSendableType,
+  StickerType
+} from 'interfaces/modules/stickerTypes'
+import { BaseSearchOptions, ModuleFilter } from 'betterdiscord'
+import { StickerStore } from 'interfaces/modules/stickerStore'
+import { Sticker } from 'interfaces/sticker'
+import Channel from 'interfaces/channel'
 
 export class ModulesService extends BaseService {
   channelStore!: ChannelStore
@@ -29,6 +39,11 @@ export class ModulesService extends BaseService {
   emojiStore!: EmojiStore
   emojiSearch!: EmojiSearch
   emojiDisabledReasons!: EmojiDisabledReasons
+  stickerSendable: StickerSendable = {}
+  stickerType!: StickerType
+  stickerSendableType!: StickerSendableType
+  stickerFormatType!: StickerFormatType
+  stickerStore!: StickerStore
   userStore!: UserStore
   messageStore!: MessageStore
   classes!: Classes
@@ -55,24 +70,24 @@ export class ModulesService extends BaseService {
       BdApi.Webpack.Filters.byProps('getChannelPermissions')
     ) as Permissions
 
-    this.discordPermissions = BdApi.Webpack.getModule((module: Record<string, unknown>) => {
+    this.discordPermissions = this.getModule((module: Record<string, unknown>) => {
       return typeof module.CREATE_INSTANT_INVITE === 'bigint'
-    }, { searchExports: true }) as DiscordPermissions
+    }, { searchExports: true })
 
     this.dispatcher = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byProps('dispatch', 'subscribe')
     ) as Dispatcher
 
-    this.componentDispatcher = BdApi.Webpack.getModule((module: Record<string, unknown>) => {
+    this.componentDispatcher = this.getModule((module: Record<string, unknown>) => {
       if (module.dispatchToLastSubscribed !== undefined) {
         const componentDispatcher = (module as unknown) as ComponentDispatcher
         return componentDispatcher.emitter.listeners('SHAKE_APP').length > 0
       }
 
       return false
-    }, { searchExports: true }) as ComponentDispatcher
+    }, { searchExports: true })
 
-    this.pendingReplyDispatcher.module = BdApi.Webpack.getModule(
+    this.pendingReplyDispatcher.module = this.getModule(
       (module: Record<string, (() => string) | undefined>) => {
         Object.entries(module).forEach(([key, value]) => {
           if (!(typeof value === 'function')) return
@@ -89,7 +104,7 @@ export class ModulesService extends BaseService {
 
         return this.pendingReplyDispatcher.deletePendingReplyKey !== undefined
       }
-    ) as Record<string, unknown>
+    )
 
     this.emojiStore = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byProps('getEmojiUnavailableReason')
@@ -103,6 +118,45 @@ export class ModulesService extends BaseService {
       BdApi.Webpack.Filters.byProps('PREMIUM_LOCKED'), { searchExports: true }
     ) as EmojiDisabledReasons
 
+    this.stickerSendable.module = this.getModule(
+      (module: Record<string, (() => string) | Record<string, unknown> | undefined>) => {
+        Object.entries(module).forEach(([key, value]) => {
+          if (typeof value === 'object') {
+            if (value.SENDABLE_WITH_PREMIUM === undefined) return
+            this.stickerSendable.stickerSendableType = value as unknown as StickerSendableType
+          }
+
+          if (typeof value !== 'function') return
+          const valueString = value.toString()
+
+          if (valueString.includes('canUseStickersEverywhere')) {
+            this.stickerSendable.stickerSuggestionKey = key
+          } else if (valueString.includes('SENDABLE')) {
+            this.stickerSendable.stickerSendableKey = key
+            this.stickerSendable.stickerSendable = module[key] as unknown as (
+              sticker: Sticker,
+              userId: string,
+              channel: Channel
+            ) => boolean
+          }
+        })
+
+        return this.stickerSendable.stickerSendableKey !== undefined
+      }
+    )
+
+    this.stickerType = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('STANDARD', 'GUILD'), { searchExports: true }
+    ) as StickerType
+
+    this.stickerFormatType = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('LOTTIE', 'GIF', 'APNG'), { searchExports: true }
+    ) as StickerFormatType
+
+    this.stickerStore = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byProps('getStickerById', 'getStickersByGuildId')
+    ) as StickerStore
+
     this.userStore = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byProps('getCurrentUser')
     ) as UserStore
@@ -111,7 +165,7 @@ export class ModulesService extends BaseService {
       BdApi.Webpack.Filters.byProps('sendMessage')
     ) as MessageStore
 
-    this.cloudUploader = BdApi.Webpack.getModule((module: Record<string, unknown>) => {
+    this.cloudUploader = this.getModule((module: Record<string, unknown>) => {
       return Object.values(module).some((value) => {
         if (typeof value !== 'object' || value === null) return false
         const curValue = value as Record<string, unknown>
@@ -120,7 +174,7 @@ export class ModulesService extends BaseService {
                 curValue.UPLOADING !== undefined &&
                 module.n !== undefined
       })
-    }) as CloudUploader
+    })
 
     const TextArea = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byProps('channelTextArea', 'textAreaHeight')
@@ -168,6 +222,16 @@ export class ModulesService extends BaseService {
     }
 
     return Promise.resolve()
+  }
+
+  private getModule<T> (filter: ModuleFilter, searchOptions?: BaseSearchOptions): T {
+    return BdApi.Webpack.getModule((...args) => {
+      try {
+        return filter(...args)
+      } catch (ignored) {
+        return false
+      }
+    }, searchOptions) as T
   }
 
   public stop (): void {

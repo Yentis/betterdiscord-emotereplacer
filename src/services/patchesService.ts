@@ -7,30 +7,53 @@ import { ModulesService } from './modulesService'
 import { PendingReply } from '../interfaces/pendingReply'
 import Emoji from '../interfaces/emoji'
 import EmojiStore from '../interfaces/modules/emojiStore'
+import { Sticker } from 'interfaces/sticker'
+import { SendMessageService } from './sendMessageService'
 
 export class PatchesService extends BaseService {
+  sendMessageService!: SendMessageService
   attachService!: AttachService
   completionsService!: CompletionsService
   emoteService!: EmoteService
   modulesService!: ModulesService
 
   public start (
+    sendMessageService: SendMessageService,
     attachService: AttachService,
     completionsService: CompletionsService,
     emoteService: EmoteService,
     modulesService: ModulesService
   ): Promise<void> {
+    this.sendMessageService = sendMessageService
     this.attachService = attachService
     this.completionsService = completionsService
     this.emoteService = emoteService
     this.modulesService = modulesService
 
+    this.messageStorePatch()
     this.changeDraftPatch()
     this.pendingReplyPatch()
     this.emojiSearchPatch()
     this.lockedEmojisPatch()
+    this.stickerSendablePatch()
 
     return Promise.resolve()
+  }
+
+  private messageStorePatch (): void {
+    BdApi.Patcher.instead(
+      this.plugin.meta.name,
+      this.modulesService.messageStore,
+      'sendMessage',
+      (_, args, original: unknown) => this.sendMessageService.onSendMessage(args, original)
+    )
+
+    BdApi.Patcher.instead(
+      this.plugin.meta.name,
+      this.modulesService.messageStore,
+      'sendStickers',
+      (_, args, original: unknown) => this.sendMessageService.onSendSticker(args, original)
+    )
   }
 
   private changeDraftPatch (): void {
@@ -218,6 +241,53 @@ export class PatchesService extends BaseService {
     })
 
     return reason !== null
+  }
+
+  private stickerSendablePatch (): void {
+    const stickerSendable = this.modulesService.stickerSendable
+    const stickerType = this.modulesService.stickerType
+
+    const sendableKey = stickerSendable.stickerSendableKey
+    if (sendableKey === undefined) {
+      Logger.warn('Sticker sendable function name not found')
+      return
+    }
+
+    BdApi.Patcher.after(
+      this.plugin.meta.name,
+      stickerSendable.module,
+      sendableKey as never,
+      (_, args) => {
+        const sticker = args[0] as Sticker | undefined
+        if (!sticker) return
+
+        return sticker.type === stickerType.GUILD
+      }
+    )
+
+    const suggestionKey = stickerSendable.stickerSuggestionKey
+    if (suggestionKey === undefined) {
+      Logger.warn('Sticker suggestion function name not found')
+      return
+    }
+
+    const sendableType = stickerSendable.stickerSendableType
+    if (!sendableType) {
+      Logger.warn('Sticker sendable type not found')
+      return
+    }
+
+    BdApi.Patcher.after(
+      this.plugin.meta.name,
+      stickerSendable.module,
+      suggestionKey as never,
+      (_, args) => {
+        const sticker = args[0] as Sticker | undefined
+        if (sticker?.type !== stickerType.GUILD) return
+
+        return sendableType.SENDABLE
+      }
+    )
   }
 
   public stop (): void {

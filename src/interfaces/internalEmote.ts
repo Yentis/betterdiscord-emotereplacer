@@ -9,6 +9,7 @@ export interface InternalEmote extends InternalEmoteSimple {
   pos: number
   spoiler: boolean
   commands: string[][]
+  formatType: string
   content?: string
   channel?: string
 }

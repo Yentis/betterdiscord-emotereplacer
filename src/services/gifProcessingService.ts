@@ -36,7 +36,7 @@ export class GifProcessingService extends BaseService {
     this.worker = undefined
   }
 
-  public modifyGif (url: string, options: string[][]): {
+  public modifyGif (url: string, formatType: string, options: string[][]): {
     cancel?: () => void,
     result: Promise<Buffer>
   } {
@@ -47,18 +47,22 @@ export class GifProcessingService extends BaseService {
 
     return {
       cancel: () => { this.stopWorker() },
-      result: this.modifyGifImpl(url, options).finally(() => {
+      result: this.modifyGifImpl(url, formatType, options).finally(() => {
         this.isProcessing = false
       })
     }
   }
 
-  private async modifyGifImpl (url: string, options: string[][]): Promise<Buffer> {
+  private async modifyGifImpl (
+    url: string,
+    formatType: string,
+    options: string[][]
+  ): Promise<Buffer> {
     Logger.info('Got GIF request', url, options)
     const commands = this.getCommands(options)
     Logger.info('Processed request commands', commands)
 
-    const result = await this.processCommands(url, commands)
+    const result = await this.processCommands(url, formatType, commands)
     Logger.info('Processed modified emote', { length: result.length })
 
     return result
@@ -135,14 +139,17 @@ export class GifProcessingService extends BaseService {
     return commands
   }
 
-  private async processCommands (url: string, commands: Command[]): Promise<Buffer> {
+  private async processCommands (
+    url: string,
+    formatType: string,
+    commands: Command[]
+  ): Promise<Buffer> {
     let data = await PromiseUtils.urlGetBuffer(url)
-    const extension = url.substring(url.lastIndexOf('.')).replace('.', '')
     const worker = await this.getWorker()
 
     const request: WorkerMessage = {
       type: WorkerMessageType.APPLY_COMMANDS,
-      data: { data, extension, commands }
+      data: { data, formatType, commands }
     }
 
     const response = await PromiseUtils.workerMessagePromise(worker, request)

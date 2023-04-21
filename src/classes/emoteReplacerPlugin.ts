@@ -120,6 +120,7 @@ export class EmoteReplacerPlugin implements Plugin {
 
     this.patchesService = new PatchesService(this, zeresPluginLibrary)
     await this.patchesService.start(
+      this.sendMessageService,
       this.attachService,
       this.completionsService,
       this.emoteService,

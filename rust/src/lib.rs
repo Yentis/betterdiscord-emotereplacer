@@ -41,10 +41,11 @@ pub fn init_panic_hook() {
 }
 
 #[wasm_bindgen(js_name = "applyCommands")]
-pub fn apply_commands(data: Vec<u8>, extension: String, commands: JsValue) -> Result<Vec<u8>, JsError> {
+pub fn apply_commands(data: Vec<u8>, format_type: String, commands: JsValue) -> Result<Vec<u8>, JsError> {
     let mut commands: Vec<Command> = serde_wasm_bindgen::from_value(commands)?;
 
-    let (mut frames, scale) = get_frames_and_scale(&data, &extension, &mut commands)?;
+    let (mut frames, scale) = get_frames_and_scale(&data, &format_type, &mut commands)?;
+    if frames.is_empty() { return Ok(data); }
     let overall_size = scale.0 * scale.1;
 
     let mut output = Vec::new();
