@@ -49,7 +49,7 @@ impl<'de> Deserialize<'de> for Command {
 
                 Ok(Command {
                     name: name.ok_or_else(|| DeError::missing_field("name"))?,
-                    param: param.ok_or_else(|| DeError::missing_field("param"))?,
+                    param: param.unwrap_or(0.0),
                     param_extra,
                 })
             }

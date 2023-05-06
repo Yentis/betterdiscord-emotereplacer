@@ -1,6 +1,12 @@
 import Modifier from './interfaces/modifier'
 
 export const PLUGIN_CHANGELOG = [{
+  title: '2.1.1',
+  type: 'fixed',
+  items: [
+    'Fix missing param error for some modifiers'
+  ]
+}, {
   title: '2.1.0',
   type: 'added',
   items: [
