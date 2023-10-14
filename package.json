@@ -34,7 +34,7 @@
     "@types/request": "^2.48.8",
     "@typescript-eslint/eslint-plugin": "^5.14.0",
     "@typescript-eslint/parser": "^5.14.0",
-    "electron": "^23.2.0",
+    "electron": "^23.3.13",
     "eslint": "^8.11.0",
     "eslint-config-standard": "17.0.0",
     "eslint-plugin-deprecation": "^1.4.1",
