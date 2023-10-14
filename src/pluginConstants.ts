@@ -1,6 +1,10 @@
 import Modifier from './interfaces/modifier'
 
 export const PLUGIN_CHANGELOG = [{
+  title: '2.1.2',
+  type: 'fixed',
+  items: ['Fix custom emote search not showing', 'Fix emotes sometimes not sendable']
+}, {
   title: '2.1.1',
   type: 'fixed',
   items: [

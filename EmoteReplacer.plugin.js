@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.1.1
+ * @version 2.1.2
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -99,6 +99,14 @@ class RawPlugin {
 }
 
 const PLUGIN_CHANGELOG = [
+  {
+    title: '2.1.2',
+    type: 'fixed',
+    items: [
+      'Fix custom emote search not showing',
+      'Fix emotes sometimes not sendable',
+    ],
+  },
   {
     title: '2.1.1',
     type: 'fixed',
@@ -2741,7 +2749,7 @@ class ModulesService extends BaseService {
     });
 
     const TextArea = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('channelTextArea', 'textAreaHeight')
+      BdApi.Webpack.Filters.byProps('channelTextArea', 'textArea')
     );
 
     const Editor = BdApi.Webpack.getModule(
@@ -2862,14 +2870,6 @@ class SendMessageService extends BaseService {
         return;
       }
 
-      if (!this.attachService.canAttach) {
-        BdApi.UI.showToast('This channel does not allow sending images!', {
-          type: 'error',
-        });
-        callDefault(...args);
-        return;
-      }
-
       content = (
         content.substring(0, foundEmote.pos) +
         content.substring(foundEmote.pos + foundEmote.nameAndCommand.length)
@@ -2879,6 +2879,10 @@ class SendMessageService extends BaseService {
       foundEmote.channel = channelId;
 
       try {
+        if (!this.attachService.canAttach) {
+          throw new Error('This channel does not allow sending images!');
+        }
+
         this.attachService.pendingUpload = this.fetchBlobAndUpload(foundEmote);
         await this.attachService.pendingUpload;
         return;
@@ -3643,8 +3647,6 @@ class PatchesService extends BaseService {
   }
 
   onEmojiSearch(result) {
-    if (!this.attachService.canAttach) return;
-
     const searchResult = result;
 
     searchResult.unlocked.push(...searchResult.locked);
@@ -3670,7 +3672,6 @@ class PatchesService extends BaseService {
   }
 
   onGetEmojiUnavailableReason(args, result) {
-    if (!this.attachService.canAttach) return result;
     const EmojiDisabledReasons = this.modulesService.emojiDisabledReasons;
     const options = args[0];
 

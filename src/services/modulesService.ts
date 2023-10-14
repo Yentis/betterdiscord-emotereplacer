@@ -177,7 +177,7 @@ export class ModulesService extends BaseService {
     })
 
     const TextArea = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('channelTextArea', 'textAreaHeight')
+      BdApi.Webpack.Filters.byProps('channelTextArea', 'textArea')
     ) as Classes['TextArea']
 
     const Editor = BdApi.Webpack.getModule(

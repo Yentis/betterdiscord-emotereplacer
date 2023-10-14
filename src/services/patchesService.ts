@@ -175,8 +175,6 @@ export class PatchesService extends BaseService {
   }
 
   private onEmojiSearch (result: unknown): void {
-    if (!this.attachService.canAttach) return
-
     const searchResult = result as {
       unlocked: unknown[]
       locked: unknown[]
@@ -208,7 +206,6 @@ export class PatchesService extends BaseService {
     args: unknown[],
     result: unknown
   ): unknown {
-    if (!this.attachService.canAttach) return result
     const EmojiDisabledReasons = this.modulesService.emojiDisabledReasons
     const options = args[0] as { emoji?: Emoji, intention?: number } | undefined
 

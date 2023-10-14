@@ -70,12 +70,6 @@ export class SendMessageService extends BaseService {
         return
       }
 
-      if (!this.attachService.canAttach) {
-        BdApi.UI.showToast('This channel does not allow sending images!', { type: 'error' })
-        callDefault(...args)
-        return
-      }
-
       content = (
         content.substring(0, foundEmote.pos) +
         content.substring(foundEmote.pos + foundEmote.nameAndCommand.length)
@@ -85,6 +79,10 @@ export class SendMessageService extends BaseService {
       foundEmote.channel = channelId
 
       try {
+        if (!this.attachService.canAttach) {
+          throw new Error('This channel does not allow sending images!')
+        }
+
         this.attachService.pendingUpload = this.fetchBlobAndUpload(foundEmote)
         await this.attachService.pendingUpload
         return
