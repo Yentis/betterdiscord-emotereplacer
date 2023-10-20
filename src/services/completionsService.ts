@@ -114,7 +114,12 @@ export class CompletionsService extends BaseService {
         callback: (evt: Event) => { this.scrollCompletions(evt as WheelEvent) }
       }
 
-      textArea.addEventListener(wheelListener.name, wheelListener.callback)
+      textArea.addEventListener(
+        wheelListener.name,
+        wheelListener.callback,
+        { passive: true }
+      )
+
       this.listenersService.addListener(
         `${CompletionsService.TEXTAREA_WHEEL_LISTENER}${index}`,
         wheelListener
@@ -331,7 +336,12 @@ export class CompletionsService extends BaseService {
       callback: (evt: Event) => { this.scrollCompletions(evt as WheelEvent, { locked: true }) }
     }
 
-    autocompleteDiv.addEventListener(autocompleteListener.name, autocompleteListener.callback)
+    autocompleteDiv.addEventListener(
+      autocompleteListener.name,
+      autocompleteListener.callback,
+      { passive: true }
+    )
+
     this.listenersService.addListener(
       CompletionsService.AUTOCOMPLETE_DIV_WHEEL_LISTENER,
       autocompleteListener

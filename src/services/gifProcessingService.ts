@@ -1,7 +1,6 @@
 import { BaseService } from './baseService'
 import { Logger } from '../utils/logger'
 import { Command } from '../interfaces/gifData'
-import { Buffer } from 'buffer'
 import Worker from 'web-worker:../worker.ts'
 import { GifWorker, WorkerMessage, WorkerMessageType } from '../interfaces/workerData'
 import { PromiseUtils } from '../utils/promiseUtils'
@@ -38,7 +37,7 @@ export class GifProcessingService extends BaseService {
 
   public modifyGif (url: string, formatType: string, options: string[][]): {
     cancel?: () => void,
-    result: Promise<Buffer>
+    result: Promise<Uint8Array>
   } {
     if (this.isProcessing) {
       return { result: Promise.reject(new Error('Already processing, please wait.')) }
@@ -57,7 +56,7 @@ export class GifProcessingService extends BaseService {
     url: string,
     formatType: string,
     options: string[][]
-  ): Promise<Buffer> {
+  ): Promise<Uint8Array> {
     Logger.info('Got GIF request', url, options)
     const commands = this.getCommands(options)
     Logger.info('Processed request commands', commands)
@@ -143,8 +142,8 @@ export class GifProcessingService extends BaseService {
     url: string,
     formatType: string,
     commands: Command[]
-  ): Promise<Buffer> {
-    let data = await PromiseUtils.urlGetBuffer(url)
+  ): Promise<Uint8Array> {
+    const data = await PromiseUtils.urlGetBuffer(url)
     const worker = await this.getWorker()
 
     const request: WorkerMessage = {
@@ -153,10 +152,9 @@ export class GifProcessingService extends BaseService {
     }
 
     const response = await PromiseUtils.workerMessagePromise(worker, request)
-    data = Buffer.from(response as Uint8Array)
+    if (!(response instanceof Uint8Array)) throw Error('Did not process gif!')
 
-    if (!(data instanceof Buffer)) throw Error('Did not process gif!')
-    return data
+    return response
   }
 
   public stop (): void {

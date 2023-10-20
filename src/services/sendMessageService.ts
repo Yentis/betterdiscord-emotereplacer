@@ -489,7 +489,7 @@ export class SendMessageService extends BaseService {
 
   private uploadFile (
     params: {
-      fileData: Buffer | Blob,
+      fileData: Uint8Array | Blob,
       fullName: string,
       emote: InternalEmote
     }

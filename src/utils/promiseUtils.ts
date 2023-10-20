@@ -1,43 +1,36 @@
-import * as https from 'https'
 import * as fs from 'fs'
-import { Buffer } from 'buffer'
 import { GifWorker, WorkerMessage } from 'interfaces/workerData'
 
 export class PromiseUtils {
-  public static urlGetBuffer (url: string): Promise<Buffer> {
-    if (url.startsWith('http')) return PromiseUtils.httpsGetBuffer(url)
+  public static urlGetBuffer (url: string): Promise<Uint8Array> {
+    if (url.startsWith('http')) return PromiseUtils.fetchGetBuffer(url)
     else return PromiseUtils.fsGetBuffer(url)
   }
 
-  private static async fsGetBuffer (url: string): Promise<Buffer> {
+  private static async fsGetBuffer (url: string): Promise<Uint8Array> {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     const data = fs.readFileSync(url, '')
-    return await Promise.resolve(Buffer.from(data))
+    return await Promise.resolve(data)
   }
 
-  private static httpsGetBuffer (url: string): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      https.get(url, (res) => {
-        const buffers: Uint8Array[] = []
+  private static async fetchGetBuffer (url: string): Promise<Uint8Array> {
+    // TODO: remove custom TS type when BD types are updated
+    type BdApiExtended = typeof BdApi & {
+      Net: {
+        fetch: (url: string) => Promise<Response>
+      }
+    };
 
-        res.on('data', (chunk: Uint8Array) => {
-          buffers.push(chunk)
-        })
+    const response = await (BdApi as BdApiExtended).Net.fetch(url)
+    const statusCode = response.status
+    if (statusCode !== 0 && (statusCode < 200 || statusCode >= 400)) {
+      throw new Error(response.statusText)
+    }
+    if (!response.body) throw new Error(`No response body for url: ${url}`)
 
-        res.on('end', () => {
-          const statusCode = res.statusCode ?? 0
-          if (statusCode !== 0 && (statusCode < 200 || statusCode >= 400)) {
-            reject(new Error(res.statusMessage))
-            return
-          }
-
-          resolve(Buffer.concat(buffers))
-        })
-      }).on('error', (error) => {
-        reject(error)
-      })
-    })
+    const arrayBuffer = await response.arrayBuffer()
+    return new Uint8Array(arrayBuffer)
   }
 
   public static async loadImagePromise (

@@ -29,11 +29,9 @@ export default {
     treeshake: 'smallest',
     // These modules already exist in Discord, don't package them
     external: [
-        'request',
         'electron',
         'fs',
-        'path',
-        'https'
+        'path'
     ],
     plugins: [
         nodeResolve({

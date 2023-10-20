@@ -49,7 +49,7 @@ async function doApplyCommands (message: WorkerMessage): Promise<Uint8Array> {
     formatType,
     commands
   } = message.data as {
-    data: Buffer,
+    data: Uint8Array,
     formatType: string,
     commands: Command[]
   }

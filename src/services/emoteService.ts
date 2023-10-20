@@ -64,7 +64,7 @@ export class EmoteService extends BaseService {
     const data = await PromiseUtils.urlGetBuffer(
       'https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/emotes.json'
     )
-    const emoteNames = JSON.parse(data.toString()) as Record<string, string>
+    const emoteNames = JSON.parse(new TextDecoder().decode(data)) as Record<string, string>
 
     Object.keys(emoteNames).forEach((key) => {
       const split = emoteNames[key]?.split('.')

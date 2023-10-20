@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.1.2
+ * @version 2.1.3
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -10,12 +10,9 @@
  */
 'use strict';
 
-var request = require('request');
 var electron = require('electron');
 var fs = require('fs');
 var path = require('path');
-var https = require('https');
-var buffer = require('buffer');
 
 class Logger {
   static pluginName;
@@ -41,6 +38,90 @@ class Logger {
   }
 }
 
+class PromiseUtils {
+  static urlGetBuffer(url) {
+    if (url.startsWith('http')) return PromiseUtils.fetchGetBuffer(url);
+    else return PromiseUtils.fsGetBuffer(url);
+  }
+
+  static async fsGetBuffer(url) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const data = fs.readFileSync(url, '');
+    return await Promise.resolve(data);
+  }
+
+  static async fetchGetBuffer(url) {
+    // TODO: remove custom TS type when BD types are updated
+
+    const response = await BdApi.Net.fetch(url);
+    const statusCode = response.status;
+    if (statusCode !== 0 && (statusCode < 200 || statusCode >= 400)) {
+      throw new Error(response.statusText);
+    }
+    if (!response.body) throw new Error(`No response body for url: ${url}`);
+
+    const arrayBuffer = await response.arrayBuffer();
+    return new Uint8Array(arrayBuffer);
+  }
+
+  static async loadImagePromise(url, waitForLoad = true, element) {
+    const image = element ?? new Image();
+
+    const loadPromise = new Promise((resolve, reject) => {
+      image.onload = () => {
+        resolve();
+      };
+      image.onerror = () => {
+        reject(new Error(`Failed to load image for url ${url}`));
+      };
+    });
+
+    if (url.startsWith('http') && !waitForLoad) {
+      image.src = url;
+    } else {
+      const buffer = await PromiseUtils.urlGetBuffer(url);
+      image.src = URL.createObjectURL(new Blob([buffer]));
+    }
+
+    if (waitForLoad) await loadPromise;
+    return image;
+  }
+
+  static delay(duration) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, duration);
+    });
+  }
+
+  static workerMessagePromise(worker, request) {
+    return new Promise((resolve, reject) => {
+      worker.onterminate = () => {
+        reject(new Error('Cancelled'));
+      };
+
+      worker.onerror = (error) => {
+        reject(error);
+      };
+
+      worker.onmessage = (message) => {
+        const response = message.data;
+        if (response.type !== request.type) return;
+
+        if (response.data instanceof Error) {
+          reject(response.data);
+        } else {
+          resolve(response.data);
+        }
+      };
+
+      worker.postMessage(request);
+    });
+  }
+}
+
 class RawPlugin {
   meta;
 
@@ -62,32 +143,28 @@ class RawPlugin {
         confirmText: 'Download Now',
         cancelText: 'Cancel',
         onConfirm: () => {
-          request.get(
-            'https://rauenzi.github.io/BDPluginLibrary/release/0PluginLibrary.plugin.js',
-            undefined,
-            (error, _response, body) => {
-              if (error !== undefined && error !== null) {
-                electron.shell
-                  .openExternal(
-                    'https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi' +
-                      '/BDPluginLibrary/master/release/0PluginLibrary.plugin.js'
-                  )
-                  .catch((error) => {
-                    Logger.error(error);
-                  });
-
-                return;
-              }
-
+          PromiseUtils.urlGetBuffer(
+            'https://rauenzi.github.io/BDPluginLibrary/release/0PluginLibrary.plugin.js'
+          )
+            .then((data) => {
               fs.writeFile(
                 path.join(BdApi.Plugins.folder, '0PluginLibrary.plugin.js'),
-                body,
+                data,
                 () => {
                   /* Do nothing */
                 }
               );
-            }
-          );
+            })
+            .catch(() => {
+              electron.shell
+                .openExternal(
+                  'https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi' +
+                    '/BDPluginLibrary/master/release/0PluginLibrary.plugin.js'
+                )
+                .catch((error) => {
+                  Logger.error(error);
+                });
+            });
         },
       }
     );
@@ -99,6 +176,11 @@ class RawPlugin {
 }
 
 const PLUGIN_CHANGELOG = [
+  {
+    title: '2.1.3',
+    type: 'fixed',
+    items: ['Fix emotes not working', 'Fix stickers not being animated'],
+  },
   {
     title: '2.1.2',
     type: 'fixed',
@@ -118,31 +200,6 @@ const PLUGIN_CHANGELOG = [
     items: [
       'Sticker support!',
       'Fix processing failed for gifs where no resize is necessary',
-    ],
-  },
-  {
-    title: '2.0.1',
-    type: 'fixed',
-    items: ['Fix custom emote autocomplete not working in DMs'],
-  },
-  {
-    title: 'Improved',
-    type: 'improved',
-    items: [
-      'Drastically reduced plugin size',
-      'Drastically improved code readability',
-      'GIF quality improved',
-      'GIF processing now happens much faster using WASM',
-      'GIF processing no longer freezes the client and can be cancelled',
-      'All modifiers were improved to behave more consistently',
-    ],
-  },
-  {
-    title: 'Fixed',
-    type: 'fixed',
-    items: [
-      'Rain modifier now works for PNGs',
-      'Fixed issues with custom emote selection',
     ],
   },
 ];
@@ -271,102 +328,6 @@ class BaseService {
   }
 }
 
-class PromiseUtils {
-  static urlGetBuffer(url) {
-    if (url.startsWith('http')) return PromiseUtils.httpsGetBuffer(url);
-    else return PromiseUtils.fsGetBuffer(url);
-  }
-
-  static async fsGetBuffer(url) {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const data = fs.readFileSync(url, '');
-    return await Promise.resolve(buffer.Buffer.from(data));
-  }
-
-  static httpsGetBuffer(url) {
-    return new Promise((resolve, reject) => {
-      https
-        .get(url, (res) => {
-          const buffers = [];
-
-          res.on('data', (chunk) => {
-            buffers.push(chunk);
-          });
-
-          res.on('end', () => {
-            const statusCode = res.statusCode ?? 0;
-            if (statusCode !== 0 && (statusCode < 200 || statusCode >= 400)) {
-              reject(new Error(res.statusMessage));
-              return;
-            }
-
-            resolve(buffer.Buffer.concat(buffers));
-          });
-        })
-        .on('error', (error) => {
-          reject(error);
-        });
-    });
-  }
-
-  static async loadImagePromise(url, waitForLoad = true, element) {
-    const image = element ?? new Image();
-
-    const loadPromise = new Promise((resolve, reject) => {
-      image.onload = () => {
-        resolve();
-      };
-      image.onerror = () => {
-        reject(new Error(`Failed to load image for url ${url}`));
-      };
-    });
-
-    if (url.startsWith('http') && !waitForLoad) {
-      image.src = url;
-    } else {
-      const buffer = await PromiseUtils.urlGetBuffer(url);
-      image.src = URL.createObjectURL(new Blob([buffer]));
-    }
-
-    if (waitForLoad) await loadPromise;
-    return image;
-  }
-
-  static delay(duration) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve();
-      }, duration);
-    });
-  }
-
-  static workerMessagePromise(worker, request) {
-    return new Promise((resolve, reject) => {
-      worker.onterminate = () => {
-        reject(new Error('Cancelled'));
-      };
-
-      worker.onerror = (error) => {
-        reject(error);
-      };
-
-      worker.onmessage = (message) => {
-        const response = message.data;
-        if (response.type !== request.type) return;
-
-        if (response.data instanceof Error) {
-          reject(response.data);
-        } else {
-          resolve(response.data);
-        }
-      };
-
-      worker.postMessage(request);
-    });
-  }
-}
-
 class CompletionsService extends BaseService {
   static TAG = CompletionsService.name;
   static TEXTAREA_KEYDOWN_LISTENER = 'textAreaKeydown';
@@ -486,7 +447,10 @@ class CompletionsService extends BaseService {
         },
       };
 
-      textArea.addEventListener(wheelListener.name, wheelListener.callback);
+      textArea.addEventListener(wheelListener.name, wheelListener.callback, {
+        passive: true,
+      });
+
       this.listenersService.addListener(
         `${CompletionsService.TEXTAREA_WHEEL_LISTENER}${index}`,
         wheelListener
@@ -713,8 +677,10 @@ class CompletionsService extends BaseService {
 
     autocompleteDiv.addEventListener(
       autocompleteListener.name,
-      autocompleteListener.callback
+      autocompleteListener.callback,
+      { passive: true }
     );
+
     this.listenersService.addListener(
       CompletionsService.AUTOCOMPLETE_DIV_WHEEL_LISTENER,
       autocompleteListener
@@ -1006,7 +972,7 @@ class EmoteService extends BaseService {
     const data = await PromiseUtils.urlGetBuffer(
       'https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/emotes.json'
     );
-    const emoteNames = JSON.parse(data.toString());
+    const emoteNames = JSON.parse(new TextDecoder().decode(data));
 
     Object.keys(emoteNames).forEach((key) => {
       const split = emoteNames[key]?.split('.');
@@ -2575,7 +2541,7 @@ class GifProcessingService extends BaseService {
   }
 
   async processCommands(url, formatType, commands) {
-    let data = await PromiseUtils.urlGetBuffer(url);
+    const data = await PromiseUtils.urlGetBuffer(url);
     const worker = await this.getWorker();
 
     const request = {
@@ -2584,10 +2550,9 @@ class GifProcessingService extends BaseService {
     };
 
     const response = await PromiseUtils.workerMessagePromise(worker, request);
-    data = buffer.Buffer.from(response);
+    if (!(response instanceof Uint8Array)) throw Error('Did not process gif!');
 
-    if (!(data instanceof buffer.Buffer)) throw Error('Did not process gif!');
-    return data;
+    return response;
   }
 
   stop() {
@@ -2620,23 +2585,23 @@ class ModulesService extends BaseService {
 
   start() {
     this.channelStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('getChannel', 'hasChannel')
+      BdApi.Webpack.Filters.byKeys('getChannel', 'hasChannel')
     );
 
     this.uploader = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('instantBatchUpload')
+      BdApi.Webpack.Filters.byKeys('instantBatchUpload')
     );
 
     this.draft = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('changeDraft')
+      BdApi.Webpack.Filters.byKeys('changeDraft')
     );
 
     this.draftStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('getDraft', 'getRecentlyEditedDrafts')
+      BdApi.Webpack.Filters.byKeys('getDraft', 'getRecentlyEditedDrafts')
     );
 
     this.permissions = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('getChannelPermissions')
+      BdApi.Webpack.Filters.byKeys('getChannelPermissions')
     );
 
     this.discordPermissions = this.getModule(
@@ -2647,7 +2612,7 @@ class ModulesService extends BaseService {
     );
 
     this.dispatcher = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('dispatch', 'subscribe')
+      BdApi.Webpack.Filters.byKeys('dispatch', 'subscribe')
     );
 
     this.componentDispatcher = this.getModule(
@@ -2680,15 +2645,15 @@ class ModulesService extends BaseService {
     });
 
     this.emojiStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('getEmojiUnavailableReason')
+      BdApi.Webpack.Filters.byKeys('getEmojiUnavailableReason')
     );
 
     this.emojiSearch = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('getDisambiguatedEmojiContext')
+      BdApi.Webpack.Filters.byKeys('getDisambiguatedEmojiContext')
     );
 
     this.emojiDisabledReasons = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('PREMIUM_LOCKED'),
+      BdApi.Webpack.Filters.byKeys('PREMIUM_LOCKED'),
       { searchExports: true }
     );
 
@@ -2714,25 +2679,31 @@ class ModulesService extends BaseService {
     });
 
     this.stickerType = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('STANDARD', 'GUILD'),
+      BdApi.Webpack.Filters.byKeys('STANDARD', 'GUILD'),
       { searchExports: true }
     );
 
-    this.stickerFormatType = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('LOTTIE', 'GIF', 'APNG'),
+    this.stickerFormatType = this.getModule(
+      (module) => {
+        return (
+          module.LOTTIE !== undefined &&
+          module.GIF !== undefined &&
+          module[1] !== undefined
+        );
+      },
       { searchExports: true }
     );
 
     this.stickerStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('getStickerById', 'getStickersByGuildId')
+      BdApi.Webpack.Filters.byKeys('getStickerById', 'getStickersByGuildId')
     );
 
     this.userStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('getCurrentUser')
+      BdApi.Webpack.Filters.byKeys('getCurrentUser')
     );
 
     this.messageStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('sendMessage')
+      BdApi.Webpack.Filters.byKeys('sendMessage')
     );
 
     this.cloudUploader = this.getModule((module) => {
@@ -2749,15 +2720,15 @@ class ModulesService extends BaseService {
     });
 
     const TextArea = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('channelTextArea', 'textArea')
+      BdApi.Webpack.Filters.byKeys('channelTextArea', 'textArea')
     );
 
     const Editor = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('editor', 'placeholder')
+      BdApi.Webpack.Filters.byKeys('editor', 'placeholder')
     );
 
     const Autocomplete = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps(
+      BdApi.Webpack.Filters.byKeys(
         'autocomplete',
         'autocompleteInner',
         'autocompleteRowVertical'
@@ -2765,15 +2736,15 @@ class ModulesService extends BaseService {
     );
 
     const autocompleteAttached = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('autocomplete', 'autocompleteAttached')
+      BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteAttached')
     );
 
     const Wrapper = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('wrapper', 'base')
+      BdApi.Webpack.Filters.byKeys('wrapper', 'base')
     );
 
     const Size = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('size12')
+      BdApi.Webpack.Filters.byKeys('size12')
     );
 
     this.classes = {

@@ -1,6 +1,10 @@
 import Modifier from './interfaces/modifier'
 
 export const PLUGIN_CHANGELOG = [{
+  title: '2.1.3',
+  type: 'fixed',
+  items: ['Fix emotes not working', 'Fix stickers not being animated']
+}, {
   title: '2.1.2',
   type: 'fixed',
   items: ['Fix custom emote search not showing', 'Fix emotes sometimes not sendable']
@@ -16,30 +20,6 @@ export const PLUGIN_CHANGELOG = [{
   items: [
     'Sticker support!',
     'Fix processing failed for gifs where no resize is necessary'
-  ]
-}, {
-  title: '2.0.1',
-  type: 'fixed',
-  items: [
-    'Fix custom emote autocomplete not working in DMs'
-  ]
-}, {
-  title: 'Improved',
-  type: 'improved',
-  items: [
-    'Drastically reduced plugin size',
-    'Drastically improved code readability',
-    'GIF quality improved',
-    'GIF processing now happens much faster using WASM',
-    'GIF processing no longer freezes the client and can be cancelled',
-    'All modifiers were improved to behave more consistently'
-  ]
-}, {
-  title: 'Fixed',
-  type: 'fixed',
-  items: [
-    'Rain modifier now works for PNGs',
-    'Fixed issues with custom emote selection'
   ]
 }]
 

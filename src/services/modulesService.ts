@@ -51,23 +51,23 @@ export class ModulesService extends BaseService {
 
   public start (): Promise<void> {
     this.channelStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('getChannel', 'hasChannel')
+      BdApi.Webpack.Filters.byKeys('getChannel', 'hasChannel')
     ) as ChannelStore
 
     this.uploader = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('instantBatchUpload')
+      BdApi.Webpack.Filters.byKeys('instantBatchUpload')
     ) as Uploader
 
     this.draft = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('changeDraft')
+      BdApi.Webpack.Filters.byKeys('changeDraft')
     ) as Draft
 
     this.draftStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('getDraft', 'getRecentlyEditedDrafts')
+      BdApi.Webpack.Filters.byKeys('getDraft', 'getRecentlyEditedDrafts')
     ) as DraftStore
 
     this.permissions = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('getChannelPermissions')
+      BdApi.Webpack.Filters.byKeys('getChannelPermissions')
     ) as Permissions
 
     this.discordPermissions = this.getModule((module: Record<string, unknown>) => {
@@ -75,7 +75,7 @@ export class ModulesService extends BaseService {
     }, { searchExports: true })
 
     this.dispatcher = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('dispatch', 'subscribe')
+      BdApi.Webpack.Filters.byKeys('dispatch', 'subscribe')
     ) as Dispatcher
 
     this.componentDispatcher = this.getModule((module: Record<string, unknown>) => {
@@ -107,15 +107,15 @@ export class ModulesService extends BaseService {
     )
 
     this.emojiStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('getEmojiUnavailableReason')
+      BdApi.Webpack.Filters.byKeys('getEmojiUnavailableReason')
     ) as EmojiStore
 
     this.emojiSearch = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('getDisambiguatedEmojiContext')
+      BdApi.Webpack.Filters.byKeys('getDisambiguatedEmojiContext')
     ) as EmojiSearch
 
     this.emojiDisabledReasons = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('PREMIUM_LOCKED'), { searchExports: true }
+      BdApi.Webpack.Filters.byKeys('PREMIUM_LOCKED'), { searchExports: true }
     ) as EmojiDisabledReasons
 
     this.stickerSendable.module = this.getModule(
@@ -146,23 +146,23 @@ export class ModulesService extends BaseService {
     )
 
     this.stickerType = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('STANDARD', 'GUILD'), { searchExports: true }
+      BdApi.Webpack.Filters.byKeys('STANDARD', 'GUILD'), { searchExports: true }
     ) as StickerType
 
-    this.stickerFormatType = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('LOTTIE', 'GIF', 'APNG'), { searchExports: true }
-    ) as StickerFormatType
+    this.stickerFormatType = this.getModule((module: Record<string | number, unknown>) => {
+      return module.LOTTIE !== undefined && module.GIF !== undefined && module[1] !== undefined
+    }, { searchExports: true })
 
     this.stickerStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('getStickerById', 'getStickersByGuildId')
+      BdApi.Webpack.Filters.byKeys('getStickerById', 'getStickersByGuildId')
     ) as StickerStore
 
     this.userStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('getCurrentUser')
+      BdApi.Webpack.Filters.byKeys('getCurrentUser')
     ) as UserStore
 
     this.messageStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('sendMessage')
+      BdApi.Webpack.Filters.byKeys('sendMessage')
     ) as MessageStore
 
     this.cloudUploader = this.getModule((module: Record<string, unknown>) => {
@@ -177,15 +177,15 @@ export class ModulesService extends BaseService {
     })
 
     const TextArea = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('channelTextArea', 'textArea')
+      BdApi.Webpack.Filters.byKeys('channelTextArea', 'textArea')
     ) as Classes['TextArea']
 
     const Editor = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('editor', 'placeholder')
+      BdApi.Webpack.Filters.byKeys('editor', 'placeholder')
     ) as Classes['Editor']
 
     const Autocomplete = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps(
+      BdApi.Webpack.Filters.byKeys(
         'autocomplete',
         'autocompleteInner',
         'autocompleteRowVertical'
@@ -193,15 +193,15 @@ export class ModulesService extends BaseService {
     ) as Classes['Autocomplete']
 
     const autocompleteAttached = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('autocomplete', 'autocompleteAttached')
+      BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteAttached')
     ) as AutocompleteAttached
 
     const Wrapper = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('wrapper', 'base')
+      BdApi.Webpack.Filters.byKeys('wrapper', 'base')
     ) as Classes['Wrapper']
 
     const Size = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byProps('size12')
+      BdApi.Webpack.Filters.byKeys('size12')
     ) as Classes['Size']
 
     this.classes = {
