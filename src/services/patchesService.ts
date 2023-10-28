@@ -241,50 +241,36 @@ export class PatchesService extends BaseService {
   }
 
   private stickerSendablePatch (): void {
-    const stickerSendable = this.modulesService.stickerSendable
-    const stickerType = this.modulesService.stickerType
-
-    const sendableKey = stickerSendable.stickerSendableKey
-    if (sendableKey === undefined) {
-      Logger.warn('Sticker sendable function name not found')
-      return
-    }
+    const stickerSendabilityStore = this.modulesService.stickerSendabilityStore
+    stickerSendabilityStore.isSendableStickerOriginal = stickerSendabilityStore.isSendableSticker
 
     BdApi.Patcher.after(
       this.plugin.meta.name,
-      stickerSendable.module,
-      sendableKey as never,
+      stickerSendabilityStore,
+      'getStickerSendability',
       (_, args) => {
         const sticker = args[0] as Sticker | undefined
-        if (!sticker) return
+        if (!this.isSendableSticker(sticker)) return
 
-        return sticker.type === stickerType.GUILD
+        return stickerSendabilityStore.StickerSendability.SENDABLE
       }
     )
-
-    const suggestionKey = stickerSendable.stickerSuggestionKey
-    if (suggestionKey === undefined) {
-      Logger.warn('Sticker suggestion function name not found')
-      return
-    }
-
-    const sendableType = stickerSendable.stickerSendableType
-    if (!sendableType) {
-      Logger.warn('Sticker sendable type not found')
-      return
-    }
 
     BdApi.Patcher.after(
       this.plugin.meta.name,
-      stickerSendable.module,
-      suggestionKey as never,
+      stickerSendabilityStore,
+      'isSendableSticker',
       (_, args) => {
         const sticker = args[0] as Sticker | undefined
-        if (sticker?.type !== stickerType.GUILD) return
+        if (!this.isSendableSticker(sticker)) return
 
-        return sendableType.SENDABLE
+        return true
       }
     )
+  }
+
+  private isSendableSticker (sticker?: Sticker): boolean {
+    return sticker?.type === this.modulesService.stickerType.GUILD
   }
 
   public stop (): void {

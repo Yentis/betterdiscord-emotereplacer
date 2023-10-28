@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.1.3
+ * @version 2.1.4
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -38,10 +38,10 @@ class Logger {
   }
 }
 
-class PromiseUtils {
+class Utils {
   static urlGetBuffer(url) {
-    if (url.startsWith('http')) return PromiseUtils.fetchGetBuffer(url);
-    else return PromiseUtils.fsGetBuffer(url);
+    if (url.startsWith('http')) return Utils.fetchGetBuffer(url);
+    else return Utils.fsGetBuffer(url);
   }
 
   static async fsGetBuffer(url) {
@@ -80,7 +80,7 @@ class PromiseUtils {
     if (url.startsWith('http') && !waitForLoad) {
       image.src = url;
     } else {
-      const buffer = await PromiseUtils.urlGetBuffer(url);
+      const buffer = await Utils.urlGetBuffer(url);
       image.src = URL.createObjectURL(new Blob([buffer]));
     }
 
@@ -120,6 +120,10 @@ class PromiseUtils {
       worker.postMessage(request);
     });
   }
+
+  static clamp(num, min, max) {
+    return Math.min(Math.max(num, min), max);
+  }
 }
 
 class RawPlugin {
@@ -143,7 +147,7 @@ class RawPlugin {
         confirmText: 'Download Now',
         cancelText: 'Cancel',
         onConfirm: () => {
-          PromiseUtils.urlGetBuffer(
+          Utils.urlGetBuffer(
             'https://rauenzi.github.io/BDPluginLibrary/release/0PluginLibrary.plugin.js'
           )
             .then((data) => {
@@ -177,6 +181,11 @@ class RawPlugin {
 
 const PLUGIN_CHANGELOG = [
   {
+    title: '2.1.4',
+    type: 'fixed',
+    items: ['Fix broken plugin due to Discord update'],
+  },
+  {
     title: '2.1.3',
     type: 'fixed',
     items: ['Fix emotes not working', 'Fix stickers not being animated'],
@@ -187,19 +196,6 @@ const PLUGIN_CHANGELOG = [
     items: [
       'Fix custom emote search not showing',
       'Fix emotes sometimes not sendable',
-    ],
-  },
-  {
-    title: '2.1.1',
-    type: 'fixed',
-    items: ['Fix missing param error for some modifiers'],
-  },
-  {
-    title: '2.1.0',
-    type: 'added',
-    items: [
-      'Sticker support!',
-      'Fix processing failed for gifs where no resize is necessary',
     ],
   },
 ];
@@ -472,11 +468,9 @@ class CompletionsService extends BaseService {
       this.settingsService.settings.autocompleteItems
     );
 
-    switch (event.which) {
-      // Tab
-      case 9:
-      // Enter
-      case 13:
+    switch (event.key) {
+      case 'Tab':
+      case 'Enter':
         if (!this.prepareCompletions()) {
           break;
         }
@@ -489,24 +483,20 @@ class CompletionsService extends BaseService {
         this.insertSelectedCompletion().catch((error) => Logger.error(error));
         break;
 
-      // Up
-      case 38:
+      case 'ArrowUp':
         delta = -1;
         break;
 
-      // Down
-      case 40:
+      case 'ArrowDown':
         delta = 1;
         break;
 
-      // Page Up
-      case 33:
+      case 'PageUp':
         delta = -autocompleteItems;
         options = { locked: true, clamped: true };
         break;
 
-      // Page Down
-      case 34:
+      case 'PageDown':
         delta = autocompleteItems;
         options = { locked: true, clamped: true };
         break;
@@ -628,10 +618,9 @@ class CompletionsService extends BaseService {
     }
 
     this.cached = undefined;
-    this.renderCompletions.cancel();
   }
 
-  renderCompletions = _.debounce(() => {
+  doRenderCompletions() {
     const channelTextArea = this.htmlService.getTextAreaContainer(
       this.curEditor
     );
@@ -832,8 +821,8 @@ class CompletionsService extends BaseService {
         containerIcon.append(containerImage);
 
         if (typeof data === 'string') {
-          PromiseUtils.loadImagePromise(data, false, containerImage).catch(
-            (error) => Logger.error(error)
+          Utils.loadImagePromise(data, false, containerImage).catch((error) =>
+            Logger.error(error)
           );
         }
       }
@@ -863,7 +852,12 @@ class CompletionsService extends BaseService {
         containerContent.append(containerContentInfo);
       }
     }
-  }, 250);
+  }
+
+  renderCompletions = BdApi.Utils.debounce(
+    this.doRenderCompletions.bind(this),
+    250
+  );
 
   scrollCompletions(e, options) {
     const delta = Math.sign(e.deltaY);
@@ -874,7 +868,11 @@ class CompletionsService extends BaseService {
     if (!this.cached) return;
 
     const preScroll = 2;
-    const { completions, selectedIndex: prevSel, windowOffset } = this.cached;
+    const {
+      completions,
+      selectedIndex: prevSelectedIndex,
+      windowOffset,
+    } = this.cached;
     const autocompleteItems = Math.round(
       this.settingsService.settings.autocompleteItems
     );
@@ -884,32 +882,35 @@ class CompletionsService extends BaseService {
     }
 
     // Change selected index
-    const num = completions.length;
-    let sel = (prevSel ?? 0) + delta;
+    const completionsCount = completions.length;
+    let selectedIndex = (prevSelectedIndex ?? 0) + delta;
     if (clamped) {
-      sel = _.clamp(sel, 0, num - 1);
+      selectedIndex = Utils.clamp(selectedIndex, 0, completionsCount - 1);
     } else {
-      sel = (sel % num) + (sel < 0 ? num : 0);
+      selectedIndex =
+        (selectedIndex % completionsCount) +
+        (selectedIndex < 0 ? completionsCount : 0);
     }
-    this.cached.selectedIndex = sel;
+    this.cached.selectedIndex = selectedIndex;
+
+    const boundMax = Math.max(0, completionsCount - autocompleteItems);
 
     // Clamp window position to bounds based on new selected index
-    const boundLower = _.clamp(
-      sel + preScroll - (autocompleteItems - 1),
+    const boundLower = Utils.clamp(
+      selectedIndex + preScroll - (autocompleteItems - 1),
       0,
-      num - autocompleteItems
+      boundMax
     );
+    const boundUpper = Utils.clamp(selectedIndex - preScroll, 0, boundMax);
 
-    const boundUpper = _.clamp(sel - preScroll, 0, num - autocompleteItems);
-    this.cached.windowOffset = _.clamp(
+    this.cached.windowOffset = Utils.clamp(
       (windowOffset ?? 0) + (locked ? delta : 0),
       boundLower,
       boundUpper
     );
 
     // Render immediately
-    this.renderCompletions();
-    this.renderCompletions.flush();
+    this.doRenderCompletions();
   }
 
   stop() {
@@ -969,7 +970,7 @@ class EmoteService extends BaseService {
       return {};
     }
 
-    const data = await PromiseUtils.urlGetBuffer(
+    const data = await Utils.urlGetBuffer(
       'https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/emotes.json'
     );
     const emoteNames = JSON.parse(new TextDecoder().decode(data));
@@ -1505,7 +1506,7 @@ class SettingsService extends BaseService {
           'It is recommended to use a single character not in use by other chat functionality, ' +
           'other prefixes may cause issues.',
         this.settings.prefix,
-        _.debounce((val) => {
+        BdApi.Utils.debounce((val) => {
           if (val === this.settings.prefix) return;
 
           const previousPrefix = this.settings.prefix;
@@ -1574,7 +1575,7 @@ class SettingsService extends BaseService {
     containerImage.style.marginRight = '0.5rem';
 
     customEmoteContainer.append(containerImage);
-    PromiseUtils.loadImagePromise(url, false, containerImage).catch((error) =>
+    Utils.loadImagePromise(url, false, containerImage).catch((error) =>
       Logger.error(error)
     );
 
@@ -2428,7 +2429,7 @@ class GifProcessingService extends BaseService {
       type: WorkerMessageType.INIT,
     };
 
-    await PromiseUtils.workerMessagePromise(worker, request);
+    await Utils.workerMessagePromise(worker, request);
 
     this.worker = worker;
     return worker;
@@ -2541,7 +2542,7 @@ class GifProcessingService extends BaseService {
   }
 
   async processCommands(url, formatType, commands) {
-    const data = await PromiseUtils.urlGetBuffer(url);
+    const data = await Utils.urlGetBuffer(url);
     const worker = await this.getWorker();
 
     const request = {
@@ -2549,7 +2550,7 @@ class GifProcessingService extends BaseService {
       data: { data, formatType, commands },
     };
 
-    const response = await PromiseUtils.workerMessagePromise(worker, request);
+    const response = await Utils.workerMessagePromise(worker, request);
     if (!(response instanceof Uint8Array)) throw Error('Did not process gif!');
 
     return response;
@@ -2573,9 +2574,8 @@ class ModulesService extends BaseService {
   emojiStore;
   emojiSearch;
   emojiDisabledReasons;
-  stickerSendable = {};
+  stickerSendabilityStore;
   stickerType;
-  stickerSendableType;
   stickerFormatType;
   stickerStore;
   userStore;
@@ -2644,6 +2644,10 @@ class ModulesService extends BaseService {
       return this.pendingReplyDispatcher.deletePendingReplyKey !== undefined;
     });
 
+    if (this.pendingReplyDispatcher.module === undefined) {
+      Logger.error('pendingReplyDispatcher module not found!');
+    }
+
     this.emojiStore = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('getEmojiUnavailableReason')
     );
@@ -2657,26 +2661,9 @@ class ModulesService extends BaseService {
       { searchExports: true }
     );
 
-    this.stickerSendable.module = this.getModule((module) => {
-      Object.entries(module).forEach(([key, value]) => {
-        if (typeof value === 'object') {
-          if (value.SENDABLE_WITH_PREMIUM === undefined) return;
-          this.stickerSendable.stickerSendableType = value;
-        }
-
-        if (typeof value !== 'function') return;
-        const valueString = value.toString();
-
-        if (valueString.includes('canUseStickersEverywhere')) {
-          this.stickerSendable.stickerSuggestionKey = key;
-        } else if (valueString.includes('SENDABLE')) {
-          this.stickerSendable.stickerSendableKey = key;
-          this.stickerSendable.stickerSendable = module[key];
-        }
-      });
-
-      return this.stickerSendable.stickerSendableKey !== undefined;
-    });
+    this.stickerSendabilityStore = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byKeys('getStickerSendability')
+    );
 
     this.stickerType = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('STANDARD', 'GUILD'),
@@ -2714,7 +2701,7 @@ class ModulesService extends BaseService {
         return (
           curValue.NOT_STARTED !== undefined &&
           curValue.UPLOADING !== undefined &&
-          module.n !== undefined
+          module.CloudUpload !== undefined
         );
       });
     });
@@ -2722,10 +2709,12 @@ class ModulesService extends BaseService {
     const TextArea = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('channelTextArea', 'textArea')
     );
+    if (TextArea === undefined) Logger.error('TextArea not found!');
 
     const Editor = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('editor', 'placeholder')
     );
+    if (Editor === undefined) Logger.error('Editor not found!');
 
     const Autocomplete = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys(
@@ -2734,18 +2723,23 @@ class ModulesService extends BaseService {
         'autocompleteRowVertical'
       )
     );
+    if (Autocomplete === undefined) Logger.error('Autocomplete not found!');
 
     const autocompleteAttached = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteAttached')
     );
+    if (autocompleteAttached === undefined)
+      Logger.error('autocompleteAttached not found!');
 
     const Wrapper = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('wrapper', 'base')
     );
+    if (Wrapper === undefined) Logger.error('Wrapper not found!');
 
     const Size = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('size12')
     );
+    if (Size === undefined) Logger.error('Size not found!');
 
     this.classes = {
       TextArea,
@@ -2763,6 +2757,11 @@ class ModulesService extends BaseService {
       Wrapper,
       Size,
     };
+
+    Object.entries(this).forEach(([key, value]) => {
+      if (value !== undefined) return;
+      Logger.error(`${key} not found!`);
+    });
 
     return Promise.resolve();
   }
@@ -2892,15 +2891,20 @@ class SendMessageService extends BaseService {
   }
 
   async sendSticker(stickerId, channelId, content) {
-    const userId = this.attachService.userId;
-    if (userId === undefined) return false;
-
     const sticker = this.modulesService.stickerStore.getStickerById(stickerId);
+    const user = this.modulesService.userStore.getCurrentUser();
     const channel = this.modulesService.channelStore.getChannel(channelId);
-    if (!channel) return false;
 
-    const stickerSendable = this.modulesService.stickerSendable.stickerSendable;
-    if (stickerSendable?.(sticker, userId, channel) === true) return false;
+    if (!channel) return false;
+    if (!user) return false;
+
+    const isSendable =
+      this.modulesService.stickerSendabilityStore.isSendableStickerOriginal(
+        sticker,
+        user,
+        channel
+      );
+    if (isSendable) return false;
 
     const url = `https://media.discordapp.net/stickers/${stickerId}`;
     const formatType = this.modulesService.stickerFormatType;
@@ -3127,7 +3131,7 @@ class SendMessageService extends BaseService {
   }
 
   async getMetaAndModifyGif(emote) {
-    const image = await PromiseUtils.loadImagePromise(emote.url);
+    const image = await Utils.loadImagePromise(emote.url);
 
     const commands = emote.commands;
     this.addResizeCommand(commands, image);
@@ -3232,7 +3236,7 @@ class SendMessageService extends BaseService {
     } else {
       const sizeNumber = typeof size === 'string' ? parseInt(size) : size;
       if (!isNaN(sizeNumber)) {
-        return Math.min(Math.max(sizeNumber, 32), 160);
+        return Utils.clamp(sizeNumber, 32, 160);
       }
 
       return 48;
@@ -3244,7 +3248,7 @@ class SendMessageService extends BaseService {
     const paramNum = parseInt(param ?? '');
 
     if (!isNaN(paramNum)) {
-      return Math.max(Math.min(paramNum, 8), 2);
+      return Utils.clamp(paramNum, 2, 8);
     } else if (param === 'extreme') {
       return 8;
     } else if (param === 'huge') {
@@ -3265,8 +3269,7 @@ class SendMessageService extends BaseService {
       return;
     }
 
-    // eslint-disable-next-line new-cap
-    const upload = new this.modulesService.cloudUploader.n(
+    const upload = new this.modulesService.cloudUploader.CloudUpload(
       { file: new File([fileData], fullName), platform: 1 },
       channelId
     );
@@ -3302,7 +3305,7 @@ class SendMessageService extends BaseService {
   }
 
   async compress(url, commands) {
-    const image = await PromiseUtils.loadImagePromise(url);
+    const image = await Utils.loadImagePromise(url);
     const canvas = await this.applyScaling(image, commands);
 
     return await new Promise((resolve) => {
@@ -3678,50 +3681,37 @@ class PatchesService extends BaseService {
   }
 
   stickerSendablePatch() {
-    const stickerSendable = this.modulesService.stickerSendable;
-    const stickerType = this.modulesService.stickerType;
-
-    const sendableKey = stickerSendable.stickerSendableKey;
-    if (sendableKey === undefined) {
-      Logger.warn('Sticker sendable function name not found');
-      return;
-    }
+    const stickerSendabilityStore = this.modulesService.stickerSendabilityStore;
+    stickerSendabilityStore.isSendableStickerOriginal =
+      stickerSendabilityStore.isSendableSticker;
 
     BdApi.Patcher.after(
       this.plugin.meta.name,
-      stickerSendable.module,
-      sendableKey,
+      stickerSendabilityStore,
+      'getStickerSendability',
       (_, args) => {
         const sticker = args[0];
-        if (!sticker) return;
+        if (!this.isSendableSticker(sticker)) return;
 
-        return sticker.type === stickerType.GUILD;
+        return stickerSendabilityStore.StickerSendability.SENDABLE;
       }
     );
-
-    const suggestionKey = stickerSendable.stickerSuggestionKey;
-    if (suggestionKey === undefined) {
-      Logger.warn('Sticker suggestion function name not found');
-      return;
-    }
-
-    const sendableType = stickerSendable.stickerSendableType;
-    if (!sendableType) {
-      Logger.warn('Sticker sendable type not found');
-      return;
-    }
 
     BdApi.Patcher.after(
       this.plugin.meta.name,
-      stickerSendable.module,
-      suggestionKey,
+      stickerSendabilityStore,
+      'isSendableSticker',
       (_, args) => {
         const sticker = args[0];
-        if (sticker?.type !== stickerType.GUILD) return;
+        if (!this.isSendableSticker(sticker)) return;
 
-        return sendableType.SENDABLE;
+        return true;
       }
     );
+  }
+
+  isSendableSticker(sticker) {
+    return sticker?.type === this.modulesService.stickerType.GUILD;
   }
 
   stop() {

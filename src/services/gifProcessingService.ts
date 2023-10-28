@@ -3,7 +3,7 @@ import { Logger } from '../utils/logger'
 import { Command } from '../interfaces/gifData'
 import Worker from 'web-worker:../worker.ts'
 import { GifWorker, WorkerMessage, WorkerMessageType } from '../interfaces/workerData'
-import { PromiseUtils } from '../utils/promiseUtils'
+import { Utils } from '../utils/utils'
 
 export class GifProcessingService extends BaseService {
   public isProcessing = false
@@ -21,7 +21,7 @@ export class GifProcessingService extends BaseService {
       type: WorkerMessageType.INIT
     }
 
-    await PromiseUtils.workerMessagePromise(worker, request)
+    await Utils.workerMessagePromise(worker, request)
 
     this.worker = worker
     return worker
@@ -143,7 +143,7 @@ export class GifProcessingService extends BaseService {
     formatType: string,
     commands: Command[]
   ): Promise<Uint8Array> {
-    const data = await PromiseUtils.urlGetBuffer(url)
+    const data = await Utils.urlGetBuffer(url)
     const worker = await this.getWorker()
 
     const request: WorkerMessage = {
@@ -151,7 +151,7 @@ export class GifProcessingService extends BaseService {
       data: { data, formatType, commands }
     }
 
-    const response = await PromiseUtils.workerMessagePromise(worker, request)
+    const response = await Utils.workerMessagePromise(worker, request)
     if (!(response instanceof Uint8Array)) throw Error('Did not process gif!')
 
     return response

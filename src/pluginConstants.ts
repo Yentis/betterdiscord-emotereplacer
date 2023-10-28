@@ -1,6 +1,10 @@
 import Modifier from './interfaces/modifier'
 
 export const PLUGIN_CHANGELOG = [{
+  title: '2.1.4',
+  type: 'fixed',
+  items: ['Fix broken plugin due to Discord update']
+}, {
   title: '2.1.3',
   type: 'fixed',
   items: ['Fix emotes not working', 'Fix stickers not being animated']
@@ -8,19 +12,6 @@ export const PLUGIN_CHANGELOG = [{
   title: '2.1.2',
   type: 'fixed',
   items: ['Fix custom emote search not showing', 'Fix emotes sometimes not sendable']
-}, {
-  title: '2.1.1',
-  type: 'fixed',
-  items: [
-    'Fix missing param error for some modifiers'
-  ]
-}, {
-  title: '2.1.0',
-  type: 'added',
-  items: [
-    'Sticker support!',
-    'Fix processing failed for gifs where no resize is necessary'
-  ]
 }]
 
 export const SETTINGS_KEY = 'settings'

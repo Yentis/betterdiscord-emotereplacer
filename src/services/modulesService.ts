@@ -15,16 +15,14 @@ import UserStore from 'interfaces/modules/userStore'
 import { BaseService } from './baseService'
 import { CloudUploader } from 'interfaces/modules/cloudUploader'
 import DraftStore from 'interfaces/modules/draftStore'
-import { StickerSendable } from 'interfaces/modules/stickerSendable'
 import {
   StickerFormatType,
-  StickerSendableType,
   StickerType
 } from 'interfaces/modules/stickerTypes'
 import { BaseSearchOptions, ModuleFilter } from 'betterdiscord'
 import { StickerStore } from 'interfaces/modules/stickerStore'
-import { Sticker } from 'interfaces/sticker'
-import Channel from 'interfaces/channel'
+import { Logger } from '../utils/logger'
+import { StickerSendabilityStore } from 'interfaces/modules/stickerSendabilityStore'
 
 export class ModulesService extends BaseService {
   channelStore!: ChannelStore
@@ -39,9 +37,8 @@ export class ModulesService extends BaseService {
   emojiStore!: EmojiStore
   emojiSearch!: EmojiSearch
   emojiDisabledReasons!: EmojiDisabledReasons
-  stickerSendable: StickerSendable = {}
+  stickerSendabilityStore!: StickerSendabilityStore
   stickerType!: StickerType
-  stickerSendableType!: StickerSendableType
   stickerFormatType!: StickerFormatType
   stickerStore!: StickerStore
   userStore!: UserStore
@@ -106,6 +103,10 @@ export class ModulesService extends BaseService {
       }
     )
 
+    if (this.pendingReplyDispatcher.module === undefined) {
+      Logger.error('pendingReplyDispatcher module not found!')
+    }
+
     this.emojiStore = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('getEmojiUnavailableReason')
     ) as EmojiStore
@@ -118,32 +119,9 @@ export class ModulesService extends BaseService {
       BdApi.Webpack.Filters.byKeys('PREMIUM_LOCKED'), { searchExports: true }
     ) as EmojiDisabledReasons
 
-    this.stickerSendable.module = this.getModule(
-      (module: Record<string, (() => string) | Record<string, unknown> | undefined>) => {
-        Object.entries(module).forEach(([key, value]) => {
-          if (typeof value === 'object') {
-            if (value.SENDABLE_WITH_PREMIUM === undefined) return
-            this.stickerSendable.stickerSendableType = value as unknown as StickerSendableType
-          }
-
-          if (typeof value !== 'function') return
-          const valueString = value.toString()
-
-          if (valueString.includes('canUseStickersEverywhere')) {
-            this.stickerSendable.stickerSuggestionKey = key
-          } else if (valueString.includes('SENDABLE')) {
-            this.stickerSendable.stickerSendableKey = key
-            this.stickerSendable.stickerSendable = module[key] as unknown as (
-              sticker: Sticker,
-              userId: string,
-              channel: Channel
-            ) => boolean
-          }
-        })
-
-        return this.stickerSendable.stickerSendableKey !== undefined
-      }
-    )
+    this.stickerSendabilityStore = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byKeys('getStickerSendability')
+    ) as StickerSendabilityStore
 
     this.stickerType = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('STANDARD', 'GUILD'), { searchExports: true }
@@ -172,17 +150,19 @@ export class ModulesService extends BaseService {
 
         return curValue.NOT_STARTED !== undefined &&
                 curValue.UPLOADING !== undefined &&
-                module.n !== undefined
+                module.CloudUpload !== undefined
       })
     })
 
     const TextArea = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('channelTextArea', 'textArea')
     ) as Classes['TextArea']
+    if (TextArea === undefined) Logger.error('TextArea not found!')
 
     const Editor = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('editor', 'placeholder')
     ) as Classes['Editor']
+    if (Editor === undefined) Logger.error('Editor not found!')
 
     const Autocomplete = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys(
@@ -191,18 +171,22 @@ export class ModulesService extends BaseService {
         'autocompleteRowVertical'
       )
     ) as Classes['Autocomplete']
+    if (Autocomplete === undefined) Logger.error('Autocomplete not found!')
 
     const autocompleteAttached = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteAttached')
     ) as AutocompleteAttached
+    if (autocompleteAttached === undefined) Logger.error('autocompleteAttached not found!')
 
     const Wrapper = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('wrapper', 'base')
     ) as Classes['Wrapper']
+    if (Wrapper === undefined) Logger.error('Wrapper not found!')
 
     const Size = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('size12')
     ) as Classes['Size']
+    if (Size === undefined) Logger.error('Size not found!')
 
     this.classes = {
       TextArea,
@@ -220,6 +204,11 @@ export class ModulesService extends BaseService {
       Wrapper,
       Size
     }
+
+    Object.entries(this).forEach(([key, value]) => {
+      if (value !== undefined) return
+      Logger.error(`${key} not found!`)
+    })
 
     return Promise.resolve()
   }

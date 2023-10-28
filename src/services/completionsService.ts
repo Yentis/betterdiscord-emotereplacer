@@ -9,7 +9,7 @@ import { ListenersService } from './listenersService'
 import { ModulesService } from './modulesService'
 import { SettingsService } from './settingsService'
 import { Logger } from '../utils/logger'
-import { PromiseUtils } from '../utils/promiseUtils'
+import { Utils } from '../utils/utils'
 
 export class CompletionsService extends BaseService {
   public static readonly TAG = CompletionsService.name
@@ -138,11 +138,9 @@ export class CompletionsService extends BaseService {
     let delta = 0, options
     const autocompleteItems = Math.round(this.settingsService.settings.autocompleteItems)
 
-    switch (event.which) {
-      // Tab
-      case 9:
-      // Enter
-      case 13:
+    switch (event.key) {
+      case 'Tab':
+      case 'Enter':
         if (!this.prepareCompletions()) {
           break
         }
@@ -155,24 +153,20 @@ export class CompletionsService extends BaseService {
         this.insertSelectedCompletion().catch((error) => Logger.error(error))
         break
 
-      // Up
-      case 38:
+      case 'ArrowUp':
         delta = -1
         break
 
-      // Down
-      case 40:
+      case 'ArrowDown':
         delta = 1
         break
 
-      // Page Up
-      case 33:
+      case 'PageUp':
         delta = -autocompleteItems
         options = { locked: true, clamped: true }
         break
 
-      // Page Down
-      case 34:
+      case 'PageDown':
         delta = autocompleteItems
         options = { locked: true, clamped: true }
         break
@@ -293,10 +287,9 @@ export class CompletionsService extends BaseService {
     }
 
     this.cached = undefined
-    this.renderCompletions.cancel()
   }
 
-  public renderCompletions = _.debounce(() => {
+  private doRenderCompletions (): void {
     const channelTextArea = this.htmlService.getTextAreaContainer(this.curEditor)
     if (!channelTextArea) return
 
@@ -460,7 +453,7 @@ export class CompletionsService extends BaseService {
         containerIcon.append(containerImage)
 
         if (typeof data === 'string') {
-          PromiseUtils.loadImagePromise(
+          Utils.loadImagePromise(
             data,
             false,
             containerImage
@@ -493,7 +486,9 @@ export class CompletionsService extends BaseService {
         containerContent.append(containerContentInfo)
       }
     }
-  }, 250)
+  }
+
+  public renderCompletions = BdApi.Utils.debounce(this.doRenderCompletions.bind(this), 250)
 
   public scrollCompletions (e: WheelEvent, options?: ScrollOptions): void {
     const delta = Math.sign(e.deltaY)
@@ -507,7 +502,7 @@ export class CompletionsService extends BaseService {
     if (!this.cached) return
 
     const preScroll = 2
-    const { completions, selectedIndex: prevSel, windowOffset } = this.cached
+    const { completions, selectedIndex: prevSelectedIndex, windowOffset } = this.cached
     const autocompleteItems = Math.round(this.settingsService.settings.autocompleteItems)
 
     if (!completions) {
@@ -515,32 +510,37 @@ export class CompletionsService extends BaseService {
     }
 
     // Change selected index
-    const num = completions.length
-    let sel = (prevSel ?? 0) + delta
+    const completionsCount = completions.length
+    let selectedIndex = (prevSelectedIndex ?? 0) + delta
     if (clamped) {
-      sel = _.clamp(sel, 0, num - 1)
+      selectedIndex = Utils.clamp(selectedIndex, 0, completionsCount - 1)
     } else {
-      sel = (sel % num) + (sel < 0 ? num : 0)
+      selectedIndex = (
+        selectedIndex % completionsCount
+      ) + (
+        selectedIndex < 0 ? completionsCount : 0
+      )
     }
-    this.cached.selectedIndex = sel
+    this.cached.selectedIndex = selectedIndex
+
+    const boundMax = Math.max(0, completionsCount - autocompleteItems)
 
     // Clamp window position to bounds based on new selected index
-    const boundLower = _.clamp(
-      sel + preScroll - (autocompleteItems - 1),
+    const boundLower = Utils.clamp(
+      selectedIndex + preScroll - (autocompleteItems - 1),
       0,
-      num - autocompleteItems
+      boundMax
     )
+    const boundUpper = Utils.clamp(selectedIndex - preScroll, 0, boundMax)
 
-    const boundUpper = _.clamp(sel - preScroll, 0, num - autocompleteItems)
-    this.cached.windowOffset = _.clamp(
+    this.cached.windowOffset = Utils.clamp(
       (windowOffset ?? 0) + (locked ? delta : 0),
       boundLower,
       boundUpper
     )
 
     // Render immediately
-    this.renderCompletions()
-    this.renderCompletions.flush()
+    this.doRenderCompletions()
   }
 
   public stop (): void {

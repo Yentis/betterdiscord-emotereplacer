@@ -1,5 +1,5 @@
+import User from 'interfaces/user'
+
 export default interface UserStore {
-  getCurrentUser: () => {
-    id: string
-  } | undefined
+  getCurrentUser: () => User | undefined
 }

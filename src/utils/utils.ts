@@ -1,10 +1,10 @@
 import * as fs from 'fs'
 import { GifWorker, WorkerMessage } from 'interfaces/workerData'
 
-export class PromiseUtils {
+export class Utils {
   public static urlGetBuffer (url: string): Promise<Uint8Array> {
-    if (url.startsWith('http')) return PromiseUtils.fetchGetBuffer(url)
-    else return PromiseUtils.fsGetBuffer(url)
+    if (url.startsWith('http')) return Utils.fetchGetBuffer(url)
+    else return Utils.fsGetBuffer(url)
   }
 
   private static async fsGetBuffer (url: string): Promise<Uint8Array> {
@@ -48,7 +48,7 @@ export class PromiseUtils {
     if (url.startsWith('http') && !waitForLoad) {
       image.src = url
     } else {
-      const buffer = await PromiseUtils.urlGetBuffer(url)
+      const buffer = await Utils.urlGetBuffer(url)
       image.src = URL.createObjectURL(new Blob([buffer]))
     }
 
@@ -90,5 +90,9 @@ export class PromiseUtils {
 
       worker.postMessage(request)
     })
+  }
+
+  public static clamp (num: number, min: number, max: number): number {
+    return Math.min(Math.max(num, min), max)
   }
 }

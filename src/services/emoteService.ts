@@ -7,7 +7,7 @@ import { CompletionsService } from './completionsService'
 import { HtmlService } from './htmlService'
 import { ListenersService } from './listenersService'
 import { SettingsService } from './settingsService'
-import { PromiseUtils } from '../utils/promiseUtils'
+import { Utils } from '../utils/utils'
 import { EMOTE_MODIFIERS } from '../pluginConstants'
 
 export class EmoteService extends BaseService {
@@ -61,7 +61,7 @@ export class EmoteService extends BaseService {
       return {}
     }
 
-    const data = await PromiseUtils.urlGetBuffer(
+    const data = await Utils.urlGetBuffer(
       'https://raw.githubusercontent.com/Yentis/yentis.github.io/master/emotes/emotes.json'
     )
     const emoteNames = JSON.parse(new TextDecoder().decode(data)) as Record<string, string>

@@ -6,7 +6,7 @@ import { BaseService } from './baseService'
 import { EmoteService } from './emoteService'
 import { ListenersService } from './listenersService'
 import { Logger } from '../utils/logger'
-import { PromiseUtils } from '../utils/promiseUtils'
+import { Utils } from '../utils/utils'
 
 export class SettingsService extends BaseService {
   private static readonly ADD_BUTTON_CLICK_LISTENER = 'addButtonClick'
@@ -246,7 +246,7 @@ export class SettingsService extends BaseService {
       'It is recommended to use a single character not in use by other chat functionality, ' +
       'other prefixes may cause issues.',
       this.settings.prefix,
-      _.debounce((val: string) => {
+      BdApi.Utils.debounce((val: string) => {
         if (val === this.settings.prefix) return
 
         const previousPrefix = this.settings.prefix
@@ -300,7 +300,7 @@ export class SettingsService extends BaseService {
     containerImage.style.marginRight = '0.5rem'
 
     customEmoteContainer.append(containerImage)
-    PromiseUtils.loadImagePromise(url, false, containerImage).catch((error) => Logger.error(error))
+    Utils.loadImagePromise(url, false, containerImage).catch((error) => Logger.error(error))
 
     const deleteButton = document.createElement('button')
     deleteButton.type = 'button'

@@ -4,7 +4,7 @@ import * as path from 'path'
 import { Plugin } from 'betterdiscord'
 import { ExtendedMeta } from '../interfaces/extendedMeta'
 import { Logger } from '../utils/logger'
-import { PromiseUtils } from '../utils/promiseUtils'
+import { Utils } from '../utils/utils'
 
 export class RawPlugin implements Plugin {
   private meta: ExtendedMeta
@@ -27,7 +27,7 @@ export class RawPlugin implements Plugin {
         confirmText: 'Download Now',
         cancelText: 'Cancel',
         onConfirm: () => {
-          PromiseUtils.urlGetBuffer(
+          Utils.urlGetBuffer(
             'https://rauenzi.github.io/BDPluginLibrary/release/0PluginLibrary.plugin.js'
           ).then((data) => {
             fs.writeFile(

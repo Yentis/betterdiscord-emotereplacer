@@ -9,7 +9,7 @@ import { Logger } from '../utils/logger'
 import { SettingsService } from './settingsService'
 import { GifProcessingService } from './gifProcessingService'
 import { UploadOptions } from '../interfaces/modules/uploader'
-import { PromiseUtils } from '../utils/promiseUtils'
+import { Utils } from '../utils/utils'
 import { CloseNotice } from 'betterdiscord'
 
 export class SendMessageService extends BaseService {
@@ -127,15 +127,19 @@ export class SendMessageService extends BaseService {
     channelId: string,
     content?: string
   ): Promise<boolean> {
-    const userId = this.attachService.userId
-    if (userId === undefined) return false
-
     const sticker = this.modulesService.stickerStore.getStickerById(stickerId)
+    const user = this.modulesService.userStore.getCurrentUser()
     const channel = this.modulesService.channelStore.getChannel(channelId)
-    if (!channel) return false
 
-    const stickerSendable = this.modulesService.stickerSendable.stickerSendable
-    if (stickerSendable?.(sticker, userId, channel) === true) return false
+    if (!channel) return false
+    if (!user) return false
+
+    const isSendable = this.modulesService.stickerSendabilityStore.isSendableStickerOriginal(
+      sticker,
+      user,
+      channel
+    )
+    if (isSendable) return false
 
     const url = `https://media.discordapp.net/stickers/${stickerId}`
     const formatType = this.modulesService.stickerFormatType
@@ -360,7 +364,7 @@ export class SendMessageService extends BaseService {
   }
 
   private async getMetaAndModifyGif (emote: InternalEmote): Promise<void> {
-    const image = await PromiseUtils.loadImagePromise(emote.url)
+    const image = await Utils.loadImagePromise(emote.url)
 
     const commands = emote.commands
     this.addResizeCommand(commands, image)
@@ -463,7 +467,7 @@ export class SendMessageService extends BaseService {
     } else {
       const sizeNumber = typeof size === 'string' ? parseInt(size) : size
       if (!isNaN(sizeNumber)) {
-        return Math.min(Math.max(sizeNumber, 32), 160)
+        return Utils.clamp(sizeNumber, 32, 160)
       }
 
       return 48
@@ -475,7 +479,7 @@ export class SendMessageService extends BaseService {
     const paramNum = parseInt(param ?? '')
 
     if (!isNaN(paramNum)) {
-      return Math.max(Math.min(paramNum, 8), 2)
+      return Utils.clamp(paramNum, 2, 8)
     } else if (param === 'extreme') {
       return 8
     } else if (param === 'huge') {
@@ -502,8 +506,7 @@ export class SendMessageService extends BaseService {
       return
     }
 
-    // eslint-disable-next-line new-cap
-    const upload = new this.modulesService.cloudUploader.n(
+    const upload = new this.modulesService.cloudUploader.CloudUpload(
       { file: new File([fileData], fullName), platform: 1 },
       channelId
     )
@@ -537,7 +540,7 @@ export class SendMessageService extends BaseService {
     url: string,
     commands: InternalEmote['commands']
   ): Promise<Blob | undefined> {
-    const image = await PromiseUtils.loadImagePromise(url)
+    const image = await Utils.loadImagePromise(url)
     const canvas = await this.applyScaling(image, commands)
 
     return await new Promise((resolve) => {

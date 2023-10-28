@@ -1,7 +1,7 @@
 import { Upload } from 'interfaces/upload'
 
 export interface CloudUploader {
-  n: {
+  CloudUpload: {
     new (
       fileData: { file: File, platform: number },
       channelId: string
