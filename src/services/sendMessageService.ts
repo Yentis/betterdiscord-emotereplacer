@@ -141,7 +141,7 @@ export class SendMessageService extends BaseService {
     )
     if (isSendable) return false
 
-    const url = `https://media.discordapp.net/stickers/${stickerId}`
+    const url = `https://media.discordapp.net/stickers/${stickerId}?size=160`
     const formatType = this.modulesService.stickerFormatType
     let format: string
 

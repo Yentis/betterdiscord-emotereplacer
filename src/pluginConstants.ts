@@ -1,17 +1,12 @@
 import Modifier from './interfaces/modifier'
 
 export const PLUGIN_CHANGELOG = [{
-  title: '2.1.4',
-  type: 'fixed',
-  items: ['Fix broken plugin due to Discord update']
-}, {
-  title: '2.1.3',
-  type: 'fixed',
-  items: ['Fix emotes not working', 'Fix stickers not being animated']
-}, {
-  title: '2.1.2',
-  type: 'fixed',
-  items: ['Fix custom emote search not showing', 'Fix emotes sometimes not sendable']
+  title: '2.1.5',
+  type: 'improved',
+  items: [
+    'Stickers will scale using url parameters where possible, resulting in better quality',
+    'Default resize method is now scaling down largest side to match Discord\'s behaviour'
+  ]
 }]
 
 export const SETTINGS_KEY = 'settings'
@@ -23,7 +18,7 @@ export const DEFAULT_SETTINGS = {
   customEmotes: {},
   requirePrefix: true,
   prefix: ';',
-  resizeMethod: 'smallest',
+  resizeMethod: 'largest',
   showStandardEmotes: true
 }
 

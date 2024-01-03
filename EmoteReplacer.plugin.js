@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.1.4
+ * @version 2.1.5
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -181,21 +181,11 @@ class RawPlugin {
 
 const PLUGIN_CHANGELOG = [
   {
-    title: '2.1.4',
-    type: 'fixed',
-    items: ['Fix broken plugin due to Discord update'],
-  },
-  {
-    title: '2.1.3',
-    type: 'fixed',
-    items: ['Fix emotes not working', 'Fix stickers not being animated'],
-  },
-  {
-    title: '2.1.2',
-    type: 'fixed',
+    title: '2.1.5',
+    type: 'improved',
     items: [
-      'Fix custom emote search not showing',
-      'Fix emotes sometimes not sendable',
+      'Stickers will scale using url parameters where possible, resulting in better quality',
+      "Default resize method is now scaling down largest side to match Discord's behaviour",
     ],
   },
 ];
@@ -209,7 +199,7 @@ const DEFAULT_SETTINGS = {
   customEmotes: {},
   requirePrefix: true,
   prefix: ';',
-  resizeMethod: 'smallest',
+  resizeMethod: 'largest',
   showStandardEmotes: true,
 };
 
@@ -2906,7 +2896,7 @@ class SendMessageService extends BaseService {
       );
     if (isSendable) return false;
 
-    const url = `https://media.discordapp.net/stickers/${stickerId}`;
+    const url = `https://media.discordapp.net/stickers/${stickerId}?size=160`;
     const formatType = this.modulesService.stickerFormatType;
     let format;
 
