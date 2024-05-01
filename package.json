@@ -1,6 +1,6 @@
 {
   "name": "EmoteReplacer",
-  "version": "2.1.5",
+  "version": "2.1.6",
   "description": "Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/",
   "author": "Yentis",
   "authorId": "68834122860077056",
@@ -31,7 +31,6 @@
     "@types/betterdiscord": "github:zerthox/betterdiscord-types",
     "@types/node": "^17.0.21",
     "@types/react": "^17.0.40",
-    "@types/request": "^2.48.8",
     "@typescript-eslint/eslint-plugin": "^5.14.0",
     "@typescript-eslint/parser": "^5.14.0",
     "electron": "^23.2.0",
@@ -39,7 +38,6 @@
     "eslint-config-standard": "17.0.0",
     "eslint-plugin-deprecation": "^1.4.1",
     "prettier": "^2.8.7",
-    "request": "^2.88.2",
     "rollup": "2.78.0",
     "rollup-plugin-prettier": "^3.0.0",
     "rollup-plugin-web-worker-loader": "^1.6.1",

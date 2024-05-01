@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.1.5
+ * @version 2.1.6
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -181,12 +181,9 @@ class RawPlugin {
 
 const PLUGIN_CHANGELOG = [
   {
-    title: '2.1.5',
-    type: 'improved',
-    items: [
-      'Stickers will scale using url parameters where possible, resulting in better quality',
-      "Default resize method is now scaling down largest side to match Discord's behaviour",
-    ],
+    title: '2.1.6',
+    type: 'fixed',
+    items: ['Fix emote upload after Discord update'],
   },
 ];
 
@@ -2969,16 +2966,11 @@ class SendMessageService extends BaseService {
     }>`;
 
     const result = {};
-    const url = emoji.url.split('?')[0] ?? '';
-    if (!url) return {};
-    const extensionIndex = url.lastIndexOf('.');
+    const url = `https://cdn.discordapp.com/emojis/${emoji.id}`;
 
     result[emojiText] = {
       name: emojiName,
-      url:
-        url.substring(extensionIndex) === '.webp'
-          ? `${url.substring(0, extensionIndex)}.png`
-          : url,
+      url: emoji.animated ? `${url}.gif` : `${url}.png`,
     };
 
     const foundEmote = this.getTextPos(message.content, result);

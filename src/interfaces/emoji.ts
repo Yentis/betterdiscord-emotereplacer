@@ -3,7 +3,6 @@ export default interface Emoji {
   name: string
   originalName?: string
   allNamesString: string
-  url: string
 
   animated: boolean
   available: boolean

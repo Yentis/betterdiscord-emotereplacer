@@ -212,15 +212,11 @@ export class SendMessageService extends BaseService {
     const emojiText = `<${emoji.animated ? 'a' : ''}${allNamesString}${emoji.id}>`
 
     const result: Record<string, InternalEmoteSimple> = {}
-    const url = emoji.url.split('?')[0] ?? ''
-    if (!url) return {}
-    const extensionIndex = url.lastIndexOf('.')
+    const url = `https://cdn.discordapp.com/emojis/${emoji.id}`
 
     result[emojiText] = {
       name: emojiName,
-      url: url.substring(extensionIndex) === '.webp'
-        ? `${url.substring(0, extensionIndex)}.png`
-        : url
+      url: emoji.animated ? `${url}.gif` : `${url}.png`
     }
 
     const foundEmote = this.getTextPos(message.content, result)

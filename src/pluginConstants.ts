@@ -1,11 +1,10 @@
 import Modifier from './interfaces/modifier'
 
 export const PLUGIN_CHANGELOG = [{
-  title: '2.1.5',
-  type: 'improved',
+  title: '2.1.6',
+  type: 'fixed',
   items: [
-    'Stickers will scale using url parameters where possible, resulting in better quality',
-    'Default resize method is now scaling down largest side to match Discord\'s behaviour'
+    'Fix emote upload after Discord update'
   ]
 }]
 
