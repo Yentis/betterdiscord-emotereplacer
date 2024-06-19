@@ -1,10 +1,10 @@
 import Modifier from './interfaces/modifier'
 
 export const PLUGIN_CHANGELOG = [{
-  title: '2.1.6',
+  title: '2.1.7',
   type: 'fixed',
   items: [
-    'Fix emote upload after Discord update'
+    'Fix emote & sticker upload after Discord update'
   ]
 }]
 

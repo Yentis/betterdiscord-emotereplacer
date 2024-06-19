@@ -242,24 +242,28 @@ export class PatchesService extends BaseService {
 
   private stickerSendablePatch (): void {
     const stickerSendabilityStore = this.modulesService.stickerSendabilityStore
-    stickerSendabilityStore.isSendableStickerOriginal = stickerSendabilityStore.isSendableSticker
+    const StickerSendability = stickerSendabilityStore.StickerSendability
+
+    if (!StickerSendability) return
+    if (stickerSendabilityStore.getStickerSendabilityKey === undefined) return
+    if (!stickerSendabilityStore.isSendableSticker) return
 
     BdApi.Patcher.after(
       this.plugin.meta.name,
-      stickerSendabilityStore,
-      'getStickerSendability',
+      stickerSendabilityStore.module,
+      stickerSendabilityStore.getStickerSendabilityKey,
       (_, args) => {
         const sticker = args[0] as Sticker | undefined
         if (!this.isSendableSticker(sticker)) return
 
-        return stickerSendabilityStore.StickerSendability.SENDABLE
+        return StickerSendability.SENDABLE
       }
     )
 
     BdApi.Patcher.after(
       this.plugin.meta.name,
-      stickerSendabilityStore,
-      'isSendableSticker',
+      stickerSendabilityStore.module,
+      stickerSendabilityStore.isSendableSticker.key,
       (_, args) => {
         const sticker = args[0] as Sticker | undefined
         if (!this.isSendableSticker(sticker)) return

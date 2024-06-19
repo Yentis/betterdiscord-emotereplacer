@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.1.6
+ * @version 2.1.7
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -181,9 +181,9 @@ class RawPlugin {
 
 const PLUGIN_CHANGELOG = [
   {
-    title: '2.1.6',
+    title: '2.1.7',
     type: 'fixed',
-    items: ['Fix emote upload after Discord update'],
+    items: ['Fix emote & sticker upload after Discord update'],
   },
 ];
 
@@ -2568,7 +2568,7 @@ class ModulesService extends BaseService {
   userStore;
   messageStore;
   classes;
-  cloudUploader;
+  CloudUploader;
 
   start() {
     this.channelStore = BdApi.Webpack.getModule(
@@ -2648,9 +2648,37 @@ class ModulesService extends BaseService {
       { searchExports: true }
     );
 
-    this.stickerSendabilityStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('getStickerSendability')
+    const [module] = BdApi.Webpack.getWithKey(
+      BdApi.Webpack.Filters.byStrings('canUseCustomStickersEverywhere')
     );
+
+    this.stickerSendabilityStore = {
+      module,
+    };
+
+    const entries = Object.entries(module);
+    entries.forEach(([key, value], index) => {
+      if (index >= 3) return;
+
+      if ('SENDABLE_WITH_PREMIUM' in value) {
+        this.stickerSendabilityStore.StickerSendability = value;
+      } else if (
+        typeof value === 'function' &&
+        value.toString().includes('canUseCustomStickersEverywhere')
+      ) {
+        this.stickerSendabilityStore.getStickerSendabilityKey = key;
+      } else {
+        this.stickerSendabilityStore.isSendableSticker = {
+          key,
+          method: value,
+        };
+      }
+    });
+
+    Object.entries(this.stickerSendabilityStore).forEach(([key, value]) => {
+      if (value !== undefined) return;
+      Logger.error(`${key} not found!`);
+    });
 
     this.stickerType = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('STANDARD', 'GUILD'),
@@ -2680,18 +2708,10 @@ class ModulesService extends BaseService {
       BdApi.Webpack.Filters.byKeys('sendMessage')
     );
 
-    this.cloudUploader = this.getModule((module) => {
-      return Object.values(module).some((value) => {
-        if (typeof value !== 'object' || value === null) return false;
-        const curValue = value;
-
-        return (
-          curValue.NOT_STARTED !== undefined &&
-          curValue.UPLOADING !== undefined &&
-          module.CloudUpload !== undefined
-        );
-      });
-    });
+    this.CloudUploader = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byStrings('uploadFileToCloud'),
+      { searchExports: true }
+    );
 
     const TextArea = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('channelTextArea', 'textArea')
@@ -2886,12 +2906,12 @@ class SendMessageService extends BaseService {
     if (!user) return false;
 
     const isSendable =
-      this.modulesService.stickerSendabilityStore.isSendableStickerOriginal(
+      this.modulesService.stickerSendabilityStore.isSendableSticker?.method(
         sticker,
         user,
         channel
       );
-    if (isSendable) return false;
+    if (isSendable === true) return false;
 
     const url = `https://media.discordapp.net/stickers/${stickerId}?size=160`;
     const formatType = this.modulesService.stickerFormatType;
@@ -3251,7 +3271,7 @@ class SendMessageService extends BaseService {
       return;
     }
 
-    const upload = new this.modulesService.cloudUploader.CloudUpload(
+    const upload = new this.modulesService.CloudUploader(
       { file: new File([fileData], fullName), platform: 1 },
       channelId
     );
@@ -3664,25 +3684,28 @@ class PatchesService extends BaseService {
 
   stickerSendablePatch() {
     const stickerSendabilityStore = this.modulesService.stickerSendabilityStore;
-    stickerSendabilityStore.isSendableStickerOriginal =
-      stickerSendabilityStore.isSendableSticker;
+    const StickerSendability = stickerSendabilityStore.StickerSendability;
+
+    if (!StickerSendability) return;
+    if (stickerSendabilityStore.getStickerSendabilityKey === undefined) return;
+    if (!stickerSendabilityStore.isSendableSticker) return;
 
     BdApi.Patcher.after(
       this.plugin.meta.name,
-      stickerSendabilityStore,
-      'getStickerSendability',
+      stickerSendabilityStore.module,
+      stickerSendabilityStore.getStickerSendabilityKey,
       (_, args) => {
         const sticker = args[0];
         if (!this.isSendableSticker(sticker)) return;
 
-        return stickerSendabilityStore.StickerSendability.SENDABLE;
+        return StickerSendability.SENDABLE;
       }
     );
 
     BdApi.Patcher.after(
       this.plugin.meta.name,
-      stickerSendabilityStore,
-      'isSendableSticker',
+      stickerSendabilityStore.module,
+      stickerSendabilityStore.isSendableSticker.key,
       (_, args) => {
         const sticker = args[0];
         if (!this.isSendableSticker(sticker)) return;

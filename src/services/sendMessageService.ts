@@ -134,12 +134,12 @@ export class SendMessageService extends BaseService {
     if (!channel) return false
     if (!user) return false
 
-    const isSendable = this.modulesService.stickerSendabilityStore.isSendableStickerOriginal(
+    const isSendable = this.modulesService.stickerSendabilityStore.isSendableSticker?.method(
       sticker,
       user,
       channel
     )
-    if (isSendable) return false
+    if (isSendable === true) return false
 
     const url = `https://media.discordapp.net/stickers/${stickerId}?size=160`
     const formatType = this.modulesService.stickerFormatType
@@ -502,7 +502,7 @@ export class SendMessageService extends BaseService {
       return
     }
 
-    const upload = new this.modulesService.cloudUploader.CloudUpload(
+    const upload = new this.modulesService.CloudUploader(
       { file: new File([fileData], fullName), platform: 1 },
       channelId
     )

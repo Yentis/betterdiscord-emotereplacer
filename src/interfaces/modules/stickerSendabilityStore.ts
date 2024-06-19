@@ -3,11 +3,16 @@ import { StickerSendableType } from './stickerTypes'
 import User from 'interfaces/user'
 import Channel from 'interfaces/channel'
 
-type stickerSendabilityFunc = (sticker: Sticker, user: User, channel: Channel) => number
+export type stickerSendableFunc = (sticker: Sticker, user: User, channel: Channel) => boolean
+
+export type IsSendableSticker = {
+  key: string;
+  method: stickerSendableFunc
+}
 
 export interface StickerSendabilityStore {
-  StickerSendability: StickerSendableType
-  getStickerSendability: stickerSendabilityFunc
-  isSendableSticker: stickerSendabilityFunc
-  isSendableStickerOriginal: stickerSendabilityFunc
+  module: Record<string, unknown>
+  StickerSendability?: StickerSendableType
+  getStickerSendabilityKey?: string
+  isSendableSticker?: IsSendableSticker
 }

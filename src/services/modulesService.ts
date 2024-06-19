@@ -13,16 +13,20 @@ import Permissions from 'interfaces/modules/permissions'
 import Uploader from 'interfaces/modules/uploader'
 import UserStore from 'interfaces/modules/userStore'
 import { BaseService } from './baseService'
-import { CloudUploader } from 'interfaces/modules/cloudUploader'
+import { CloudUpload } from 'interfaces/modules/cloudUploader'
 import DraftStore from 'interfaces/modules/draftStore'
 import {
   StickerFormatType,
+  StickerSendableType,
   StickerType
 } from 'interfaces/modules/stickerTypes'
 import { BaseSearchOptions, ModuleFilter } from 'betterdiscord'
 import { StickerStore } from 'interfaces/modules/stickerStore'
 import { Logger } from '../utils/logger'
-import { StickerSendabilityStore } from 'interfaces/modules/stickerSendabilityStore'
+import {
+  StickerSendabilityStore,
+  stickerSendableFunc
+} from 'interfaces/modules/stickerSendabilityStore'
 
 export class ModulesService extends BaseService {
   channelStore!: ChannelStore
@@ -44,7 +48,7 @@ export class ModulesService extends BaseService {
   userStore!: UserStore
   messageStore!: MessageStore
   classes!: Classes
-  cloudUploader!: CloudUploader
+  CloudUploader!: CloudUpload
 
   public start (): Promise<void> {
     this.channelStore = BdApi.Webpack.getModule(
@@ -119,9 +123,37 @@ export class ModulesService extends BaseService {
       BdApi.Webpack.Filters.byKeys('PREMIUM_LOCKED'), { searchExports: true }
     ) as EmojiDisabledReasons
 
-    this.stickerSendabilityStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('getStickerSendability')
-    ) as StickerSendabilityStore
+    const [module] = BdApi.Webpack.getWithKey(
+      BdApi.Webpack.Filters.byStrings('canUseCustomStickersEverywhere')
+    ) as [Record<string, unknown>, string]
+
+    this.stickerSendabilityStore = {
+      module
+    }
+
+    const entries = Object.entries(module)
+    entries.forEach(([key, value], index) => {
+      if (index >= 3) return
+
+      if ('SENDABLE_WITH_PREMIUM' in (value as Record<string, unknown>)) {
+        this.stickerSendabilityStore.StickerSendability = value as StickerSendableType
+      } else if (
+        typeof value === 'function' &&
+        value.toString().includes('canUseCustomStickersEverywhere')
+      ) {
+        this.stickerSendabilityStore.getStickerSendabilityKey = key
+      } else {
+        this.stickerSendabilityStore.isSendableSticker = {
+          key,
+          method: value as stickerSendableFunc
+        }
+      }
+    })
+
+    Object.entries(this.stickerSendabilityStore).forEach(([key, value]) => {
+      if (value !== undefined) return
+      Logger.error(`${key} not found!`)
+    })
 
     this.stickerType = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('STANDARD', 'GUILD'), { searchExports: true }
@@ -143,16 +175,9 @@ export class ModulesService extends BaseService {
       BdApi.Webpack.Filters.byKeys('sendMessage')
     ) as MessageStore
 
-    this.cloudUploader = this.getModule((module: Record<string, unknown>) => {
-      return Object.values(module).some((value) => {
-        if (typeof value !== 'object' || value === null) return false
-        const curValue = value as Record<string, unknown>
-
-        return curValue.NOT_STARTED !== undefined &&
-                curValue.UPLOADING !== undefined &&
-                module.CloudUpload !== undefined
-      })
-    })
+    this.CloudUploader = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byStrings('uploadFileToCloud'), { searchExports: true }
+    ) as CloudUpload
 
     const TextArea = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('channelTextArea', 'textArea')
