@@ -14,12 +14,13 @@ And the plugin: https://raw.githubusercontent.com/Yentis/betterdiscord-emoterepl
 Open Discord -> Settings -> Plugins -> Open plugin folder and place the 2 plugins there.  
 Enable them in the Plugins menu and hit Ctrl + R.  
 
-Custom emotes can be added and the prefix can be changed through the settings menu.  
+Using this plugin you can use any Discord emotes (and stickers!) along with whatever modifiers you like.  
+Just type them as usual and they will be sent as an image if you don't currently have nitro.  
+
+Additionally, custom emotes can be added and the prefix can be changed through the settings menu.  
 Begin typing emote names as you would regular Discord emotes **with ; instead of :**  
 
 ![Preview](https://i.imgur.com/iGB4ZAQ.png)  
-You can also use any existing Discord emotes (and stickers!) along with whatever modifiers you like.  
-Just type them as usual and they will be sent as an image if you don't currently have nitro.
 
 # Resources
 List of emotes: https://yentis.github.io/emotes  
