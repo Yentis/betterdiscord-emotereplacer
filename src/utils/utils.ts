@@ -1,5 +1,7 @@
 import * as fs from 'fs'
-import { GifWorker, WorkerMessage } from 'interfaces/workerData'
+import { BdApiExtended } from '../interfaces/bdapi'
+import { GifWorker, WorkerMessage } from '../interfaces/workerData'
+import { Setting } from '../interfaces/settings'
 
 export class Utils {
   public static urlGetBuffer (url: string): Promise<Uint8Array> {
@@ -15,13 +17,6 @@ export class Utils {
   }
 
   private static async fetchGetBuffer (url: string): Promise<Uint8Array> {
-    // TODO: remove custom TS type when BD types are updated
-    type BdApiExtended = typeof BdApi & {
-      Net: {
-        fetch: (url: string) => Promise<Response>
-      }
-    };
-
     const response = await (BdApi as BdApiExtended).Net.fetch(url)
     const statusCode = response.status
     if (statusCode !== 0 && (statusCode < 200 || statusCode >= 400)) {
@@ -94,5 +89,70 @@ export class Utils {
 
   public static clamp (num: number, min: number, max: number): number {
     return Math.min(Math.max(num, min), max)
+  }
+
+  public static SliderSetting (options: Setting<number> & {
+    min: number;
+    max: number;
+    step?: number;
+  }) {
+    return {
+      ...options,
+      type: 'slider'
+    }
+  }
+
+  public static SwitchSetting (
+    options: Setting<boolean>
+  ) {
+    return {
+      ...options,
+      type: 'switch'
+    }
+  }
+
+  public static TextSetting (options: Setting<string> & {
+    maxLength?: number;
+    placeholder?: string;
+    onKeyDown?: (event: InputEvent) => void;
+  }) {
+    return {
+      ...options,
+      type: 'text'
+    }
+  }
+
+  public static RadioSetting<T> (options: Setting<T> & {
+    options: {
+      name: string;
+      desc?: string;
+      value: T
+    }[];
+  }) {
+    return {
+      ...options,
+      type: 'radio'
+    }
+  }
+
+  public static SettingItem (options: Setting & {
+    inline?: boolean;
+    children: unknown[];
+  }) {
+    return {
+      ...options,
+      type: 'custom'
+    }
+  }
+
+  public static SettingCategory (options: Setting & {
+    settings: Setting[];
+    collapsible?: boolean;
+    shown?: boolean;
+  }) {
+    return {
+      ...options,
+      type: 'category'
+    }
   }
 }

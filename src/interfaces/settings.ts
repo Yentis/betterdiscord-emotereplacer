@@ -1,4 +1,4 @@
-export default interface Settings {
+export interface Settings {
   emoteSize: number,
   autocompleteEmoteSize: number,
   autocompleteItems: number,
@@ -7,4 +7,13 @@ export default interface Settings {
   prefix: string,
   resizeMethod: string,
   showStandardEmotes: boolean
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Setting<T = any> = {
+  id: string;
+  name?: string;
+  note?: string;
+  value?: T;
+  disabled?: boolean;
 }

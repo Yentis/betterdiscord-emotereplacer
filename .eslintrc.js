@@ -34,6 +34,7 @@ module.exports = {
     'multiline-ternary': 'off',
     'no-unused-vars': 'off',
     'no-fallthrough': 'off',
+    'comma-dangle': 'off',
     'max-len': ['error', { code: 100 }],
 
     'import/first': 'off',

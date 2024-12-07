@@ -1,13 +1,10 @@
-import { EmoteReplacerPlugin } from 'classes/emoteReplacerPlugin'
-import ZeresPluginLibrary from 'interfaces/zeresPluginLibrary'
+import EmoteReplacerPlugin from '../index'
 
 export abstract class BaseService {
   plugin: EmoteReplacerPlugin
-  zeresPluginLibrary: ZeresPluginLibrary
 
-  constructor (plugin: EmoteReplacerPlugin, zeresPluginLibrary: ZeresPluginLibrary) {
+  constructor (plugin: EmoteReplacerPlugin) {
     this.plugin = plugin
-    this.zeresPluginLibrary = zeresPluginLibrary
   }
 
   public abstract start (...args: unknown[]): Promise<void>

@@ -1,10 +1,11 @@
+import { ChangelogChanges } from './interfaces/bdapi'
 import Modifier from './interfaces/modifier'
 
-export const PLUGIN_CHANGELOG = [{
-  title: '2.1.7',
-  type: 'fixed',
+export const PLUGIN_CHANGELOG: ChangelogChanges[] = [{
+  title: '2.2.0',
+  type: 'changed',
   items: [
-    'Fix emote & sticker upload after Discord update'
+    'Removed dependency on ZeresPluginLibrary'
   ]
 }]
 

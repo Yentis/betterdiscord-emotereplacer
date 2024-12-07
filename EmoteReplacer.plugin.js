@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.1.7
+ * @version 2.2.0
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -10,180 +10,13 @@
  */
 'use strict';
 
-var electron = require('electron');
 var fs = require('fs');
-var path = require('path');
-
-class Logger {
-  static pluginName;
-
-  static setLogger(pluginName) {
-    this.pluginName = pluginName;
-  }
-
-  static debug(...args) {
-    console.debug(this.pluginName, ...args);
-  }
-
-  static info(...args) {
-    console.info(this.pluginName, ...args);
-  }
-
-  static warn(...args) {
-    console.warn(this.pluginName, ...args);
-  }
-
-  static error(...args) {
-    console.error(this.pluginName, ...args);
-  }
-}
-
-class Utils {
-  static urlGetBuffer(url) {
-    if (url.startsWith('http')) return Utils.fetchGetBuffer(url);
-    else return Utils.fsGetBuffer(url);
-  }
-
-  static async fsGetBuffer(url) {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const data = fs.readFileSync(url, '');
-    return await Promise.resolve(data);
-  }
-
-  static async fetchGetBuffer(url) {
-    // TODO: remove custom TS type when BD types are updated
-
-    const response = await BdApi.Net.fetch(url);
-    const statusCode = response.status;
-    if (statusCode !== 0 && (statusCode < 200 || statusCode >= 400)) {
-      throw new Error(response.statusText);
-    }
-    if (!response.body) throw new Error(`No response body for url: ${url}`);
-
-    const arrayBuffer = await response.arrayBuffer();
-    return new Uint8Array(arrayBuffer);
-  }
-
-  static async loadImagePromise(url, waitForLoad = true, element) {
-    const image = element ?? new Image();
-
-    const loadPromise = new Promise((resolve, reject) => {
-      image.onload = () => {
-        resolve();
-      };
-      image.onerror = () => {
-        reject(new Error(`Failed to load image for url ${url}`));
-      };
-    });
-
-    if (url.startsWith('http') && !waitForLoad) {
-      image.src = url;
-    } else {
-      const buffer = await Utils.urlGetBuffer(url);
-      image.src = URL.createObjectURL(new Blob([buffer]));
-    }
-
-    if (waitForLoad) await loadPromise;
-    return image;
-  }
-
-  static delay(duration) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve();
-      }, duration);
-    });
-  }
-
-  static workerMessagePromise(worker, request) {
-    return new Promise((resolve, reject) => {
-      worker.onterminate = () => {
-        reject(new Error('Cancelled'));
-      };
-
-      worker.onerror = (error) => {
-        reject(error);
-      };
-
-      worker.onmessage = (message) => {
-        const response = message.data;
-        if (response.type !== request.type) return;
-
-        if (response.data instanceof Error) {
-          reject(response.data);
-        } else {
-          resolve(response.data);
-        }
-      };
-
-      worker.postMessage(request);
-    });
-  }
-
-  static clamp(num, min, max) {
-    return Math.min(Math.max(num, min), max);
-  }
-}
-
-class RawPlugin {
-  meta;
-
-  constructor(meta) {
-    this.meta = meta;
-    Logger.setLogger(meta.name);
-  }
-
-  start() {
-    this.showLibraryMissingModal();
-  }
-
-  showLibraryMissingModal() {
-    BdApi.UI.showConfirmationModal(
-      'Library Missing',
-      `The library plugin needed for ${this.meta.name} is missing. ` +
-        'Please click Download Now to install it.',
-      {
-        confirmText: 'Download Now',
-        cancelText: 'Cancel',
-        onConfirm: () => {
-          Utils.urlGetBuffer(
-            'https://rauenzi.github.io/BDPluginLibrary/release/0PluginLibrary.plugin.js'
-          )
-            .then((data) => {
-              fs.writeFile(
-                path.join(BdApi.Plugins.folder, '0PluginLibrary.plugin.js'),
-                data,
-                () => {
-                  /* Do nothing */
-                }
-              );
-            })
-            .catch(() => {
-              electron.shell
-                .openExternal(
-                  'https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi' +
-                    '/BDPluginLibrary/master/release/0PluginLibrary.plugin.js'
-                )
-                .catch((error) => {
-                  Logger.error(error);
-                });
-            });
-        },
-      }
-    );
-  }
-
-  stop() {
-    // Do nothing
-  }
-}
 
 const PLUGIN_CHANGELOG = [
   {
-    title: '2.1.7',
-    type: 'fixed',
-    items: ['Fix emote & sticker upload after Discord update'],
+    title: '2.2.0',
+    type: 'changed',
+    items: ['Removed dependency on ZeresPluginLibrary'],
   },
 ];
 
@@ -301,13 +134,163 @@ const EMOTE_MODIFIERS = [
   },
 ];
 
+class Logger {
+  static pluginName;
+
+  static setLogger(pluginName) {
+    this.pluginName = pluginName;
+  }
+
+  static debug(...args) {
+    console.debug(this.pluginName, ...args);
+  }
+
+  static info(...args) {
+    console.info(this.pluginName, ...args);
+  }
+
+  static warn(...args) {
+    console.warn(this.pluginName, ...args);
+  }
+
+  static error(...args) {
+    console.error(this.pluginName, ...args);
+  }
+}
+
 class BaseService {
   plugin;
-  zeresPluginLibrary;
 
-  constructor(plugin, zeresPluginLibrary) {
+  constructor(plugin) {
     this.plugin = plugin;
-    this.zeresPluginLibrary = zeresPluginLibrary;
+  }
+}
+
+class Utils {
+  static urlGetBuffer(url) {
+    if (url.startsWith('http')) return Utils.fetchGetBuffer(url);
+    else return Utils.fsGetBuffer(url);
+  }
+
+  static async fsGetBuffer(url) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const data = fs.readFileSync(url, '');
+    return await Promise.resolve(data);
+  }
+
+  static async fetchGetBuffer(url) {
+    const response = await BdApi.Net.fetch(url);
+    const statusCode = response.status;
+    if (statusCode !== 0 && (statusCode < 200 || statusCode >= 400)) {
+      throw new Error(response.statusText);
+    }
+    if (!response.body) throw new Error(`No response body for url: ${url}`);
+
+    const arrayBuffer = await response.arrayBuffer();
+    return new Uint8Array(arrayBuffer);
+  }
+
+  static async loadImagePromise(url, waitForLoad = true, element) {
+    const image = element ?? new Image();
+
+    const loadPromise = new Promise((resolve, reject) => {
+      image.onload = () => {
+        resolve();
+      };
+      image.onerror = () => {
+        reject(new Error(`Failed to load image for url ${url}`));
+      };
+    });
+
+    if (url.startsWith('http') && !waitForLoad) {
+      image.src = url;
+    } else {
+      const buffer = await Utils.urlGetBuffer(url);
+      image.src = URL.createObjectURL(new Blob([buffer]));
+    }
+
+    if (waitForLoad) await loadPromise;
+    return image;
+  }
+
+  static delay(duration) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, duration);
+    });
+  }
+
+  static workerMessagePromise(worker, request) {
+    return new Promise((resolve, reject) => {
+      worker.onterminate = () => {
+        reject(new Error('Cancelled'));
+      };
+
+      worker.onerror = (error) => {
+        reject(error);
+      };
+
+      worker.onmessage = (message) => {
+        const response = message.data;
+        if (response.type !== request.type) return;
+
+        if (response.data instanceof Error) {
+          reject(response.data);
+        } else {
+          resolve(response.data);
+        }
+      };
+
+      worker.postMessage(request);
+    });
+  }
+
+  static clamp(num, min, max) {
+    return Math.min(Math.max(num, min), max);
+  }
+
+  static SliderSetting(options) {
+    return {
+      ...options,
+      type: 'slider',
+    };
+  }
+
+  static SwitchSetting(options) {
+    return {
+      ...options,
+      type: 'switch',
+    };
+  }
+
+  static TextSetting(options) {
+    return {
+      ...options,
+      type: 'text',
+    };
+  }
+
+  static RadioSetting(options) {
+    return {
+      ...options,
+      type: 'radio',
+    };
+  }
+
+  static SettingItem(options) {
+    return {
+      ...options,
+      type: 'custom',
+    };
+  }
+
+  static SettingCategory(options) {
+    return {
+      ...options,
+      type: 'category',
+    };
   }
 }
 
@@ -1213,11 +1196,11 @@ class AttachService extends BaseService {
 }
 
 class SettingsService extends BaseService {
-  static ADD_BUTTON_CLICK_LISTENER = 'addButtonClick';
-  static REFRESH_BUTTON_CLICK_LISTENER = 'refreshButtonClick';
   static DELETE_BUTTON_CLICK_LISTENER = 'deleteButtonClick';
 
   listenersService;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  settingListeners = {};
 
   settings = DEFAULT_SETTINGS;
 
@@ -1232,9 +1215,11 @@ class SettingsService extends BaseService {
 
   getSettingsElement() {
     const emoteService = this.plugin.emoteService;
-    if (!emoteService) return new HTMLElement();
+    if (!emoteService) return undefined;
 
-    const Settings = this.zeresPluginLibrary.Settings;
+    const UI = BdApi.UI;
+    const React = BdApi.React;
+    const ReactDOM = BdApi.ReactDOM;
     const settings = [];
 
     this.pushRegularSettings(settings, emoteService);
@@ -1243,155 +1228,181 @@ class SettingsService extends BaseService {
     emoteFolderPicker.type = 'file';
     emoteFolderPicker.multiple = true;
     emoteFolderPicker.accept = '.png,.gif';
+    const EmoteFolderPicker = BdApi.ReactUtils.wrapElement(emoteFolderPicker);
 
-    let emoteName;
-    const emoteNameTextbox = new Settings.Textbox(
-      undefined,
-      'Emote name',
-      undefined,
-      (val) => {
-        emoteName = val;
-      }
-    );
+    const emoteFolderPickerItem = Utils.SettingItem({
+      id: 'emoteFolderPicker',
+      inline: false,
+      children: [React.createElement(EmoteFolderPicker)],
+    });
 
-    let imageUrl;
-    const imageUrlTextbox = new Settings.Textbox(
-      undefined,
-      'Image URL (must end with .gif or .png, 128px recommended)',
-      undefined,
-      (val) => {
-        imageUrl = val;
-      }
-    );
+    const emoteName = document.createElement('input');
+    emoteName.type = 'text';
+    emoteName.className = 'bd-text-input';
+    const EmoteName = BdApi.ReactUtils.wrapElement(emoteName);
 
-    const addButton = document.createElement('button');
-    addButton.type = 'button';
-    addButton.classList.add('bd-button');
-    addButton.textContent = 'Add';
-    const addSettingField = new Settings.SettingField(
-      undefined,
-      undefined,
-      undefined,
-      addButton
-    );
+    const emoteNameItem = Utils.SettingItem({
+      id: 'emoteName',
+      name: 'Emote name',
+      children: [React.createElement(EmoteName)],
+    });
 
-    const customEmotesContainer = document.createElement('div');
-    const addListener = {
-      element: addButton,
-      name: 'click',
-      callback: () => {
-        const files = emoteFolderPicker.files ?? [];
+    const imageUrl = document.createElement('input');
+    imageUrl.type = 'text';
+    imageUrl.className = 'bd-text-input';
+    const ImageUrl = BdApi.ReactUtils.wrapElement(imageUrl);
 
-        const addPromises = (
-          files.length > 0
-            ? Array.from(files).map((file) => {
-                const fileName = file.name.substring(
-                  0,
-                  file.name.lastIndexOf('.')
-                );
-                return this.addEmote(fileName, file.path);
-              })
-            : [this.addEmote(emoteName, imageUrl)]
-        ).map(async (promise) => {
-          const emoteName = await promise;
-          customEmotesContainer.append(
-            this.createCustomEmoteContainer(emoteName, emoteService)
+    const imageUrlItem = Utils.SettingItem({
+      id: 'imageUrl',
+      name: 'Image URL',
+      note: 'must end with .gif or .png, 128px recommended',
+      children: [React.createElement(ImageUrl)],
+    });
+
+    const addButton = React.createElement(
+      'button',
+      {
+        type: 'button',
+        className:
+          'bd-button bd-button-filled bd-button-color-brand bd-button-medium',
+        onClick: () => {
+          const files = Array.from(emoteFolderPicker.files ?? []).map(
+            (file) => {
+              return {
+                name: file.name.substring(0, file.name.lastIndexOf('.')),
+                // TODO: file.path doesn't work anymore
+                url: '',
+              };
+            }
           );
-        });
 
-        Promise.allSettled(addPromises)
-          .then((results) => {
-            const errors = [];
-            results.forEach((result) => {
-              if (result.status === 'fulfilled') return;
-              errors.push(result.reason);
-              Logger.error(result.reason);
-            });
+          if (files.length <= 0) {
+            files.push({ name: emoteName.value, url: imageUrl.value });
+          }
 
-            const firstError = errors[0];
-            if (firstError) {
-              BdApi.UI.showToast(
-                `${firstError.message}${
-                  errors.length > 1 ? '\nSee console for all errors' : ''
-                }`,
-                { type: 'error' }
+          const settingsContainers = document.querySelectorAll(
+            '.bd-settings-container'
+          );
+          const emoteContainer =
+            settingsContainers[settingsContainers.length - 1];
+
+          const addPromises = files
+            .map((file) => {
+              return this.addEmote(file.name, file.url);
+            })
+            .map(async (promise) => {
+              if (!(emoteContainer instanceof HTMLElement)) return;
+
+              const emoteName = await promise;
+              const setting = this.createCustomEmoteContainer(
+                emoteName,
+                emoteService
               );
 
-              if (addPromises.length === 1) return;
-            }
+              const newEmote = document.createElement('div');
+              emoteContainer.append(newEmote);
 
-            emoteFolderPicker.value = '';
-            const emoteNameTextboxInput = emoteNameTextbox
-              .getElement()
-              .querySelector('input');
-            if (emoteNameTextboxInput) emoteNameTextboxInput.value = '';
+              const root = ReactDOM.createRoot(newEmote);
+              root.render(UI.buildSetting(setting));
+            });
 
-            const imageUrlTextboxInput = imageUrlTextbox
-              .getElement()
-              .querySelector('input');
-            if (imageUrlTextboxInput) imageUrlTextboxInput.value = '';
+          Promise.allSettled(addPromises)
+            .then((results) => {
+              const errors = [];
+              results.forEach((result) => {
+                if (result.status === 'fulfilled') return;
 
-            BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
-            BdApi.UI.showToast('Emote(s) have been saved', { type: 'success' });
-          })
-          .catch((error) => {
-            BdApi.UI.showToast(error.message, { type: 'error' });
-          });
+                errors.push(result.reason);
+                Logger.error(result.reason);
+              });
+
+              const firstError = errors[0];
+              if (firstError) {
+                UI.showToast(
+                  `${firstError.message}${
+                    errors.length > 1 ? '\nSee console for all errors' : ''
+                  }`,
+                  { type: 'error' }
+                );
+
+                if (addPromises.length === 1) return;
+              }
+
+              emoteFolderPicker.value = '';
+              emoteName.value = '';
+              imageUrl.value = '';
+
+              BdApi.Data.save(
+                this.plugin.meta.name,
+                SETTINGS_KEY,
+                this.settings
+              );
+              UI.showToast('Emote(s) have been saved', { type: 'success' });
+            })
+            .catch((error) => {
+              UI.showToast(error.message, { type: 'error' });
+            });
+        },
       },
-    };
-    addButton.addEventListener(addListener.name, addListener.callback);
-    this.listenersService.addListener(
-      SettingsService.ADD_BUTTON_CLICK_LISTENER,
-      addListener
+      'Add'
     );
 
+    const addSettingItem = Utils.SettingItem({
+      id: 'addButton',
+      inline: false,
+      children: [addButton],
+    });
+
+    const customEmoteSettings = [];
+
     Object.keys(this.settings.customEmotes).forEach((key) => {
-      customEmotesContainer.append(
+      customEmoteSettings.push(
         this.createCustomEmoteContainer(key, emoteService)
       );
     });
 
-    const customEmoteGroup = new Settings.SettingGroup('Custom emotes');
-    customEmoteGroup.append(
-      emoteFolderPicker,
-      emoteNameTextbox,
-      imageUrlTextbox,
-      addSettingField,
-      customEmotesContainer
-    );
+    const customEmoteGroup = Utils.SettingCategory({
+      id: 'customEmoteGroup',
+      name: 'Custom emotes',
+      collapsible: true,
+      shown: false,
+      settings: [
+        emoteFolderPickerItem,
+        emoteNameItem,
+        imageUrlItem,
+        addSettingItem,
+        ...customEmoteSettings,
+      ],
+    });
     settings.push(customEmoteGroup);
 
-    const refreshButton = document.createElement('button');
-    refreshButton.type = 'button';
-    refreshButton.classList.add('bd-button');
-    refreshButton.textContent = 'Refresh emote list';
-    const refreshSettingField = new Settings.SettingField(
-      undefined,
-      undefined,
-      undefined,
-      refreshButton
+    const refreshButton = React.createElement(
+      'button',
+      {
+        type: 'button',
+        className:
+          'bd-button bd-button-filled bd-button-color-brand bd-button-medium bd-button-grow',
+        onClick: () => {
+          emoteService.refreshEmotes();
+        },
+      },
+      'Refresh emote list'
     );
 
-    const refreshListener = {
-      element: refreshButton,
-      name: 'click',
-      callback: () => {
-        emoteService.refreshEmotes();
-      },
-    };
-    refreshButton.addEventListener(
-      refreshListener.name,
-      refreshListener.callback
-    );
-    this.listenersService.addListener(
-      SettingsService.REFRESH_BUTTON_CLICK_LISTENER,
-      refreshListener
-    );
+    const refreshSettingField = Utils.SettingItem({
+      id: 'refreshSettingField',
+      inline: false,
+      children: [refreshButton],
+    });
     settings.push(refreshSettingField);
 
-    return Settings.SettingPanel.build(() => {
-      BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
-    }, ...settings);
+    return UI.buildSettingsPanel({
+      settings,
+      onChange: (_, settingId, value) => {
+        this.settingListeners[settingId]?.(value);
+        BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
+      },
+    });
   }
 
   async addEmote(emoteName, imageUrl) {
@@ -1418,128 +1429,133 @@ class SettingsService extends BaseService {
   }
 
   pushRegularSettings(settings, emoteService) {
-    const Settings = this.zeresPluginLibrary.Settings;
+    const emoteSize = Utils.SliderSetting({
+      id: 'emoteSize',
+      name: 'Emote Size',
+      note: 'The size of emotes. (default 48)',
+      min: 32,
+      max: 128,
+      value: this.settings.emoteSize,
+      // { units: 'px', markers: [32, 48, 64, 96, 128] }
+    });
+    settings.push(emoteSize);
 
-    settings.push(
-      new Settings.Slider(
-        'Emote Size',
-        'The size of emotes. (default 48)',
-        32,
-        128,
-        this.settings.emoteSize,
-        (val) => {
-          this.settings.emoteSize = Math.round(val);
-        },
-        { units: 'px', markers: [32, 48, 64, 96, 128] }
-      )
-    );
+    this.settingListeners[emoteSize.id] = (val) => {
+      this.settings.emoteSize = Math.round(val);
+    };
 
-    settings.push(
-      new Settings.Slider(
-        'Autocomplete Emote Size',
-        'The size of emotes in the autocomplete window. (default 15)',
-        15,
-        64,
-        this.settings.autocompleteEmoteSize,
-        (val) => {
-          this.settings.autocompleteEmoteSize = Math.round(val);
-        },
-        { units: 'px', markers: [15, 32, 48, 64] }
-      )
-    );
+    const autocompleteEmoteSize = Utils.SliderSetting({
+      id: 'autocompleteEmoteSize',
+      name: 'Autocomplete Emote Size',
+      note: 'The size of emotes in the autocomplete window. (default 15)',
+      min: 15,
+      max: 64,
+      value: this.settings.autocompleteEmoteSize,
+      // { units: 'px', markers: [15, 32, 48, 64] }
+    });
+    settings.push(autocompleteEmoteSize);
 
-    settings.push(
-      new Settings.Slider(
-        'Autocomplete Items',
-        'The amount of emotes shown in the autocomplete window. (default 10)',
-        1,
-        25,
-        this.settings.autocompleteItems,
-        (val) => {
-          this.settings.autocompleteItems = Math.round(val);
-        },
-        { units: ' items', markers: [1, 5, 10, 15, 20, 25] }
-      )
-    );
+    this.settingListeners[autocompleteEmoteSize.id] = (val) => {
+      this.settings.autocompleteEmoteSize = Math.round(val);
+    };
 
-    settings.push(
-      new Settings.Switch(
-        'Require prefix',
+    const autocompleteItems = Utils.SliderSetting({
+      id: 'autocompleteItems',
+      name: 'Autocomplete Items',
+      note: 'The amount of emotes shown in the autocomplete window. (default 10)',
+      min: 1,
+      max: 25,
+      value: this.settings.autocompleteItems,
+      // { units: ' items', markers: [1, 5, 10, 15, 20, 25] }
+    });
+    settings.push(autocompleteItems);
+
+    this.settingListeners[autocompleteItems.id] = (val) => {
+      this.settings.autocompleteItems = Math.round(val);
+    };
+
+    const requirePrefix = Utils.SwitchSetting({
+      id: 'requirePrefix',
+      name: 'Require prefix',
+      note:
         'If this is enabled, ' +
-          'the autocomplete list will not be shown unless the prefix is also typed.',
-        this.settings.requirePrefix,
-        (checked) => {
-          this.settings.requirePrefix = checked;
-        }
-      )
-    );
+        'the autocomplete list will not be shown unless the prefix is also typed.',
+      value: this.settings.requirePrefix,
+    });
+    settings.push(requirePrefix);
 
-    settings.push(
-      new Settings.Switch(
-        'Show standard custom emotes',
-        'If this is enabled, the standard custom emotes will be visible.',
-        this.settings.showStandardEmotes,
-        (checked) => {
-          this.settings.showStandardEmotes = checked;
-          emoteService.refreshEmotes();
-        }
-      )
-    );
+    this.settingListeners[requirePrefix.id] = (checked) => {
+      this.settings.requirePrefix = checked;
+    };
 
-    settings.push(
-      new Settings.Textbox(
-        'Prefix',
+    const showStandardEmotes = Utils.SwitchSetting({
+      id: 'showStandardEmotes',
+      name: 'Show standard custom emotes',
+      note: 'If this is enabled, the standard custom emotes will be visible.',
+      value: this.settings.showStandardEmotes,
+    });
+    settings.push(showStandardEmotes);
+
+    this.settingListeners[showStandardEmotes.id] = (checked) => {
+      this.settings.showStandardEmotes = checked;
+      emoteService.refreshEmotes();
+    };
+
+    const prefix = Utils.TextSetting({
+      id: 'prefix',
+      name: 'Prefix',
+      note:
         'The prefix to check against for the above setting. ' +
-          'It is recommended to use a single character not in use by other chat functionality, ' +
-          'other prefixes may cause issues.',
-        this.settings.prefix,
-        BdApi.Utils.debounce((val) => {
-          if (val === this.settings.prefix) return;
+        'It is recommended to use a single character not in use by other chat functionality, ' +
+        'other prefixes may cause issues.',
+      value: this.settings.prefix,
+    });
+    settings.push(prefix);
 
-          const previousPrefix = this.settings.prefix;
-          this.settings.prefix = val;
-          BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
+    this.settingListeners[prefix.id] = (val) => {
+      if (val === this.settings.prefix) return;
 
-          const previousEmoteNames = Object.assign({}, emoteService.emoteNames);
-          const emoteNames = {};
+      const previousPrefix = this.settings.prefix;
+      this.settings.prefix = val;
+      BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
 
-          Object.entries(previousEmoteNames).forEach(([name, value]) => {
-            const prefixedName = emoteService.getPrefixedName(
-              name.replace(previousPrefix, '')
-            );
-            emoteNames[prefixedName] = value;
-          });
+      const previousEmoteNames = Object.assign({}, emoteService.emoteNames);
+      const emoteNames = {};
 
-          emoteService.emoteNames = emoteNames;
-        }, 2000)
-      )
-    );
+      Object.entries(previousEmoteNames).forEach(([name, value]) => {
+        const prefixedName = emoteService.getPrefixedName(
+          name.replace(previousPrefix, '')
+        );
+        emoteNames[prefixedName] = value;
+      });
 
-    settings.push(
-      new Settings.RadioGroup(
-        'Resize Method',
-        'How emotes will be scaled down to fit your selected emote size',
-        this.settings.resizeMethod,
-        [
-          {
-            name: 'Scale down smallest side',
-            value: 'smallest',
-          },
-          {
-            name: 'Scale down largest side',
-            value: 'largest',
-          },
-        ],
-        (val) => {
-          this.settings.resizeMethod = val;
-        }
-      )
-    );
+      emoteService.emoteNames = emoteNames;
+    };
+
+    const resizeMethod = Utils.RadioSetting({
+      id: 'resizeMethod',
+      name: 'Resize Method',
+      note: 'How emotes will be scaled down to fit your selected emote size',
+      value: this.settings.resizeMethod,
+      options: [
+        {
+          name: 'Scale down smallest side',
+          value: 'smallest',
+        },
+        {
+          name: 'Scale down largest side',
+          value: 'largest',
+        },
+      ],
+    });
+    settings.push(resizeMethod);
+
+    this.settingListeners[resizeMethod.id] = (val) => {
+      this.settings.resizeMethod = val;
+    };
   }
 
   createCustomEmoteContainer(emoteName, emoteService) {
-    const Settings = this.zeresPluginLibrary.Settings;
-
     const customEmoteContainer = document.createElement('div');
     customEmoteContainer.style.display = 'flex';
 
@@ -1568,7 +1584,7 @@ class SettingsService extends BaseService {
 
     const deleteButton = document.createElement('button');
     deleteButton.type = 'button';
-    deleteButton.classList.add('bd-button', 'bd-button-danger');
+    deleteButton.className = 'bd-button bd-button-filled bd-button-color-red';
     deleteButton.innerHTML =
       '<svg class="" fill="#FFFFFF" viewBox="0 0 24 24" ' +
       'style="width: 20px; height: 20px;"><path fill="none" d="M0 0h24v24H0V0z"></path>' +
@@ -1593,7 +1609,7 @@ class SettingsService extends BaseService {
           type: 'success',
         });
 
-        document.getElementById(emoteName)?.remove();
+        customEmoteContainer.closest('.bd-setting-item')?.remove();
       },
     };
     deleteButton.addEventListener(deleteListener.name, deleteListener.callback);
@@ -1603,20 +1619,19 @@ class SettingsService extends BaseService {
     );
 
     const targetEmote = this.settings.customEmotes[emoteName];
-    const existingEmote = new Settings.SettingField(
-      emoteName,
-      targetEmote,
-      undefined,
-      customEmoteContainer,
-      { noteOnTop: true }
-    );
+    const CustomEmoteContainer =
+      BdApi.ReactUtils.wrapElement(customEmoteContainer);
 
-    existingEmote.getElement().id = emoteName;
-    return existingEmote.getElement();
+    return Utils.SettingItem({
+      id: emoteName,
+      name: emoteName,
+      note: targetEmote ?? '',
+      children: [BdApi.React.createElement(CustomEmoteContainer)],
+    });
   }
 
   stop() {
-    // Do nothing
+    this.settingListeners = {};
   }
 }
 
@@ -3750,13 +3765,11 @@ class EmoteReplacerPlugin {
   }
 
   async doStart() {
-    const zeresPluginLibrary = window.ZeresPluginLibrary;
-
-    this.showChangelogIfNeeded(zeresPluginLibrary);
+    this.showChangelogIfNeeded();
     await this.startServicesAndPatches();
   }
 
-  showChangelogIfNeeded(zeresPluginLibrary) {
+  showChangelogIfNeeded() {
     const currentVersionInfo =
       BdApi.Data.load(this.meta.name, CURRENT_VERSION_INFO_KEY) ?? {};
 
@@ -3764,11 +3777,10 @@ class EmoteReplacerPlugin {
       currentVersionInfo.hasShownChangelog !== true ||
       currentVersionInfo.version !== this.meta.version
     ) {
-      zeresPluginLibrary.Modals.showChangelogModal(
-        `${this.meta.name} Changelog`,
-        this.meta.version,
-        PLUGIN_CHANGELOG
-      );
+      BdApi.UI.showChangelogModal({
+        title: `${this.meta.name} Changelog`,
+        changes: PLUGIN_CHANGELOG,
+      });
 
       const newVersionInfo = {
         version: this.meta.version,
@@ -3780,31 +3792,29 @@ class EmoteReplacerPlugin {
   }
 
   async startServicesAndPatches() {
-    const zeresPluginLibrary = window.ZeresPluginLibrary;
-
-    this.listenersService = new ListenersService(this, zeresPluginLibrary);
+    this.listenersService = new ListenersService(this);
     await this.listenersService.start();
 
-    this.settingsService = new SettingsService(this, zeresPluginLibrary);
+    this.settingsService = new SettingsService(this);
     await this.settingsService.start(this.listenersService);
 
-    this.modulesService = new ModulesService(this, zeresPluginLibrary);
+    this.modulesService = new ModulesService(this);
     await this.modulesService.start();
 
-    this.htmlService = new HtmlService(this, zeresPluginLibrary);
+    this.htmlService = new HtmlService(this);
     await this.htmlService.start(this.modulesService);
 
-    this.emoteService = new EmoteService(this, zeresPluginLibrary);
+    this.emoteService = new EmoteService(this);
     await this.emoteService.start(
       this.listenersService,
       this.settingsService,
       this.htmlService
     );
 
-    this.attachService = new AttachService(this, zeresPluginLibrary);
+    this.attachService = new AttachService(this);
     await this.attachService.start(this.modulesService);
 
-    this.completionsService = new CompletionsService(this, zeresPluginLibrary);
+    this.completionsService = new CompletionsService(this);
     await this.completionsService.start(
       this.emoteService,
       this.settingsService,
@@ -3814,13 +3824,10 @@ class EmoteReplacerPlugin {
       this.attachService
     );
 
-    this.gifProcessingService = new GifProcessingService(
-      this,
-      zeresPluginLibrary
-    );
+    this.gifProcessingService = new GifProcessingService(this);
     await this.gifProcessingService.start();
 
-    this.sendMessageService = new SendMessageService(this, zeresPluginLibrary);
+    this.sendMessageService = new SendMessageService(this);
     await this.sendMessageService.start(
       this.emoteService,
       this.attachService,
@@ -3829,7 +3836,7 @@ class EmoteReplacerPlugin {
       this.gifProcessingService
     );
 
-    this.patchesService = new PatchesService(this, zeresPluginLibrary);
+    this.patchesService = new PatchesService(this);
     await this.patchesService.start(
       this.sendMessageService,
       this.attachService,
@@ -3863,7 +3870,10 @@ class EmoteReplacerPlugin {
   }
 
   getSettingsPanel() {
-    return this.settingsService?.getSettingsElement() ?? new HTMLElement();
+    return (
+      this.settingsService?.getSettingsElement() ??
+      BdApi.React.createElement('div')
+    );
   }
 
   stop() {
@@ -3899,9 +3909,4 @@ class EmoteReplacerPlugin {
   }
 }
 
-const bdWindow = window;
-
-var index =
-  bdWindow.ZeresPluginLibrary === undefined ? RawPlugin : EmoteReplacerPlugin;
-
-module.exports = index;
+module.exports = EmoteReplacerPlugin;

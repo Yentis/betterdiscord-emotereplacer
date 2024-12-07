@@ -1,19 +1,19 @@
 import { Listener } from '../interfaces/listener'
-import Settings from '../interfaces/settings'
-import { SettingGroup, SettingsField } from '../interfaces/zeresPluginLibrary'
 import { DEFAULT_SETTINGS, SETTINGS_KEY } from '../pluginConstants'
 import { BaseService } from './baseService'
 import { EmoteService } from './emoteService'
 import { ListenersService } from './listenersService'
 import { Logger } from '../utils/logger'
 import { Utils } from '../utils/utils'
+import { BdApiExtended } from '../interfaces/bdapi'
+import { Setting, Settings } from '../interfaces/settings'
 
 export class SettingsService extends BaseService {
-  private static readonly ADD_BUTTON_CLICK_LISTENER = 'addButtonClick'
-  private static readonly REFRESH_BUTTON_CLICK_LISTENER = 'refreshButtonClick'
   private static readonly DELETE_BUTTON_CLICK_LISTENER = 'deleteButtonClick'
 
   listenersService!: ListenersService
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  settingListeners: Record<string, (value: any) => void> = {}
 
   settings: Settings = DEFAULT_SETTINGS
 
@@ -26,12 +26,14 @@ export class SettingsService extends BaseService {
     return Promise.resolve()
   }
 
-  public getSettingsElement (): HTMLElement {
+  public getSettingsElement () {
     const emoteService = this.plugin.emoteService
-    if (!emoteService) return new HTMLElement()
+    if (!emoteService) return undefined
 
-    const Settings = this.zeresPluginLibrary.Settings
-    const settings: (SettingsField | SettingGroup)[] = []
+    const UI = (BdApi as BdApiExtended).UI
+    const React = BdApi.React
+    const ReactDOM = (BdApi as BdApiExtended).ReactDOM
+    const settings: Setting[] = []
 
     this.pushRegularSettings(settings, emoteService)
 
@@ -39,59 +41,83 @@ export class SettingsService extends BaseService {
     emoteFolderPicker.type = 'file'
     emoteFolderPicker.multiple = true
     emoteFolderPicker.accept = '.png,.gif'
+    const EmoteFolderPicker = BdApi.ReactUtils.wrapElement(emoteFolderPicker)
 
-    let emoteName: string
-    const emoteNameTextbox = new Settings.Textbox(
-      undefined,
-      'Emote name',
-      undefined,
-      (val) => { emoteName = val }
-    )
+    const emoteFolderPickerItem = Utils.SettingItem({
+      id: 'emoteFolderPicker',
+      inline: false,
+      children: [React.createElement(EmoteFolderPicker)]
+    })
 
-    let imageUrl: string
-    const imageUrlTextbox = new Settings.Textbox(
-      undefined,
-      'Image URL (must end with .gif or .png, 128px recommended)',
-      undefined,
-      (val) => { imageUrl = val }
-    )
+    const emoteName = document.createElement('input')
+    emoteName.type = 'text'
+    emoteName.className = 'bd-text-input'
+    const EmoteName = BdApi.ReactUtils.wrapElement(emoteName)
 
-    const addButton = document.createElement('button')
-    addButton.type = 'button'
-    addButton.classList.add('bd-button')
-    addButton.textContent = 'Add'
-    const addSettingField = new Settings.SettingField(undefined, undefined, undefined, addButton)
+    const emoteNameItem = Utils.SettingItem({
+      id: 'emoteName',
+      name: 'Emote name',
+      children: [React.createElement(EmoteName)]
+    })
 
-    const customEmotesContainer = document.createElement('div')
-    const addListener: Listener = {
-      element: addButton,
-      name: 'click',
-      callback: () => {
-        const files = emoteFolderPicker.files ?? []
+    const imageUrl = document.createElement('input')
+    imageUrl.type = 'text'
+    imageUrl.className = 'bd-text-input'
+    const ImageUrl = BdApi.ReactUtils.wrapElement(imageUrl)
 
-        const addPromises = (
-          files.length > 0 ? Array.from(files).map((file) => {
-            const fileName = file.name.substring(0, file.name.lastIndexOf('.'))
-            return this.addEmote(fileName, file.path)
-          }) : [this.addEmote(emoteName, imageUrl)]
-        ).map(async (promise) => {
+    const imageUrlItem = Utils.SettingItem({
+      id: 'imageUrl',
+      name: 'Image URL',
+      note: 'must end with .gif or .png, 128px recommended',
+      children: [React.createElement(ImageUrl)]
+    })
+
+    const addButton = React.createElement('button', {
+      type: 'button',
+      className: 'bd-button bd-button-filled bd-button-color-brand bd-button-medium',
+      onClick: () => {
+        const files = Array.from(emoteFolderPicker.files ?? []).map((file) => {
+          return {
+            name: file.name.substring(0, file.name.lastIndexOf('.')),
+            // TODO: file.path doesn't work anymore
+            url: ''
+          }
+        })
+
+        if (files.length <= 0) {
+          files.push({ name: emoteName.value, url: imageUrl.value })
+        }
+
+        const settingsContainers = document.querySelectorAll('.bd-settings-container')
+        const emoteContainer = settingsContainers[settingsContainers.length - 1]
+
+        const addPromises = files.map((file) => {
+          return this.addEmote(file.name, file.url)
+        }).map(async (promise) => {
+          if (!(emoteContainer instanceof HTMLElement)) return
+
           const emoteName = await promise
-          customEmotesContainer.append(
-            this.createCustomEmoteContainer(emoteName, emoteService)
-          )
+          const setting = this.createCustomEmoteContainer(emoteName, emoteService)
+
+          const newEmote = document.createElement('div')
+          emoteContainer.append(newEmote)
+
+          const root = ReactDOM.createRoot(newEmote)
+          root.render(UI.buildSetting(setting))
         })
 
         Promise.allSettled(addPromises).then((results) => {
           const errors: Error[] = []
           results.forEach((result) => {
             if (result.status === 'fulfilled') return
+
             errors.push(result.reason as Error)
             Logger.error(result.reason)
           })
 
           const firstError = errors[0]
           if (firstError) {
-            BdApi.UI.showToast(
+            UI.showToast(
               `${firstError.message}${errors.length > 1 ? '\nSee console for all errors' : ''}`,
               { type: 'error' }
             )
@@ -100,68 +126,67 @@ export class SettingsService extends BaseService {
           }
 
           emoteFolderPicker.value = ''
-          const emoteNameTextboxInput = emoteNameTextbox.getElement().querySelector('input')
-          if (emoteNameTextboxInput) emoteNameTextboxInput.value = ''
-
-          const imageUrlTextboxInput = imageUrlTextbox.getElement().querySelector('input')
-          if (imageUrlTextboxInput) imageUrlTextboxInput.value = ''
+          emoteName.value = ''
+          imageUrl.value = ''
 
           BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings)
-          BdApi.UI.showToast(
+          UI.showToast(
             'Emote(s) have been saved',
             { type: 'success' }
           )
         }).catch((error: Error) => {
-          BdApi.UI.showToast(error.message, { type: 'error' })
+          UI.showToast(error.message, { type: 'error' })
         })
       }
-    }
-    addButton.addEventListener(addListener.name, addListener.callback)
-    this.listenersService.addListener(SettingsService.ADD_BUTTON_CLICK_LISTENER, addListener)
+    }, 'Add')
 
-    Object.keys(this.settings.customEmotes).forEach((key) => {
-      customEmotesContainer.append(
-        this.createCustomEmoteContainer(key, emoteService)
-      )
+    const addSettingItem = Utils.SettingItem({
+      id: 'addButton',
+      inline: false,
+      children: [addButton]
     })
 
-    const customEmoteGroup = new Settings.SettingGroup('Custom emotes')
-    customEmoteGroup.append(
-      emoteFolderPicker,
-      emoteNameTextbox,
-      imageUrlTextbox,
-      addSettingField,
-      customEmotesContainer
-    )
+    const customEmoteSettings: Setting[] = []
+
+    Object.keys(this.settings.customEmotes).forEach((key) => {
+      customEmoteSettings.push(this.createCustomEmoteContainer(key, emoteService))
+    })
+
+    const customEmoteGroup = Utils.SettingCategory({
+      id: 'customEmoteGroup',
+      name: 'Custom emotes',
+      collapsible: true,
+      shown: false,
+      settings: [
+        emoteFolderPickerItem,
+        emoteNameItem,
+        imageUrlItem,
+        addSettingItem,
+        ...customEmoteSettings
+      ]
+    })
     settings.push(customEmoteGroup)
 
-    const refreshButton = document.createElement('button')
-    refreshButton.type = 'button'
-    refreshButton.classList.add('bd-button')
-    refreshButton.textContent = 'Refresh emote list'
-    const refreshSettingField = new Settings.SettingField(
-      undefined,
-      undefined,
-      undefined,
-      refreshButton
-    )
+    const refreshButton = React.createElement('button', {
+      type: 'button',
+      className: 'bd-button bd-button-filled bd-button-color-brand bd-button-medium bd-button-grow',
+      onClick: () => { emoteService.refreshEmotes() }
+    }, 'Refresh emote list')
 
-    const refreshListener: Listener = {
-      element: refreshButton,
-      name: 'click',
-      callback: () => { emoteService.refreshEmotes() }
-    }
-    refreshButton.addEventListener(refreshListener.name, refreshListener.callback)
-    this.listenersService.addListener(
-      SettingsService.REFRESH_BUTTON_CLICK_LISTENER,
-      refreshListener
-    )
+    const refreshSettingField = Utils.SettingItem({
+      id: 'refreshSettingField',
+      inline: false,
+      children: [refreshButton]
+    })
     settings.push(refreshSettingField)
 
-    return Settings.SettingPanel.build(
-      () => { BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings) },
-      ...settings
-    )
+    return UI.buildSettingsPanel({
+      settings,
+      onChange: (_, settingId, value) => {
+        this.settingListeners[settingId]?.(value)
+        BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings)
+      }
+    })
   }
 
   private async addEmote (emoteName: string, imageUrl: string): Promise<string> {
@@ -187,105 +212,132 @@ export class SettingsService extends BaseService {
   }
 
   private pushRegularSettings (
-    settings: (SettingsField | SettingGroup)[],
+    settings: Setting[],
     emoteService: EmoteService
   ): void {
-    const Settings = this.zeresPluginLibrary.Settings
+    const emoteSize = Utils.SliderSetting({
+      id: 'emoteSize',
+      name: 'Emote Size',
+      note: 'The size of emotes. (default 48)',
+      min: 32,
+      max: 128,
+      value: this.settings.emoteSize
+      // { units: 'px', markers: [32, 48, 64, 96, 128] }
+    })
+    settings.push(emoteSize)
 
-    settings.push(new Settings.Slider(
-      'Emote Size',
-      'The size of emotes. (default 48)',
-      32,
-      128,
-      this.settings.emoteSize,
-      (val) => { this.settings.emoteSize = Math.round(val) },
-      { units: 'px', markers: [32, 48, 64, 96, 128] }
-    ))
+    this.settingListeners[emoteSize.id] = (val: number) => {
+      this.settings.emoteSize = Math.round(val)
+    }
 
-    settings.push(new Settings.Slider(
-      'Autocomplete Emote Size',
-      'The size of emotes in the autocomplete window. (default 15)',
-      15,
-      64,
-      this.settings.autocompleteEmoteSize,
-      (val) => { this.settings.autocompleteEmoteSize = Math.round(val) },
-      { units: 'px', markers: [15, 32, 48, 64] }
-    ))
+    const autocompleteEmoteSize = Utils.SliderSetting({
+      id: 'autocompleteEmoteSize',
+      name: 'Autocomplete Emote Size',
+      note: 'The size of emotes in the autocomplete window. (default 15)',
+      min: 15,
+      max: 64,
+      value: this.settings.autocompleteEmoteSize
+      // { units: 'px', markers: [15, 32, 48, 64] }
+    })
+    settings.push(autocompleteEmoteSize)
 
-    settings.push(new Settings.Slider(
-      'Autocomplete Items',
-      'The amount of emotes shown in the autocomplete window. (default 10)',
-      1,
-      25,
-      this.settings.autocompleteItems,
-      (val) => { this.settings.autocompleteItems = Math.round(val) },
-      { units: ' items', markers: [1, 5, 10, 15, 20, 25] }
-    ))
+    this.settingListeners[autocompleteEmoteSize.id] = (val: number) => {
+      this.settings.autocompleteEmoteSize = Math.round(val)
+    }
 
-    settings.push(new Settings.Switch(
-      'Require prefix',
-      'If this is enabled, ' +
+    const autocompleteItems = Utils.SliderSetting({
+      id: 'autocompleteItems',
+      name: 'Autocomplete Items',
+      note: 'The amount of emotes shown in the autocomplete window. (default 10)',
+      min: 1,
+      max: 25,
+      value: this.settings.autocompleteItems
+      // { units: ' items', markers: [1, 5, 10, 15, 20, 25] }
+    })
+    settings.push(autocompleteItems)
+
+    this.settingListeners[autocompleteItems.id] = (val: number) => {
+      this.settings.autocompleteItems = Math.round(val)
+    }
+
+    const requirePrefix = Utils.SwitchSetting({
+      id: 'requirePrefix',
+      name: 'Require prefix',
+      note: 'If this is enabled, ' +
       'the autocomplete list will not be shown unless the prefix is also typed.',
-      this.settings.requirePrefix,
-      (checked) => { this.settings.requirePrefix = checked }
-    ))
+      value: this.settings.requirePrefix
+    })
+    settings.push(requirePrefix)
 
-    settings.push(new Settings.Switch(
-      'Show standard custom emotes',
-      'If this is enabled, the standard custom emotes will be visible.',
-      this.settings.showStandardEmotes,
-      (checked) => {
-        this.settings.showStandardEmotes = checked
-        emoteService.refreshEmotes()
-      }
-    ))
+    this.settingListeners[requirePrefix.id] = (checked: boolean) => {
+      this.settings.requirePrefix = checked
+    }
 
-    settings.push(new Settings.Textbox(
-      'Prefix',
-      'The prefix to check against for the above setting. ' +
+    const showStandardEmotes = Utils.SwitchSetting({
+      id: 'showStandardEmotes',
+      name: 'Show standard custom emotes',
+      note: 'If this is enabled, the standard custom emotes will be visible.',
+      value: this.settings.showStandardEmotes
+    })
+    settings.push(showStandardEmotes)
+
+    this.settingListeners[showStandardEmotes.id] = (checked: boolean) => {
+      this.settings.showStandardEmotes = checked
+      emoteService.refreshEmotes()
+    }
+
+    const prefix = Utils.TextSetting({
+      id: 'prefix',
+      name: 'Prefix',
+      note: 'The prefix to check against for the above setting. ' +
       'It is recommended to use a single character not in use by other chat functionality, ' +
       'other prefixes may cause issues.',
-      this.settings.prefix,
-      BdApi.Utils.debounce((val: string) => {
-        if (val === this.settings.prefix) return
+      value: this.settings.prefix
+    })
+    settings.push(prefix)
 
-        const previousPrefix = this.settings.prefix
-        this.settings.prefix = val
-        BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings)
+    this.settingListeners[prefix.id] = (val: string) => {
+      if (val === this.settings.prefix) return
 
-        const previousEmoteNames = Object.assign({}, emoteService.emoteNames)
-        const emoteNames: Record<string, string> = {}
+      const previousPrefix = this.settings.prefix
+      this.settings.prefix = val
+      BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings)
 
-        Object.entries(previousEmoteNames).forEach(([name, value]) => {
-          const prefixedName = emoteService.getPrefixedName(name.replace(previousPrefix, ''))
-          emoteNames[prefixedName] = value
-        })
+      const previousEmoteNames = Object.assign({}, emoteService.emoteNames)
+      const emoteNames: Record<string, string> = {}
 
-        emoteService.emoteNames = emoteNames
-      }, 2000)
-    ))
+      Object.entries(previousEmoteNames).forEach(([name, value]) => {
+        const prefixedName = emoteService.getPrefixedName(name.replace(previousPrefix, ''))
+        emoteNames[prefixedName] = value
+      })
 
-    settings.push(new Settings.RadioGroup(
-      'Resize Method',
-      'How emotes will be scaled down to fit your selected emote size',
-      this.settings.resizeMethod,
-      [{
+      emoteService.emoteNames = emoteNames
+    }
+
+    const resizeMethod = Utils.RadioSetting({
+      id: 'resizeMethod',
+      name: 'Resize Method',
+      note: 'How emotes will be scaled down to fit your selected emote size',
+      value: this.settings.resizeMethod,
+      options: [{
         name: 'Scale down smallest side',
         value: 'smallest'
       }, {
         name: 'Scale down largest side',
         value: 'largest'
-      }],
-      (val) => { this.settings.resizeMethod = val }
-    ))
+      }]
+    })
+    settings.push(resizeMethod)
+
+    this.settingListeners[resizeMethod.id] = (val: string) => {
+      this.settings.resizeMethod = val
+    }
   }
 
   private createCustomEmoteContainer (
     emoteName: string,
-    emoteService: EmoteService
-  ): Element {
-    const Settings = this.zeresPluginLibrary.Settings
-
+    emoteService: EmoteService,
+  ): Setting {
     const customEmoteContainer = document.createElement('div')
     customEmoteContainer.style.display = 'flex'
 
@@ -304,7 +356,7 @@ export class SettingsService extends BaseService {
 
     const deleteButton = document.createElement('button')
     deleteButton.type = 'button'
-    deleteButton.classList.add('bd-button', 'bd-button-danger')
+    deleteButton.className = 'bd-button bd-button-filled bd-button-color-red'
     deleteButton.innerHTML = '<svg class="" fill="#FFFFFF" viewBox="0 0 24 24" ' +
       'style="width: 20px; height: 20px;"><path fill="none" d="M0 0h24v24H0V0z"></path>' +
       '<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.' +
@@ -324,7 +376,7 @@ export class SettingsService extends BaseService {
         BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings)
         BdApi.UI.showToast(`Emote ${emoteName} has been deleted!`, { type: 'success' })
 
-        document.getElementById(emoteName)?.remove()
+        customEmoteContainer.closest('.bd-setting-item')?.remove()
       }
     }
     deleteButton.addEventListener(deleteListener.name, deleteListener.callback)
@@ -334,19 +386,17 @@ export class SettingsService extends BaseService {
     )
 
     const targetEmote = this.settings.customEmotes[emoteName]
-    const existingEmote = new Settings.SettingField(
-      emoteName,
-      targetEmote,
-      undefined,
-      customEmoteContainer,
-      { noteOnTop: true }
-    )
+    const CustomEmoteContainer = BdApi.ReactUtils.wrapElement(customEmoteContainer)
 
-    existingEmote.getElement().id = emoteName
-    return existingEmote.getElement()
+    return Utils.SettingItem({
+      id: emoteName,
+      name: emoteName,
+      note: targetEmote ?? '',
+      children: [BdApi.React.createElement(CustomEmoteContainer)]
+    })
   }
 
   public stop (): void {
-    // Do nothing
+    this.settingListeners = {}
   }
 }
