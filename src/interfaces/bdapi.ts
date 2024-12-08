@@ -28,9 +28,6 @@ type SettingsPanelOptions = {
 
 // TODO: remove custom TS type when BD types are updated
 export type BdApiExtended = typeof BdApi & {
-  Net: {
-    fetch: (url: string) => Promise<Response>
-  }
   UI: {
     showChangelogModal: (options: ChangelogOptions) => string;
     buildSetting: (setting: Setting) => ReactElement;

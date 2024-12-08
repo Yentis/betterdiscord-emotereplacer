@@ -1196,7 +1196,15 @@ class AttachService extends BaseService {
 }
 
 class SettingsService extends BaseService {
+  static EMOTE_PICKER_CHOOSE_CLICK_LISTENER = 'emotePickerChooseClick';
+  static EMOTE_PICKER_CLEAR_CLICK_LISTENER = 'emotePickerClearClick';
   static DELETE_BUTTON_CLICK_LISTENER = 'deleteButtonClick';
+  static TRASH_ICON =
+    '<svg class="" fill="#FFFFFF" viewBox="0 0 24 24" ' +
+    'style="width: 20px; height: 20px;"><path fill="none" d="M0 0h24v24H0V0z"></path>' +
+    '<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.' +
+    '12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.1' +
+    '2zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"></path><path fill="none" d="M0 0h24v24H0z"></path></svg>';
 
   listenersService;
 
@@ -1222,17 +1230,12 @@ class SettingsService extends BaseService {
 
     this.pushRegularSettings(settings, emoteService);
 
-    const emoteFolderPicker = document.createElement('input');
-    emoteFolderPicker.type = 'file';
-    emoteFolderPicker.multiple = true;
-    emoteFolderPicker.accept = '.png,.gif';
-    const EmoteFolderPicker = BdApi.ReactUtils.wrapElement(emoteFolderPicker);
-
-    const emoteFolderPickerItem = Utils.SettingItem({
-      id: 'emoteFolderPicker',
-      inline: false,
-      children: [React.createElement(EmoteFolderPicker)],
-    });
+    let selectedFiles = [];
+    const emotePickerContainer = this.createEmotePickerContainer(
+      (filePaths) => {
+        selectedFiles = filePaths;
+      }
+    );
 
     const emoteName = document.createElement('input');
     emoteName.type = 'text';
@@ -1264,15 +1267,16 @@ class SettingsService extends BaseService {
         className:
           'bd-button bd-button-filled bd-button-color-brand bd-button-medium',
         onClick: () => {
-          const files = Array.from(emoteFolderPicker.files ?? []).map(
-            (file) => {
-              return {
-                name: file.name.substring(0, file.name.lastIndexOf('.')),
-                // TODO: file.path doesn't work anymore
-                url: '',
-              };
-            }
-          );
+          const files = Array.from(selectedFiles).map((file) => {
+            const split = file.replaceAll('\\', '/').split('/');
+            const fileName = split[split.length - 1];
+            if (fileName === undefined) return undefined;
+
+            return {
+              name: fileName.substring(0, fileName.lastIndexOf('.')),
+              url: file,
+            };
+          });
 
           if (files.length <= 0) {
             files.push({ name: emoteName.value, url: imageUrl.value });
@@ -1286,7 +1290,7 @@ class SettingsService extends BaseService {
 
           const addPromises = files
             .map((file) => {
-              return this.addEmote(file.name, file.url);
+              return this.addEmote(file?.name, file?.url);
             })
             .map(async (promise) => {
               if (!(emoteContainer instanceof HTMLElement)) return;
@@ -1326,7 +1330,7 @@ class SettingsService extends BaseService {
                 if (addPromises.length === 1) return;
               }
 
-              emoteFolderPicker.value = '';
+              emotePickerContainer.clear();
               emoteName.value = '';
               imageUrl.value = '';
 
@@ -1365,7 +1369,7 @@ class SettingsService extends BaseService {
       collapsible: true,
       shown: false,
       settings: [
-        emoteFolderPickerItem,
+        emotePickerContainer.setting,
         emoteNameItem,
         imageUrlItem,
         addSettingItem,
@@ -1377,7 +1381,6 @@ class SettingsService extends BaseService {
     const refreshButton = React.createElement(
       'button',
       {
-        type: 'button',
         className:
           'bd-button bd-button-filled bd-button-color-brand bd-button-medium bd-button-grow',
         onClick: () => {
@@ -1403,8 +1406,13 @@ class SettingsService extends BaseService {
   }
 
   async addEmote(emoteName, imageUrl) {
-    if (!emoteName) throw new Error('No emote name entered!');
-    if (!imageUrl) throw new Error('No image URL entered!');
+    if (emoteName === undefined || emoteName.trim() === '') {
+      throw new Error('No emote name entered!');
+    }
+
+    if (imageUrl === undefined || imageUrl.trim() === '') {
+      throw new Error('No image URL entered!');
+    }
 
     if (!imageUrl.endsWith('.gif') && !imageUrl.endsWith('.png')) {
       throw new Error('Image URL must end with .gif or .png!');
@@ -1547,6 +1555,113 @@ class SettingsService extends BaseService {
     settings.push(resizeMethod);
   }
 
+  createEmotePickerContainer(onFiles) {
+    const button = document.createElement('button');
+    button.textContent = 'Choose files';
+    button.classList.add(
+      'bd-button',
+      'bd-button-filled',
+      'bd-button-color-brand',
+      'bd-button-medium',
+      'bd-button-grow'
+    );
+
+    const clickListener = {
+      element: button,
+      name: 'click',
+      callback: () => {
+        BdApi.UI.openDialog({
+          title: 'Choose emotes',
+          multiSelections: true,
+          filters: [
+            {
+              name: 'Emotes',
+              extensions: ['png', 'gif'],
+            },
+          ],
+        })
+          .then((result) => {
+            onFiles(result.filePaths);
+            filesList.innerHTML = '';
+
+            if (result.filePaths.length <= 0) {
+              clearButton.style.display = 'none';
+              return;
+            }
+
+            clearButton.style.display = 'block';
+            result.filePaths.forEach((filePath) => {
+              const fileItem = document.createElement('li');
+              fileItem.textContent = `- ${filePath}`;
+              fileItem.style.color = 'var(--header-primary)';
+              fileItem.style.textOverflow = 'ellipsis';
+              fileItem.style.overflow = 'hidden';
+              fileItem.style.textWrap = 'nowrap';
+
+              filesList.append(fileItem);
+            });
+          })
+          .catch(console.error);
+      },
+    };
+
+    button.addEventListener(clickListener.name, clickListener.callback);
+    this.listenersService.addListener(
+      SettingsService.EMOTE_PICKER_CHOOSE_CLICK_LISTENER,
+      clickListener
+    );
+
+    const filesList = document.createElement('ul');
+    filesList.style.marginTop = '10px';
+    filesList.style.display = 'flex';
+    filesList.style.flexDirection = 'column';
+    filesList.style.gap = '5px';
+
+    const clearButton = document.createElement('button');
+    clearButton.className = 'bd-button bd-button-filled bd-button-color-red';
+    clearButton.innerHTML = SettingsService.TRASH_ICON;
+    clearButton.style.display = 'none';
+
+    const onClear = () => {
+      onFiles([]);
+      filesList.innerHTML = '';
+      clearButton.style.display = 'none';
+    };
+
+    const clearListener = {
+      element: clearButton,
+      name: 'click',
+      callback: onClear,
+    };
+
+    clearButton.addEventListener(clearListener.name, clearListener.callback);
+    this.listenersService.addListener(
+      SettingsService.EMOTE_PICKER_CLEAR_CLICK_LISTENER,
+      clearListener
+    );
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.gap = '10px';
+    buttonContainer.append(button);
+    buttonContainer.append(clearButton);
+
+    const emotePickerContainer = document.createElement('div');
+    emotePickerContainer.append(buttonContainer);
+    emotePickerContainer.append(filesList);
+    const EmotePickerContainer =
+      BdApi.ReactUtils.wrapElement(emotePickerContainer);
+
+    return {
+      setting: Utils.SettingItem({
+        id: 'emotePicker',
+        inline: false,
+        children: [BdApi.React.createElement(EmotePickerContainer)],
+      }),
+      clear: onClear,
+    };
+  }
+
   createCustomEmoteContainer(emoteName, emoteService) {
     const customEmoteContainer = document.createElement('div');
     customEmoteContainer.style.display = 'flex';
@@ -1575,14 +1690,8 @@ class SettingsService extends BaseService {
     );
 
     const deleteButton = document.createElement('button');
-    deleteButton.type = 'button';
     deleteButton.className = 'bd-button bd-button-filled bd-button-color-red';
-    deleteButton.innerHTML =
-      '<svg class="" fill="#FFFFFF" viewBox="0 0 24 24" ' +
-      'style="width: 20px; height: 20px;"><path fill="none" d="M0 0h24v24H0V0z"></path>' +
-      '<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.' +
-      '12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.1' +
-      '2zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"></path><path fill="none" d="M0 0h24v24H0z"></path></svg>';
+    deleteButton.innerHTML = SettingsService.TRASH_ICON;
     customEmoteContainer.append(deleteButton);
 
     const deleteListener = {

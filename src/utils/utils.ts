@@ -1,5 +1,4 @@
 import * as fs from 'fs'
-import { BdApiExtended } from '../interfaces/bdapi'
 import { GifWorker, WorkerMessage } from '../interfaces/workerData'
 import { Setting } from '../interfaces/settings'
 
@@ -17,7 +16,7 @@ export class Utils {
   }
 
   private static async fetchGetBuffer (url: string): Promise<Uint8Array> {
-    const response = await (BdApi as BdApiExtended).Net.fetch(url)
+    const response = await BdApi.Net.fetch(url)
     const statusCode = response.status
     if (statusCode !== 0 && (statusCode < 200 || statusCode >= 400)) {
       throw new Error(response.statusText)
