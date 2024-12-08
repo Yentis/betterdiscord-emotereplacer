@@ -1278,7 +1278,7 @@ class SettingsService extends BaseService {
             };
           });
 
-          if (files.length <= 0) {
+          if (emoteName.value && imageUrl.value) {
             files.push({ name: emoteName.value, url: imageUrl.value });
           }
 
@@ -1289,8 +1289,9 @@ class SettingsService extends BaseService {
             settingsContainers[settingsContainers.length - 1];
 
           const addPromises = files
+            .filter((file) => file !== undefined)
             .map((file) => {
-              return this.addEmote(file?.name, file?.url);
+              return this.addEmote(file.name, file.url);
             })
             .map(async (promise) => {
               if (!(emoteContainer instanceof HTMLElement)) return;
@@ -1406,13 +1407,8 @@ class SettingsService extends BaseService {
   }
 
   async addEmote(emoteName, imageUrl) {
-    if (emoteName === undefined || emoteName.trim() === '') {
-      throw new Error('No emote name entered!');
-    }
-
-    if (imageUrl === undefined || imageUrl.trim() === '') {
-      throw new Error('No image URL entered!');
-    }
+    if (!emoteName) throw new Error('No emote name entered!');
+    if (!imageUrl) throw new Error('No image URL entered!');
 
     if (!imageUrl.endsWith('.gif') && !imageUrl.endsWith('.png')) {
       throw new Error('Image URL must end with .gif or .png!');

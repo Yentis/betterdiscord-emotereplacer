@@ -85,15 +85,15 @@ export class SettingsService extends BaseService {
           }
         })
 
-        if (files.length <= 0) {
+        if (emoteName.value && imageUrl.value) {
           files.push({ name: emoteName.value, url: imageUrl.value })
         }
 
         const settingsContainers = document.querySelectorAll('.bd-settings-container')
         const emoteContainer = settingsContainers[settingsContainers.length - 1]
 
-        const addPromises = files.map((file) => {
-          return this.addEmote(file?.name, file?.url)
+        const addPromises = files.filter((file) => file !== undefined).map((file) => {
+          return this.addEmote(file.name, file.url)
         }).map(async (promise) => {
           if (!(emoteContainer instanceof HTMLElement)) return
 
@@ -188,14 +188,9 @@ export class SettingsService extends BaseService {
     })
   }
 
-  private async addEmote (emoteName?: string, imageUrl?: string): Promise<string> {
-    if (emoteName === undefined || emoteName.trim() === '') {
-      throw new Error('No emote name entered!')
-    }
-
-    if (imageUrl === undefined || imageUrl.trim() === '') {
-      throw new Error('No image URL entered!')
-    }
+  private async addEmote (emoteName: string, imageUrl: string): Promise<string> {
+    if (!emoteName) throw new Error('No emote name entered!')
+    if (!imageUrl) throw new Error('No image URL entered!')
 
     if (!imageUrl.endsWith('.gif') && !imageUrl.endsWith('.png')) {
       throw new Error('Image URL must end with .gif or .png!')
