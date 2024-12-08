@@ -95,6 +95,8 @@ export class Utils {
     min: number;
     max: number;
     step?: number;
+    units?: string;
+    markers?: number[];
   }) {
     return {
       ...options,

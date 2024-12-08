@@ -16,4 +16,5 @@ export type Setting<T = any> = {
   note?: string;
   value?: T;
   disabled?: boolean;
+  onChange?: (value: T) => void;
 }

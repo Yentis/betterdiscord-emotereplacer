@@ -12,8 +12,6 @@ export class SettingsService extends BaseService {
   private static readonly DELETE_BUTTON_CLICK_LISTENER = 'deleteButtonClick'
 
   listenersService!: ListenersService
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  settingListeners: Record<string, (value: any) => void> = {}
 
   settings: Settings = DEFAULT_SETTINGS
 
@@ -182,8 +180,7 @@ export class SettingsService extends BaseService {
 
     return UI.buildSettingsPanel({
       settings,
-      onChange: (_, settingId, value) => {
-        this.settingListeners[settingId]?.(value)
+      onChange: () => {
         BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings)
       }
     })
@@ -221,14 +218,14 @@ export class SettingsService extends BaseService {
       note: 'The size of emotes. (default 48)',
       min: 32,
       max: 128,
-      value: this.settings.emoteSize
-      // { units: 'px', markers: [32, 48, 64, 96, 128] }
+      units: 'px',
+      markers: [32, 48, 64, 96, 128],
+      value: this.settings.emoteSize,
+      onChange: (val) => {
+        this.settings.emoteSize = Math.round(val)
+      }
     })
     settings.push(emoteSize)
-
-    this.settingListeners[emoteSize.id] = (val: number) => {
-      this.settings.emoteSize = Math.round(val)
-    }
 
     const autocompleteEmoteSize = Utils.SliderSetting({
       id: 'autocompleteEmoteSize',
@@ -236,14 +233,14 @@ export class SettingsService extends BaseService {
       note: 'The size of emotes in the autocomplete window. (default 15)',
       min: 15,
       max: 64,
-      value: this.settings.autocompleteEmoteSize
-      // { units: 'px', markers: [15, 32, 48, 64] }
+      units: 'px',
+      markers: [15, 32, 48, 64],
+      value: this.settings.autocompleteEmoteSize,
+      onChange: (val) => {
+        this.settings.autocompleteEmoteSize = Math.round(val)
+      }
     })
     settings.push(autocompleteEmoteSize)
-
-    this.settingListeners[autocompleteEmoteSize.id] = (val: number) => {
-      this.settings.autocompleteEmoteSize = Math.round(val)
-    }
 
     const autocompleteItems = Utils.SliderSetting({
       id: 'autocompleteItems',
@@ -251,40 +248,38 @@ export class SettingsService extends BaseService {
       note: 'The amount of emotes shown in the autocomplete window. (default 10)',
       min: 1,
       max: 25,
-      value: this.settings.autocompleteItems
-      // { units: ' items', markers: [1, 5, 10, 15, 20, 25] }
+      value: this.settings.autocompleteItems,
+      units: ' items',
+      markers: [1, 5, 10, 15, 20, 25],
+      onChange: (val) => {
+        this.settings.autocompleteItems = Math.round(val)
+      }
     })
     settings.push(autocompleteItems)
-
-    this.settingListeners[autocompleteItems.id] = (val: number) => {
-      this.settings.autocompleteItems = Math.round(val)
-    }
 
     const requirePrefix = Utils.SwitchSetting({
       id: 'requirePrefix',
       name: 'Require prefix',
       note: 'If this is enabled, ' +
       'the autocomplete list will not be shown unless the prefix is also typed.',
-      value: this.settings.requirePrefix
+      value: this.settings.requirePrefix,
+      onChange: (checked) => {
+        this.settings.requirePrefix = checked
+      }
     })
     settings.push(requirePrefix)
-
-    this.settingListeners[requirePrefix.id] = (checked: boolean) => {
-      this.settings.requirePrefix = checked
-    }
 
     const showStandardEmotes = Utils.SwitchSetting({
       id: 'showStandardEmotes',
       name: 'Show standard custom emotes',
       note: 'If this is enabled, the standard custom emotes will be visible.',
-      value: this.settings.showStandardEmotes
+      value: this.settings.showStandardEmotes,
+      onChange: (checked) => {
+        this.settings.showStandardEmotes = checked
+        emoteService.refreshEmotes()
+      }
     })
     settings.push(showStandardEmotes)
-
-    this.settingListeners[showStandardEmotes.id] = (checked: boolean) => {
-      this.settings.showStandardEmotes = checked
-      emoteService.refreshEmotes()
-    }
 
     const prefix = Utils.TextSetting({
       id: 'prefix',
@@ -292,27 +287,25 @@ export class SettingsService extends BaseService {
       note: 'The prefix to check against for the above setting. ' +
       'It is recommended to use a single character not in use by other chat functionality, ' +
       'other prefixes may cause issues.',
-      value: this.settings.prefix
+      value: this.settings.prefix,
+      onChange: (val) => {
+        if (val === this.settings.prefix) return
+
+        const previousPrefix = this.settings.prefix
+        this.settings.prefix = val
+
+        const previousEmoteNames = Object.assign({}, emoteService.emoteNames)
+        const emoteNames: Record<string, string> = {}
+
+        Object.entries(previousEmoteNames).forEach(([name, value]) => {
+          const prefixedName = emoteService.getPrefixedName(name.replace(previousPrefix, ''))
+          emoteNames[prefixedName] = value
+        })
+
+        emoteService.emoteNames = emoteNames
+      }
     })
     settings.push(prefix)
-
-    this.settingListeners[prefix.id] = (val: string) => {
-      if (val === this.settings.prefix) return
-
-      const previousPrefix = this.settings.prefix
-      this.settings.prefix = val
-      BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings)
-
-      const previousEmoteNames = Object.assign({}, emoteService.emoteNames)
-      const emoteNames: Record<string, string> = {}
-
-      Object.entries(previousEmoteNames).forEach(([name, value]) => {
-        const prefixedName = emoteService.getPrefixedName(name.replace(previousPrefix, ''))
-        emoteNames[prefixedName] = value
-      })
-
-      emoteService.emoteNames = emoteNames
-    }
 
     const resizeMethod = Utils.RadioSetting({
       id: 'resizeMethod',
@@ -325,13 +318,12 @@ export class SettingsService extends BaseService {
       }, {
         name: 'Scale down largest side',
         value: 'largest'
-      }]
+      }],
+      onChange: (val) => {
+        this.settings.resizeMethod = val
+      }
     })
     settings.push(resizeMethod)
-
-    this.settingListeners[resizeMethod.id] = (val: string) => {
-      this.settings.resizeMethod = val
-    }
   }
 
   private createCustomEmoteContainer (
@@ -397,6 +389,6 @@ export class SettingsService extends BaseService {
   }
 
   public stop (): void {
-    this.settingListeners = {}
+    // Do nothing
   }
 }
