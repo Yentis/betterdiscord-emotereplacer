@@ -9,8 +9,6 @@ import { BdApiExtended } from '../interfaces/bdapi'
 import { Setting, Settings } from '../interfaces/settings'
 
 export class SettingsService extends BaseService {
-  private static readonly EMOTE_PICKER_CHOOSE_CLICK_LISTENER = 'emotePickerChooseClick'
-  private static readonly EMOTE_PICKER_CLEAR_CLICK_LISTENER = 'emotePickerClearClick'
   private static readonly DELETE_BUTTON_CLICK_LISTENER = 'deleteButtonClick'
   private static readonly TRASH_ICON = '<svg class="" fill="#FFFFFF" viewBox="0 0 24 24" ' +
       'style="width: 20px; height: 20px;"><path fill="none" d="M0 0h24v24H0V0z"></path>' +
@@ -43,8 +41,16 @@ export class SettingsService extends BaseService {
     this.pushRegularSettings(settings, emoteService)
 
     let selectedFiles: string[] = []
-    const emotePickerContainer = this.createEmotePickerContainer((filePaths) => {
-      selectedFiles = filePaths
+    const emotePicker = Utils.FileSetting({
+      id: 'emotePicker',
+      inline: false,
+      multiple: true,
+      accept: ['.png', '.gif'],
+      clearable: true,
+      onChange: (val) => {
+        if (!Array.isArray(val)) selectedFiles = [val]
+        else selectedFiles = val
+      }
     })
 
     const emoteName = document.createElement('input')
@@ -126,7 +132,7 @@ export class SettingsService extends BaseService {
             if (addPromises.length === 1) return
           }
 
-          emotePickerContainer.clear()
+          emotePicker.actions.clear()
           emoteName.value = ''
           imageUrl.value = ''
 
@@ -159,7 +165,7 @@ export class SettingsService extends BaseService {
       collapsible: true,
       shown: false,
       settings: [
-        emotePickerContainer.setting,
+        emotePicker,
         emoteNameItem,
         imageUrlItem,
         addSettingItem,
@@ -326,111 +332,6 @@ export class SettingsService extends BaseService {
       }
     })
     settings.push(resizeMethod)
-  }
-
-  private createEmotePickerContainer (onFiles: (filePaths: string[]) => void): {
-    setting: Setting,
-    clear: () => void
-  } {
-    const chooseButton = document.createElement('button')
-    chooseButton.textContent = 'Choose files'
-    chooseButton.classList.add(
-      'bd-button',
-      'bd-button-filled',
-      'bd-button-color-brand',
-      'bd-button-medium',
-      'bd-button-grow'
-    )
-
-    const clickListener: Listener = {
-      element: chooseButton,
-      name: 'click',
-      callback: () => {
-        BdApi.UI.openDialog({
-          title: 'Choose emotes',
-          multiSelections: true,
-          filters: [{
-            name: 'Emotes',
-            extensions: ['png', 'gif']
-          }]
-        }).then((result) => {
-          onFiles(result.filePaths)
-          filesList.innerHTML = ''
-
-          if (result.filePaths.length <= 0) {
-            clearButton.style.display = 'none'
-            return
-          }
-
-          clearButton.style.display = 'block'
-          result.filePaths.forEach((filePath) => {
-            const fileItem = document.createElement('li')
-            fileItem.textContent = `- ${filePath}`
-            fileItem.style.color = 'var(--header-primary)'
-            fileItem.style.textOverflow = 'ellipsis'
-            fileItem.style.overflow = 'hidden'
-            fileItem.style.textWrap = 'nowrap'
-
-            filesList.append(fileItem)
-          })
-        }).catch(console.error)
-      }
-    }
-
-    chooseButton.addEventListener(clickListener.name, clickListener.callback)
-    this.listenersService.addListener(
-      SettingsService.EMOTE_PICKER_CHOOSE_CLICK_LISTENER,
-      clickListener,
-    )
-
-    const filesList = document.createElement('ul')
-    filesList.style.marginTop = '10px'
-    filesList.style.display = 'flex'
-    filesList.style.flexDirection = 'column'
-    filesList.style.gap = '5px'
-
-    const clearButton = document.createElement('button')
-    clearButton.className = 'bd-button bd-button-filled bd-button-color-red'
-    clearButton.innerHTML = SettingsService.TRASH_ICON
-    clearButton.style.display = 'none'
-
-    const onClear = () => {
-      onFiles([])
-      filesList.innerHTML = ''
-      clearButton.style.display = 'none'
-    }
-
-    const clearListener: Listener = {
-      element: clearButton,
-      name: 'click',
-      callback: onClear
-    }
-
-    clearButton.addEventListener(clearListener.name, clearListener.callback)
-    this.listenersService.addListener(
-      SettingsService.EMOTE_PICKER_CLEAR_CLICK_LISTENER,
-      clearListener,
-    )
-
-    const buttonContainer = document.createElement('div')
-    buttonContainer.style.display = 'flex'
-    buttonContainer.style.gap = '10px'
-    buttonContainer.append(chooseButton)
-    buttonContainer.append(clearButton)
-
-    const emotePickerContainer = document.createElement('div')
-    emotePickerContainer.append(buttonContainer)
-    emotePickerContainer.append(filesList)
-    const EmotePickerContainer = BdApi.ReactUtils.wrapElement(emotePickerContainer)
-
-    return {
-      setting: Utils.SettingItem({
-        id: 'emotePicker',
-        inline: false,
-        children: [BdApi.React.createElement(EmotePickerContainer)]
-      }),
-      clear: onClear
-    }
   }
 
   private createCustomEmoteContainer (

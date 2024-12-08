@@ -136,8 +136,21 @@ export class Utils {
     }
   }
 
+  public static FileSetting (options: Setting<string | string[]> & {
+    multiple: boolean;
+    accept: string[];
+    clearable: boolean;
+  }) {
+    return {
+      ...options,
+      type: 'file',
+      actions: {
+        clear: () => { /* Will be set by BD */ }
+      },
+    }
+  }
+
   public static SettingItem (options: Setting & {
-    inline?: boolean;
     children: unknown[];
   }) {
     return {
