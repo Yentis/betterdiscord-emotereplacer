@@ -1556,9 +1556,9 @@ class SettingsService extends BaseService {
   }
 
   createEmotePickerContainer(onFiles) {
-    const button = document.createElement('button');
-    button.textContent = 'Choose files';
-    button.classList.add(
+    const chooseButton = document.createElement('button');
+    chooseButton.textContent = 'Choose files';
+    chooseButton.classList.add(
       'bd-button',
       'bd-button-filled',
       'bd-button-color-brand',
@@ -1567,7 +1567,7 @@ class SettingsService extends BaseService {
     );
 
     const clickListener = {
-      element: button,
+      element: chooseButton,
       name: 'click',
       callback: () => {
         BdApi.UI.openDialog({
@@ -1605,7 +1605,7 @@ class SettingsService extends BaseService {
       },
     };
 
-    button.addEventListener(clickListener.name, clickListener.callback);
+    chooseButton.addEventListener(clickListener.name, clickListener.callback);
     this.listenersService.addListener(
       SettingsService.EMOTE_PICKER_CHOOSE_CLICK_LISTENER,
       clickListener
@@ -1643,7 +1643,7 @@ class SettingsService extends BaseService {
     const buttonContainer = document.createElement('div');
     buttonContainer.style.display = 'flex';
     buttonContainer.style.gap = '10px';
-    buttonContainer.append(button);
+    buttonContainer.append(chooseButton);
     buttonContainer.append(clearButton);
 
     const emotePickerContainer = document.createElement('div');
