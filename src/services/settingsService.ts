@@ -110,7 +110,7 @@ export class SettingsService extends BaseService {
           emoteContainer.append(newEmote)
 
           const root = ReactDOM.createRoot(newEmote)
-          root.render(UI.buildSetting(setting))
+          root.render(UI.buildSettingItem(setting))
         })
 
         Promise.allSettled(addPromises).then((results) => {

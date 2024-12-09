@@ -30,7 +30,7 @@ type SettingsPanelOptions = {
 export type BdApiExtended = typeof BdApi & {
   UI: {
     showChangelogModal: (options: ChangelogOptions) => string;
-    buildSetting: (setting: Setting) => ReactElement;
+    buildSettingItem: (setting: Setting) => ReactElement;
     buildSettingsPanel: (options: SettingsPanelOptions) => ReactElement;
   }
   Components: {
