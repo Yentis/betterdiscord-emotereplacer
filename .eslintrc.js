@@ -35,7 +35,8 @@ module.exports = {
     'no-unused-vars': 'off',
     'no-fallthrough': 'off',
     'comma-dangle': 'off',
-    'max-len': ['error', { code: 100 }],
+    'space-before-function-paren': 'off',
+    semi: 'off',
 
     'import/first': 'off',
     'import/namespace': 'error',

@@ -3,19 +3,17 @@ import { GifWorker, WorkerMessage } from '../interfaces/workerData'
 import { Setting } from '../interfaces/settings'
 
 export class Utils {
-  public static urlGetBuffer (url: string): Promise<Uint8Array> {
+  public static urlGetBuffer (url: string): Promise<Buffer> {
     if (url.startsWith('http')) return Utils.fetchGetBuffer(url)
     else return Utils.fsGetBuffer(url)
   }
 
-  private static async fsGetBuffer (url: string): Promise<Uint8Array> {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const data = fs.readFileSync(url, '')
+  private static async fsGetBuffer (url: string): Promise<Buffer> {
+    const data = fs.readFileSync(url, null)
     return await Promise.resolve(data)
   }
 
-  private static async fetchGetBuffer (url: string): Promise<Uint8Array> {
+  private static async fetchGetBuffer (url: string): Promise<Buffer> {
     const response = await BdApi.Net.fetch(url)
     const statusCode = response.status
     if (statusCode !== 0 && (statusCode < 200 || statusCode >= 400)) {
@@ -24,7 +22,7 @@ export class Utils {
     if (!response.body) throw new Error(`No response body for url: ${url}`)
 
     const arrayBuffer = await response.arrayBuffer()
-    return new Uint8Array(arrayBuffer)
+    return Buffer.from(arrayBuffer)
   }
 
   public static async loadImagePromise (
