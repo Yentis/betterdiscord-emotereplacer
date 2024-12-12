@@ -134,35 +134,15 @@ const EMOTE_MODIFIERS = [
   },
 ];
 
-class Logger {
-  static pluginName;
-
-  static setLogger(pluginName) {
-    this.pluginName = pluginName;
-  }
-
-  static debug(...args) {
-    console.debug(this.pluginName, ...args);
-  }
-
-  static info(...args) {
-    console.info(this.pluginName, ...args);
-  }
-
-  static warn(...args) {
-    console.warn(this.pluginName, ...args);
-  }
-
-  static error(...args) {
-    console.error(this.pluginName, ...args);
-  }
-}
-
 class BaseService {
   plugin;
+  bdApi;
+  logger;
 
   constructor(plugin) {
     this.plugin = plugin;
+    this.bdApi = this.plugin.bdApi;
+    this.logger = this.bdApi.Logger;
   }
 }
 
@@ -432,8 +412,8 @@ class CompletionsService extends BaseService {
       return;
     }
 
-    let delta = 0,
-      options;
+    let delta = 0;
+    let options;
     const autocompleteItems = Math.round(this.settingsService.settings.autocompleteItems);
 
     switch (event.key) {
@@ -448,7 +428,7 @@ class CompletionsService extends BaseService {
         // Prevent adding a tab or line break to text
         event.preventDefault();
 
-        this.insertSelectedCompletion().catch((error) => Logger.error(error));
+        this.insertSelectedCompletion().catch((error) => this.logger.error(error));
         break;
 
       case 'ArrowUp':
@@ -702,7 +682,7 @@ class CompletionsService extends BaseService {
 
           if (!this.cached) this.cached = {};
           this.cached.selectedIndex = index + firstIndex;
-          this.insertSelectedCompletion().catch((error) => Logger.error(error));
+          this.insertSelectedCompletion().catch((error) => this.logger.error(error));
         },
       };
       emoteRow.addEventListener(mouseDownListener.name, mouseDownListener.callback);
@@ -745,7 +725,9 @@ class CompletionsService extends BaseService {
         containerIcon.append(containerImage);
 
         if (typeof data === 'string') {
-          Utils.loadImagePromise(data, false, containerImage).catch((error) => Logger.error(error));
+          Utils.loadImagePromise(data, false, containerImage).catch((error) =>
+            this.logger.error(error)
+          );
         }
       }
 
@@ -859,7 +841,7 @@ class EmoteService extends BaseService {
         }
       })
       .catch((error) => {
-        Logger.warn('Failed to get emote names and/or modifiers', error);
+        this.logger.warn('Failed to get emote names and/or modifiers', error);
       });
   }
 
@@ -873,7 +855,7 @@ class EmoteService extends BaseService {
         BdApi.UI.showToast('Emote database reloaded!', { type: 'success' });
       })
       .catch((error) => {
-        Logger.warn('Failed to get emote names', error);
+        this.logger.warn('Failed to get emote names', error);
       });
   }
 
@@ -1138,7 +1120,7 @@ class SettingsService extends BaseService {
   start(listenersService) {
     this.listenersService = listenersService;
 
-    const savedSettings = BdApi.Data.load(this.plugin.meta.name, SETTINGS_KEY);
+    const savedSettings = this.bdApi.Data.load(SETTINGS_KEY);
     this.settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings);
 
     return Promise.resolve();
@@ -1148,9 +1130,7 @@ class SettingsService extends BaseService {
     const emoteService = this.plugin.emoteService;
     if (!emoteService) return undefined;
 
-    const UI = BdApi.UI;
-    const React = BdApi.React;
-    const ReactDOM = BdApi.ReactDOM;
+    const { UI, React, ReactDOM, Components } = this.bdApi;
     const settings = [];
 
     this.pushRegularSettings(settings, emoteService);
@@ -1192,10 +1172,8 @@ class SettingsService extends BaseService {
     });
 
     const addButton = React.createElement(
-      'button',
+      Components.Button,
       {
-        type: 'button',
-        className: 'bd-button bd-button-filled bd-button-color-brand bd-button-medium',
         onClick: () => {
           const files = Array.from(selectedFiles).map((file) => {
             const split = file.replaceAll('\\', '/').split('/');
@@ -1208,15 +1186,21 @@ class SettingsService extends BaseService {
             };
           });
 
-          if (emoteName.value && imageUrl.value) {
+          if (emoteName.value || imageUrl.value) {
             files.push({ name: emoteName.value, url: imageUrl.value });
+          }
+
+          const validFiles = files.filter((file) => file !== undefined);
+
+          if (validFiles.length <= 0) {
+            UI.showToast('No emote entered!', { type: 'error' });
+            return;
           }
 
           const settingsContainers = document.querySelectorAll('.bd-settings-container');
           const emoteContainer = settingsContainers[settingsContainers.length - 1];
 
-          const addPromises = files
-            .filter((file) => file !== undefined)
+          const addPromises = validFiles
             .map((file) => this.addEmote(file.name, file.url))
             .map(async (promise) => {
               if (!(emoteContainer instanceof HTMLElement)) return;
@@ -1238,7 +1222,7 @@ class SettingsService extends BaseService {
                 if (result.status === 'fulfilled') return;
 
                 errors.push(result.reason);
-                Logger.error(result.reason);
+                this.logger.error(result.reason);
               });
 
               const firstError = errors[0];
@@ -1257,7 +1241,7 @@ class SettingsService extends BaseService {
               emoteName.value = '';
               imageUrl.value = '';
 
-              BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
+              this.bdApi.Data.save(SETTINGS_KEY, this.settings);
               UI.showToast('Emote(s) have been saved', { type: 'success' });
             })
             .catch((error) => {
@@ -1290,10 +1274,8 @@ class SettingsService extends BaseService {
     settings.push(customEmoteGroup);
 
     const refreshButton = React.createElement(
-      'button',
+      Components.Button,
       {
-        className:
-          'bd-button bd-button-filled bd-button-color-brand bd-button-medium bd-button-grow',
         onClick: () => {
           emoteService.refreshEmotes();
         },
@@ -1311,7 +1293,7 @@ class SettingsService extends BaseService {
     return UI.buildSettingsPanel({
       settings,
       onChange: () => {
-        BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
+        this.bdApi.Data.save(SETTINGS_KEY, this.settings);
       },
     });
   }
@@ -1471,7 +1453,7 @@ class SettingsService extends BaseService {
     containerImage.style.marginRight = '0.5rem';
 
     customEmoteContainer.append(containerImage);
-    Utils.loadImagePromise(url, false, containerImage).catch((error) => Logger.error(error));
+    Utils.loadImagePromise(url, false, containerImage).catch((error) => this.logger.error(error));
 
     const deleteButton = document.createElement('button');
     deleteButton.className = 'bd-button bd-button-filled bd-button-color-red';
@@ -1487,8 +1469,8 @@ class SettingsService extends BaseService {
           delete emoteService.emoteNames[emoteService.getPrefixedName(emoteName)];
         }
 
-        BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
-        BdApi.UI.showToast(`Emote ${emoteName} has been deleted!`, { type: 'success' });
+        this.bdApi.Data.save(SETTINGS_KEY, this.settings);
+        this.bdApi.UI.showToast(`Emote ${emoteName} has been deleted!`, { type: 'success' });
 
         customEmoteContainer.closest('.bd-setting-item')?.remove();
       },
@@ -2287,12 +2269,12 @@ class GifProcessingService extends BaseService {
   }
 
   async modifyGifImpl(url, formatType, options) {
-    Logger.info('Got GIF request', url, options);
+    this.logger.info('Got GIF request', url, options);
     const commands = this.getCommands(options);
-    Logger.info('Processed request commands', commands);
+    this.logger.info('Processed request commands', commands);
 
     const result = await this.processCommands(url, formatType, commands);
-    Logger.info('Processed modified emote', { length: result.length });
+    this.logger.info('Processed modified emote', { length: result.length });
 
     return result;
   }
@@ -2466,7 +2448,7 @@ class ModulesService extends BaseService {
     });
 
     if (this.pendingReplyDispatcher.module === undefined) {
-      Logger.error('pendingReplyDispatcher module not found!');
+      this.logger.error('pendingReplyDispatcher module not found!');
     }
 
     this.emojiStore = BdApi.Webpack.getModule(
@@ -2511,7 +2493,7 @@ class ModulesService extends BaseService {
 
     Object.entries(this.stickerSendabilityStore).forEach(([key, value]) => {
       if (value !== undefined) return;
-      Logger.error(`${key} not found!`);
+      this.logger.error(`${key} not found!`);
     });
 
     this.stickerType = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('STANDARD', 'GUILD'), {
@@ -2541,26 +2523,26 @@ class ModulesService extends BaseService {
     const TextArea = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('channelTextArea', 'textArea')
     );
-    if (TextArea === undefined) Logger.error('TextArea not found!');
+    if (TextArea === undefined) this.logger.error('TextArea not found!');
 
     const Editor = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('editor', 'placeholder'));
-    if (Editor === undefined) Logger.error('Editor not found!');
+    if (Editor === undefined) this.logger.error('Editor not found!');
 
     const Autocomplete = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteInner', 'autocompleteRowVertical')
     );
-    if (Autocomplete === undefined) Logger.error('Autocomplete not found!');
+    if (Autocomplete === undefined) this.logger.error('Autocomplete not found!');
 
     const autocompleteAttached = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteAttached')
     );
-    if (autocompleteAttached === undefined) Logger.error('autocompleteAttached not found!');
+    if (autocompleteAttached === undefined) this.logger.error('autocompleteAttached not found!');
 
     const Wrapper = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('wrapper', 'base'));
-    if (Wrapper === undefined) Logger.error('Wrapper not found!');
+    if (Wrapper === undefined) this.logger.error('Wrapper not found!');
 
     const Size = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('size12'));
-    if (Size === undefined) Logger.error('Size not found!');
+    if (Size === undefined) this.logger.error('Size not found!');
 
     this.classes = {
       TextArea,
@@ -2581,7 +2563,7 @@ class ModulesService extends BaseService {
 
     Object.entries(this).forEach(([key, value]) => {
       if (value !== undefined) return;
-      Logger.error(`${key} not found!`);
+      this.logger.error(`${key} not found!`);
     });
 
     return Promise.resolve();
@@ -2681,7 +2663,7 @@ class SendMessageService extends BaseService {
       callDefault(...args);
       return;
     } catch (error) {
-      Logger.warn('Error in onSendMessage', error);
+      this.logger.warn('Error in onSendMessage', error);
     }
   }
 
@@ -3058,7 +3040,7 @@ class SendMessageService extends BaseService {
     const content = emote.content ?? '';
     const channelId = emote.channel ?? '';
     if (!channelId) {
-      Logger.error('Channel ID not found for emote:', emote);
+      this.logger.error('Channel ID not found for emote:', emote);
       return;
     }
 
@@ -3245,6 +3227,8 @@ class PatchesService extends BaseService {
   emoteService;
   modulesService;
 
+  patcher = this.bdApi.Patcher;
+
   start(sendMessageService, attachService, completionsService, emoteService, modulesService) {
     this.sendMessageService = sendMessageService;
     this.attachService = attachService;
@@ -3263,27 +3247,18 @@ class PatchesService extends BaseService {
   }
 
   messageStorePatch() {
-    BdApi.Patcher.instead(
-      this.plugin.meta.name,
-      this.modulesService.messageStore,
-      'sendMessage',
-      (_, args, original) => this.sendMessageService.onSendMessage(args, original)
+    this.patcher.instead(this.modulesService.messageStore, 'sendMessage', (_, args, original) =>
+      this.sendMessageService.onSendMessage(args, original)
     );
 
-    BdApi.Patcher.instead(
-      this.plugin.meta.name,
-      this.modulesService.messageStore,
-      'sendStickers',
-      (_, args, original) => this.sendMessageService.onSendSticker(args, original)
+    this.patcher.instead(this.modulesService.messageStore, 'sendStickers', (_, args, original) =>
+      this.sendMessageService.onSendSticker(args, original)
     );
   }
 
   changeDraftPatch() {
-    BdApi.Patcher.before(
-      this.plugin.meta.name,
-      this.modulesService.draft,
-      'changeDraft',
-      (_, args) => this.onChangeDraft(args)
+    this.patcher.before(this.modulesService.draft, 'changeDraft', (_, args) =>
+      this.onChangeDraft(args)
     );
   }
 
@@ -3311,7 +3286,7 @@ class PatchesService extends BaseService {
         this.completionsService.renderCompletions();
       }
     } catch (err) {
-      Logger.warn('Error in onChangeDraft', err);
+      this.logger.warn('Error in onChangeDraft', err);
     }
   }
 
@@ -3320,54 +3295,41 @@ class PatchesService extends BaseService {
 
     const createPendingReply = pendingReplyDispatcher.createPendingReplyKey;
     if (createPendingReply === undefined) {
-      Logger.warn('Create pending reply function name not found');
+      this.logger.warn('Create pending reply function name not found');
       return;
     }
 
     const deletePendingReply = pendingReplyDispatcher.deletePendingReplyKey;
     if (deletePendingReply === undefined) {
-      Logger.warn('Delete pending reply function name not found');
+      this.logger.warn('Delete pending reply function name not found');
       return;
     }
 
     const setPendingReplyShouldMention = pendingReplyDispatcher.setPendingReplyShouldMentionKey;
     if (setPendingReplyShouldMention === undefined) {
-      Logger.warn('Set pending reply should mention function name not found');
+      this.logger.warn('Set pending reply should mention function name not found');
       return;
     }
 
-    BdApi.Patcher.before(
-      this.plugin.meta.name,
-      pendingReplyDispatcher.module,
-      createPendingReply,
-      (_, args) => {
-        if (!args[0]) return;
-        const reply = args[0];
+    this.patcher.before(pendingReplyDispatcher.module, createPendingReply, (_, args) => {
+      if (!args[0]) return;
+      const reply = args[0];
 
-        this.attachService.pendingReply = reply;
-      }
+      this.attachService.pendingReply = reply;
+    });
+
+    this.patcher.instead(pendingReplyDispatcher.module, deletePendingReply, (_, args, original) =>
+      this.onDeletePendingReply(args, original)
     );
 
-    BdApi.Patcher.instead(
-      this.plugin.meta.name,
-      pendingReplyDispatcher.module,
-      deletePendingReply,
-      (_, args, original) => this.onDeletePendingReply(args, original)
-    );
+    this.patcher.before(pendingReplyDispatcher.module, setPendingReplyShouldMention, (_, args) => {
+      if (typeof args[0] !== 'string' || typeof args[1] !== 'boolean') return;
+      const channelId = args[0];
+      const shouldMention = args[1];
 
-    BdApi.Patcher.before(
-      this.plugin.meta.name,
-      pendingReplyDispatcher.module,
-      setPendingReplyShouldMention,
-      (_, args) => {
-        if (typeof args[0] !== 'string' || typeof args[1] !== 'boolean') return;
-        const channelId = args[0];
-        const shouldMention = args[1];
-
-        if (this.attachService.pendingReply?.channel.id !== channelId) return;
-        this.attachService.pendingReply.shouldMention = shouldMention;
-      }
-    );
+      if (this.attachService.pendingReply?.channel.id !== channelId) return;
+      this.attachService.pendingReply.shouldMention = shouldMention;
+    });
   }
 
   async onDeletePendingReply(args, original) {
@@ -3378,18 +3340,15 @@ class PatchesService extends BaseService {
       if (this.attachService.pendingUpload) await this.attachService.pendingUpload;
       callDefault(...args);
     } catch (err) {
-      Logger.warn('Error in onDeletePendingReply', err);
+      this.logger.warn('Error in onDeletePendingReply', err);
     } finally {
       this.attachService.pendingReply = undefined;
     }
   }
 
   emojiSearchPatch() {
-    BdApi.Patcher.after(
-      this.plugin.meta.name,
-      this.modulesService.emojiSearch,
-      'search',
-      (_, _2, result) => this.onEmojiSearch(result)
+    this.patcher.after(this.modulesService.emojiSearch, 'search', (_, _2, result) =>
+      this.onEmojiSearch(result)
     );
   }
 
@@ -3403,16 +3362,23 @@ class PatchesService extends BaseService {
   lockedEmojisPatch() {
     const emojiStore = this.modulesService.emojiStore;
 
-    BdApi.Patcher.after(
-      this.plugin.meta.name,
-      emojiStore,
-      'getEmojiUnavailableReason',
-      (_, args, result) => this.onGetEmojiUnavailableReason(args, result)
+    this.patcher.after(emojiStore, 'getEmojiUnavailableReason', (_, args, result) =>
+      this.onGetEmojiUnavailableReason(args, result)
     );
 
-    BdApi.Patcher.after(this.plugin.meta.name, emojiStore, 'isEmojiDisabled', (_, args) =>
+    this.patcher.after(emojiStore, 'getEmojiUnavailableReasons', (_, args, result) => {
+      result.emojiNitroLocked = false;
+      return result;
+    });
+
+    this.patcher.after(emojiStore, 'isEmojiDisabled', (_, args) =>
       this.onIsEmojiDisabled(args, emojiStore)
     );
+
+    this.patcher.after(emojiStore, 'isEmojiCategoryNitroLocked', (_, _args, result) => {
+      result = false;
+      return result;
+    });
   }
 
   onGetEmojiUnavailableReason(args, result) {
@@ -3458,8 +3424,7 @@ class PatchesService extends BaseService {
     if (stickerSendabilityStore.getStickerSendabilityKey === undefined) return;
     if (!stickerSendabilityStore.isSendableSticker) return;
 
-    BdApi.Patcher.after(
-      this.plugin.meta.name,
+    this.patcher.after(
       stickerSendabilityStore.module,
       stickerSendabilityStore.getStickerSendabilityKey,
       (_, args) => {
@@ -3470,8 +3435,7 @@ class PatchesService extends BaseService {
       }
     );
 
-    BdApi.Patcher.after(
-      this.plugin.meta.name,
+    this.patcher.after(
       stickerSendabilityStore.module,
       stickerSendabilityStore.isSendableSticker.key,
       (_, args) => {
@@ -3488,7 +3452,7 @@ class PatchesService extends BaseService {
   }
 
   stop() {
-    BdApi.Patcher.unpatchAll(this.plugin.meta.name);
+    this.patcher.unpatchAll();
   }
 }
 
@@ -3505,15 +3469,18 @@ class EmoteReplacerPlugin {
   patchesService;
 
   meta;
+  bdApi;
+  logger;
 
   constructor(meta) {
     this.meta = meta;
-    Logger.setLogger(meta.name);
+    this.bdApi = new BdApi(this.meta.name);
+    this.logger = this.bdApi.Logger;
   }
 
   start() {
     this.doStart().catch((error) => {
-      Logger.error(error);
+      this.logger.error(error);
     });
   }
 
@@ -3523,8 +3490,8 @@ class EmoteReplacerPlugin {
   }
 
   showChangelogIfNeeded() {
-    const currentVersionInfo = BdApi.Data.load(this.meta.name, CURRENT_VERSION_INFO_KEY) ?? {};
-    const UI = BdApi.UI;
+    const currentVersionInfo = this.bdApi.Data.load(CURRENT_VERSION_INFO_KEY) ?? {};
+    const UI = this.bdApi.UI;
 
     if (
       currentVersionInfo.hasShownChangelog !== true ||
@@ -3540,7 +3507,7 @@ class EmoteReplacerPlugin {
         hasShownChangelog: true,
       };
 
-      BdApi.Data.save(this.meta.name, CURRENT_VERSION_INFO_KEY, newVersionInfo);
+      this.bdApi.Data.save(CURRENT_VERSION_INFO_KEY, newVersionInfo);
     }
   }
 

@@ -3,9 +3,7 @@ import { DEFAULT_SETTINGS, SETTINGS_KEY } from '../pluginConstants';
 import { BaseService } from './baseService';
 import { EmoteService } from './emoteService';
 import { ListenersService } from './listenersService';
-import { Logger } from '../utils/logger';
 import { Utils } from '../utils/utils';
-import { BdApiExtended } from '../interfaces/bdapi';
 import { Setting, Settings } from '../interfaces/settings';
 
 export class SettingsService extends BaseService {
@@ -24,7 +22,7 @@ export class SettingsService extends BaseService {
   public start(listenersService: ListenersService): Promise<void> {
     this.listenersService = listenersService;
 
-    const savedSettings = BdApi.Data.load(this.plugin.meta.name, SETTINGS_KEY) as Settings;
+    const savedSettings = this.bdApi.Data.load(SETTINGS_KEY) as Settings;
     this.settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings);
 
     return Promise.resolve();
@@ -34,9 +32,7 @@ export class SettingsService extends BaseService {
     const emoteService = this.plugin.emoteService;
     if (!emoteService) return undefined;
 
-    const UI = (BdApi as BdApiExtended).UI;
-    const React = BdApi.React;
-    const ReactDOM = (BdApi as BdApiExtended).ReactDOM;
+    const { UI, React, ReactDOM, Components } = this.bdApi;
     const settings: Setting[] = [];
 
     this.pushRegularSettings(settings, emoteService);
@@ -78,10 +74,8 @@ export class SettingsService extends BaseService {
     });
 
     const addButton = React.createElement(
-      'button',
+      Components.Button,
       {
-        type: 'button',
-        className: 'bd-button bd-button-filled bd-button-color-brand bd-button-medium',
         onClick: () => {
           const files = Array.from(selectedFiles).map((file) => {
             const split = file.replaceAll('\\', '/').split('/');
@@ -94,15 +88,23 @@ export class SettingsService extends BaseService {
             };
           });
 
-          if (emoteName.value && imageUrl.value) {
+          if (emoteName.value || imageUrl.value) {
             files.push({ name: emoteName.value, url: imageUrl.value });
+          }
+
+          const validFiles = files.filter(
+            (file): file is { name: string; url: string } => file !== undefined
+          );
+
+          if (validFiles.length <= 0) {
+            UI.showToast('No emote entered!', { type: 'error' });
+            return;
           }
 
           const settingsContainers = document.querySelectorAll('.bd-settings-container');
           const emoteContainer = settingsContainers[settingsContainers.length - 1];
 
-          const addPromises = files
-            .filter((file): file is { name: string; url: string } => file !== undefined)
+          const addPromises = validFiles
             .map((file) => this.addEmote(file.name, file.url))
             .map(async (promise) => {
               if (!(emoteContainer instanceof HTMLElement)) return;
@@ -124,7 +126,7 @@ export class SettingsService extends BaseService {
                 if (result.status === 'fulfilled') return;
 
                 errors.push(result.reason as Error);
-                Logger.error(result.reason);
+                this.logger.error(result.reason);
               });
 
               const firstError = errors[0];
@@ -143,7 +145,7 @@ export class SettingsService extends BaseService {
               emoteName.value = '';
               imageUrl.value = '';
 
-              BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
+              this.bdApi.Data.save(SETTINGS_KEY, this.settings);
               UI.showToast('Emote(s) have been saved', { type: 'success' });
             })
             .catch((error: Error) => {
@@ -176,10 +178,8 @@ export class SettingsService extends BaseService {
     settings.push(customEmoteGroup);
 
     const refreshButton = React.createElement(
-      'button',
+      Components.Button,
       {
-        className:
-          'bd-button bd-button-filled bd-button-color-brand bd-button-medium bd-button-grow',
         onClick: () => {
           emoteService.refreshEmotes();
         },
@@ -197,7 +197,7 @@ export class SettingsService extends BaseService {
     return UI.buildSettingsPanel({
       settings,
       onChange: () => {
-        BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
+        this.bdApi.Data.save(SETTINGS_KEY, this.settings);
       },
     });
   }
@@ -357,7 +357,7 @@ export class SettingsService extends BaseService {
     containerImage.style.marginRight = '0.5rem';
 
     customEmoteContainer.append(containerImage);
-    Utils.loadImagePromise(url, false, containerImage).catch((error) => Logger.error(error));
+    Utils.loadImagePromise(url, false, containerImage).catch((error) => this.logger.error(error));
 
     const deleteButton = document.createElement('button');
     deleteButton.className = 'bd-button bd-button-filled bd-button-color-red';
@@ -373,8 +373,8 @@ export class SettingsService extends BaseService {
           delete emoteService.emoteNames[emoteService.getPrefixedName(emoteName)];
         }
 
-        BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
-        BdApi.UI.showToast(`Emote ${emoteName} has been deleted!`, { type: 'success' });
+        this.bdApi.Data.save(SETTINGS_KEY, this.settings);
+        this.bdApi.UI.showToast(`Emote ${emoteName} has been deleted!`, { type: 'success' });
 
         customEmoteContainer.closest('.bd-setting-item')?.remove();
       },

@@ -1,6 +1,5 @@
 import { Plugin } from 'betterdiscord';
 import { CURRENT_VERSION_INFO_KEY, PLUGIN_CHANGELOG } from './pluginConstants';
-import { Logger } from './utils/logger';
 import { EmoteService } from './services/emoteService';
 import { CompletionsService } from './services/completionsService';
 import { AttachService } from './services/attachService';
@@ -13,7 +12,7 @@ import { CurrentVersionInfo } from './interfaces/currentVersionInfo';
 import { HtmlService } from './services/htmlService';
 import { ExtendedMeta } from './interfaces/extendedMeta';
 import { PatchesService } from './services/patchesService';
-import { BdApiExtended } from './interfaces/bdapi';
+import { BoundBdApiExtended } from './interfaces/bdapi';
 
 export default class EmoteReplacerPlugin implements Plugin {
   settingsService: SettingsService | undefined;
@@ -28,15 +27,18 @@ export default class EmoteReplacerPlugin implements Plugin {
   patchesService: PatchesService | undefined;
 
   public meta: ExtendedMeta;
+  public bdApi: BoundBdApiExtended;
+  public logger: BoundBdApiExtended['Logger'];
 
   constructor(meta: ExtendedMeta) {
     this.meta = meta;
-    Logger.setLogger(meta.name);
+    this.bdApi = new BdApi(this.meta.name) as BoundBdApiExtended;
+    this.logger = this.bdApi.Logger;
   }
 
   start(): void {
     this.doStart().catch((error) => {
-      Logger.error(error);
+      this.logger.error(error);
     });
   }
 
@@ -47,8 +49,8 @@ export default class EmoteReplacerPlugin implements Plugin {
 
   private showChangelogIfNeeded(): void {
     const currentVersionInfo =
-      (BdApi.Data.load(this.meta.name, CURRENT_VERSION_INFO_KEY) as CurrentVersionInfo) ?? {};
-    const UI = (BdApi as BdApiExtended).UI;
+      (this.bdApi.Data.load(CURRENT_VERSION_INFO_KEY) as CurrentVersionInfo) ?? {};
+    const UI = this.bdApi.UI;
 
     if (
       currentVersionInfo.hasShownChangelog !== true ||
@@ -64,7 +66,7 @@ export default class EmoteReplacerPlugin implements Plugin {
         hasShownChangelog: true,
       };
 
-      BdApi.Data.save(this.meta.name, CURRENT_VERSION_INFO_KEY, newVersionInfo);
+      this.bdApi.Data.save(CURRENT_VERSION_INFO_KEY, newVersionInfo);
     }
   }
 
