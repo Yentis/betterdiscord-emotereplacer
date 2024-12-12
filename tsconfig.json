@@ -1,24 +1,21 @@
 {
-    "extends": "@tsconfig/recommended/tsconfig.json",
-    "include": ["src/**/*", "@types/**/*", "typings/**/*", "rust"],
-    "compilerOptions": {
-        "experimentalDecorators": true,
-        "target": "ESNext",
-        "esModuleInterop": true,
-        "jsx": "react",
-        "jsxFactory": "BdApi.React.createElement",
-        "jsxFragmentFactory": "BdApi.React.Fragment",
-        "outDir": "dist",
-        "declaration": true,
-        "baseUrl": "src",
-        "moduleResolution": "node",
-        "paths": {
-            "@common/*": ["common/*"]
-        },
-        "typeRoots": [
-            "node_modules/@types",
-            "./typings"
-        ],
-        "noUncheckedIndexedAccess": true
-    }
+  "extends": "@tsconfig/recommended/tsconfig.json",
+  "include": ["src/**/*", "@types/**/*", "typings/**/*", "rust"],
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "target": "ESNext",
+    "esModuleInterop": true,
+    "jsx": "react",
+    "jsxFactory": "BdApi.React.createElement",
+    "jsxFragmentFactory": "BdApi.React.Fragment",
+    "outDir": "dist",
+    "declaration": true,
+    "baseUrl": "src",
+    "moduleResolution": "node",
+    "paths": {
+      "@common/*": ["common/*"]
+    },
+    "typeRoots": ["node_modules/@types", "./typings"],
+    "noUncheckedIndexedAccess": true
+  }
 }

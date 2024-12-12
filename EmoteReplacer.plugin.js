@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.1.7
+ * @version 2.2.0
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -10,180 +10,18 @@
  */
 'use strict';
 
-var electron = require('electron');
 var fs = require('fs');
-var path = require('path');
-
-class Logger {
-  static pluginName;
-
-  static setLogger(pluginName) {
-    this.pluginName = pluginName;
-  }
-
-  static debug(...args) {
-    console.debug(this.pluginName, ...args);
-  }
-
-  static info(...args) {
-    console.info(this.pluginName, ...args);
-  }
-
-  static warn(...args) {
-    console.warn(this.pluginName, ...args);
-  }
-
-  static error(...args) {
-    console.error(this.pluginName, ...args);
-  }
-}
-
-class Utils {
-  static urlGetBuffer(url) {
-    if (url.startsWith('http')) return Utils.fetchGetBuffer(url);
-    else return Utils.fsGetBuffer(url);
-  }
-
-  static async fsGetBuffer(url) {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const data = fs.readFileSync(url, '');
-    return await Promise.resolve(data);
-  }
-
-  static async fetchGetBuffer(url) {
-    // TODO: remove custom TS type when BD types are updated
-
-    const response = await BdApi.Net.fetch(url);
-    const statusCode = response.status;
-    if (statusCode !== 0 && (statusCode < 200 || statusCode >= 400)) {
-      throw new Error(response.statusText);
-    }
-    if (!response.body) throw new Error(`No response body for url: ${url}`);
-
-    const arrayBuffer = await response.arrayBuffer();
-    return new Uint8Array(arrayBuffer);
-  }
-
-  static async loadImagePromise(url, waitForLoad = true, element) {
-    const image = element ?? new Image();
-
-    const loadPromise = new Promise((resolve, reject) => {
-      image.onload = () => {
-        resolve();
-      };
-      image.onerror = () => {
-        reject(new Error(`Failed to load image for url ${url}`));
-      };
-    });
-
-    if (url.startsWith('http') && !waitForLoad) {
-      image.src = url;
-    } else {
-      const buffer = await Utils.urlGetBuffer(url);
-      image.src = URL.createObjectURL(new Blob([buffer]));
-    }
-
-    if (waitForLoad) await loadPromise;
-    return image;
-  }
-
-  static delay(duration) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve();
-      }, duration);
-    });
-  }
-
-  static workerMessagePromise(worker, request) {
-    return new Promise((resolve, reject) => {
-      worker.onterminate = () => {
-        reject(new Error('Cancelled'));
-      };
-
-      worker.onerror = (error) => {
-        reject(error);
-      };
-
-      worker.onmessage = (message) => {
-        const response = message.data;
-        if (response.type !== request.type) return;
-
-        if (response.data instanceof Error) {
-          reject(response.data);
-        } else {
-          resolve(response.data);
-        }
-      };
-
-      worker.postMessage(request);
-    });
-  }
-
-  static clamp(num, min, max) {
-    return Math.min(Math.max(num, min), max);
-  }
-}
-
-class RawPlugin {
-  meta;
-
-  constructor(meta) {
-    this.meta = meta;
-    Logger.setLogger(meta.name);
-  }
-
-  start() {
-    this.showLibraryMissingModal();
-  }
-
-  showLibraryMissingModal() {
-    BdApi.UI.showConfirmationModal(
-      'Library Missing',
-      `The library plugin needed for ${this.meta.name} is missing. ` +
-        'Please click Download Now to install it.',
-      {
-        confirmText: 'Download Now',
-        cancelText: 'Cancel',
-        onConfirm: () => {
-          Utils.urlGetBuffer(
-            'https://rauenzi.github.io/BDPluginLibrary/release/0PluginLibrary.plugin.js'
-          )
-            .then((data) => {
-              fs.writeFile(
-                path.join(BdApi.Plugins.folder, '0PluginLibrary.plugin.js'),
-                data,
-                () => {
-                  /* Do nothing */
-                }
-              );
-            })
-            .catch(() => {
-              electron.shell
-                .openExternal(
-                  'https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi' +
-                    '/BDPluginLibrary/master/release/0PluginLibrary.plugin.js'
-                )
-                .catch((error) => {
-                  Logger.error(error);
-                });
-            });
-        },
-      }
-    );
-  }
-
-  stop() {
-    // Do nothing
-  }
-}
 
 const PLUGIN_CHANGELOG = [
   {
-    title: '2.1.7',
+    title: 'Changed',
+    type: 'changed',
+    items: ['Removed dependency on ZeresPluginLibrary', 'Updated settings panel'],
+  },
+  {
+    title: 'Fixed',
     type: 'fixed',
-    items: ['Fix emote & sticker upload after Discord update'],
+    items: ['Fixed servers showing lock icon in emote menu', 'Removed Nitro ad in emote menu'],
   },
 ];
 
@@ -303,11 +141,151 @@ const EMOTE_MODIFIERS = [
 
 class BaseService {
   plugin;
-  zeresPluginLibrary;
+  bdApi;
+  logger;
 
-  constructor(plugin, zeresPluginLibrary) {
+  constructor(plugin) {
     this.plugin = plugin;
-    this.zeresPluginLibrary = zeresPluginLibrary;
+    this.bdApi = this.plugin.bdApi;
+    this.logger = this.bdApi.Logger;
+  }
+}
+
+class Utils {
+  static urlGetBuffer(url) {
+    if (url.startsWith('http')) return Utils.fetchGetBuffer(url);
+    else return Utils.fsGetBuffer(url);
+  }
+
+  static async fsGetBuffer(url) {
+    const data = fs.readFileSync(url, null);
+    return await Promise.resolve(data);
+  }
+
+  static async fetchGetBuffer(url) {
+    const response = await BdApi.Net.fetch(url);
+    const statusCode = response.status;
+    if (statusCode !== 0 && (statusCode < 200 || statusCode >= 400)) {
+      throw new Error(response.statusText);
+    }
+    if (!response.body) throw new Error(`No response body for url: ${url}`);
+
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+
+  static async loadImagePromise(url, waitForLoad = true, element) {
+    const image = element ?? new Image();
+
+    const loadPromise = new Promise((resolve, reject) => {
+      image.onload = () => {
+        resolve();
+      };
+      image.onerror = () => {
+        reject(new Error(`Failed to load image for url ${url}`));
+      };
+    });
+
+    if (url.startsWith('http') && !waitForLoad) {
+      image.src = url;
+    } else {
+      const buffer = await Utils.urlGetBuffer(url);
+      image.src = URL.createObjectURL(new Blob([buffer]));
+    }
+
+    if (waitForLoad) await loadPromise;
+    return image;
+  }
+
+  static delay(duration) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, duration);
+    });
+  }
+
+  static workerMessagePromise(worker, request) {
+    return new Promise((resolve, reject) => {
+      worker.onterminate = () => {
+        reject(new Error('Cancelled'));
+      };
+
+      worker.onerror = (error) => {
+        reject(error);
+      };
+
+      worker.onmessage = (message) => {
+        const response = message.data;
+        if (response.type !== request.type) return;
+
+        if (response.data instanceof Error) {
+          reject(response.data);
+        } else {
+          resolve(response.data);
+        }
+      };
+
+      worker.postMessage(request);
+    });
+  }
+
+  static clamp(num, min, max) {
+    return Math.min(Math.max(num, min), max);
+  }
+
+  static SliderSetting(options) {
+    return {
+      ...options,
+      type: 'slider',
+    };
+  }
+
+  static SwitchSetting(options) {
+    return {
+      ...options,
+      type: 'switch',
+    };
+  }
+
+  static TextSetting(options) {
+    return {
+      ...options,
+      type: 'text',
+    };
+  }
+
+  static RadioSetting(options) {
+    return {
+      ...options,
+      type: 'radio',
+    };
+  }
+
+  static FileSetting(options) {
+    return {
+      ...options,
+      type: 'file',
+      actions: {
+        clear: () => {
+          /* Will be set by BD */
+        },
+      },
+    };
+  }
+
+  static SettingItem(options) {
+    return {
+      ...options,
+      type: 'custom',
+    };
+  }
+
+  static SettingCategory(options) {
+    return {
+      ...options,
+      type: 'category',
+    };
   }
 }
 
@@ -362,18 +340,10 @@ class CompletionsService extends BaseService {
     if (editors.length === 0) return;
     this.curEditor = editors[0];
 
-    this.listenersService.removeListeners(
-      CompletionsService.TEXTAREA_KEYDOWN_LISTENER
-    );
-    this.listenersService.removeListeners(
-      CompletionsService.TEXTAREA_WHEEL_LISTENER
-    );
-    this.listenersService.removeListeners(
-      CompletionsService.TEXTAREA_FOCUS_LISTENER
-    );
-    this.listenersService.removeListeners(
-      CompletionsService.TEXTAREA_BLUR_LISTENER
-    );
+    this.listenersService.removeListeners(CompletionsService.TEXTAREA_KEYDOWN_LISTENER);
+    this.listenersService.removeListeners(CompletionsService.TEXTAREA_WHEEL_LISTENER);
+    this.listenersService.removeListeners(CompletionsService.TEXTAREA_FOCUS_LISTENER);
+    this.listenersService.removeListeners(CompletionsService.TEXTAREA_BLUR_LISTENER);
 
     editors.forEach((editor, index) => {
       const focusListener = {
@@ -430,9 +400,7 @@ class CompletionsService extends BaseService {
         },
       };
 
-      textArea.addEventListener(wheelListener.name, wheelListener.callback, {
-        passive: true,
-      });
+      textArea.addEventListener(wheelListener.name, wheelListener.callback, { passive: true });
 
       this.listenersService.addListener(
         `${CompletionsService.TEXTAREA_WHEEL_LISTENER}${index}`,
@@ -449,11 +417,9 @@ class CompletionsService extends BaseService {
       return;
     }
 
-    let delta = 0,
-      options;
-    const autocompleteItems = Math.round(
-      this.settingsService.settings.autocompleteItems
-    );
+    let delta = 0;
+    let options;
+    const autocompleteItems = Math.round(this.settingsService.settings.autocompleteItems);
 
     switch (event.key) {
       case 'Tab':
@@ -467,7 +433,7 @@ class CompletionsService extends BaseService {
         // Prevent adding a tab or line break to text
         event.preventDefault();
 
-        this.insertSelectedCompletion().catch((error) => Logger.error(error));
+        this.insertSelectedCompletion().catch((error) => this.logger.error(error));
         break;
 
       case 'ArrowUp':
@@ -541,20 +507,14 @@ class CompletionsService extends BaseService {
     const matchTextLength = matchText?.length ?? 0;
     const channelId = this.attachService.curChannelId;
 
-    if (
-      completions === undefined ||
-      selectedIndex === undefined ||
-      channelId === undefined
-    ) {
+    if (completions === undefined || selectedIndex === undefined || channelId === undefined) {
       return;
     }
 
     const selectedCompletion = completions[selectedIndex];
     if (!selectedCompletion) return;
     const completionValueArguments =
-      typeof selectedCompletion.data === 'string'
-        ? undefined
-        : selectedCompletion.data.arguments;
+      typeof selectedCompletion.data === 'string' ? undefined : selectedCompletion.data.arguments;
 
     let suffix = ' ';
     if (completionValueArguments) {
@@ -583,16 +543,13 @@ class CompletionsService extends BaseService {
       this.modulesService.draft.clearDraft(channelId, 0);
     });
 
-    this.modulesService.componentDispatcher.dispatchToLastSubscribed(
-      'INSERT_TEXT',
-      { plainText: draft }
-    );
+    this.modulesService.componentDispatcher.dispatchToLastSubscribed('INSERT_TEXT', {
+      plainText: draft,
+    });
   }
 
   destroyCompletions() {
-    const textAreaContainer = this.htmlService.getTextAreaContainer(
-      this.curEditor
-    );
+    const textAreaContainer = this.htmlService.getTextAreaContainer(this.curEditor);
 
     if (textAreaContainer) {
       const completions = this.htmlService
@@ -608,13 +565,10 @@ class CompletionsService extends BaseService {
   }
 
   doRenderCompletions() {
-    const channelTextArea = this.htmlService.getTextAreaContainer(
-      this.curEditor
-    );
+    const channelTextArea = this.htmlService.getTextAreaContainer(this.curEditor);
     if (!channelTextArea) return;
 
-    const oldAutoComplete =
-      channelTextArea?.querySelectorAll(`.${this.plugin.meta.name}`) ?? [];
+    const oldAutoComplete = channelTextArea?.querySelectorAll(`.${this.plugin.meta.name}`) ?? [];
     const discordClasses = this.modulesService.classes;
     const isEmote = this.emoteService.shouldCompleteEmote(this.draft);
 
@@ -651,11 +605,9 @@ class CompletionsService extends BaseService {
       },
     };
 
-    autocompleteDiv.addEventListener(
-      autocompleteListener.name,
-      autocompleteListener.callback,
-      { passive: true }
-    );
+    autocompleteDiv.addEventListener(autocompleteListener.name, autocompleteListener.callback, {
+      passive: true,
+    });
 
     this.listenersService.addListener(
       CompletionsService.AUTOCOMPLETE_DIV_WHEEL_LISTENER,
@@ -671,10 +623,7 @@ class CompletionsService extends BaseService {
     autocompleteDiv.append(autocompleteInnerDiv);
 
     const titleRow = document.createElement('div');
-    this.htmlService.addClasses(
-      titleRow,
-      discordClasses.Autocomplete.autocompleteRowVertical
-    );
+    this.htmlService.addClasses(titleRow, discordClasses.Autocomplete.autocompleteRowVertical);
     autocompleteInnerDiv.append(titleRow);
 
     const selector = document.createElement('div');
@@ -718,18 +667,12 @@ class CompletionsService extends BaseService {
             child.setAttribute('aria-selected', 'false');
 
             for (const nestedChild of child.children) {
-              this.htmlService.addClasses(
-                nestedChild,
-                discordClasses.Autocomplete.base
-              );
+              this.htmlService.addClasses(nestedChild, discordClasses.Autocomplete.base);
             }
           }
         },
       };
-      emoteRow.addEventListener(
-        mouseEnterListener.name,
-        mouseEnterListener.callback
-      );
+      emoteRow.addEventListener(mouseEnterListener.name, mouseEnterListener.callback);
       this.listenersService.addListener(
         `${CompletionsService.EMOTE_ROW_MOUSEENTER_LISTENER}${index}`,
         mouseEnterListener
@@ -744,13 +687,10 @@ class CompletionsService extends BaseService {
 
           if (!this.cached) this.cached = {};
           this.cached.selectedIndex = index + firstIndex;
-          this.insertSelectedCompletion().catch((error) => Logger.error(error));
+          this.insertSelectedCompletion().catch((error) => this.logger.error(error));
         },
       };
-      emoteRow.addEventListener(
-        mouseDownListener.name,
-        mouseDownListener.callback
-      );
+      emoteRow.addEventListener(mouseDownListener.name, mouseDownListener.callback);
       this.listenersService.addListener(
         `${CompletionsService.EMOTE_ROW_MOUSEDOWN_LISTENER}${index}`,
         mouseDownListener
@@ -758,10 +698,7 @@ class CompletionsService extends BaseService {
       autocompleteInnerDiv.append(emoteRow);
 
       const emoteSelector = document.createElement('div');
-      this.htmlService.addClasses(
-        emoteSelector,
-        discordClasses.Autocomplete.base
-      );
+      this.htmlService.addClasses(emoteSelector, discordClasses.Autocomplete.base);
       emoteRow.append(emoteSelector);
 
       if (index + firstIndex === selectedIndex) {
@@ -777,39 +714,24 @@ class CompletionsService extends BaseService {
 
       if (isEmote) {
         const containerIcon = document.createElement('div');
-        this.htmlService.addClasses(
-          containerIcon,
-          discordClasses.Autocomplete.autocompleteRowIcon
-        );
+        this.htmlService.addClasses(containerIcon, discordClasses.Autocomplete.autocompleteRowIcon);
         emoteContainer.append(containerIcon);
 
-        const settingsAutocompleteEmoteSize =
-          this.settingsService.settings.autocompleteEmoteSize;
+        const settingsAutocompleteEmoteSize = this.settingsService.settings.autocompleteEmoteSize;
         const containerImage = document.createElement('img');
         containerImage.alt = name;
         containerImage.title = name;
-        containerImage.style.minWidth = `${Math.round(
-          settingsAutocompleteEmoteSize
-        )}px`;
-        containerImage.style.minHeight = `${Math.round(
-          settingsAutocompleteEmoteSize
-        )}px`;
-        containerImage.style.width = `${Math.round(
-          settingsAutocompleteEmoteSize
-        )}px`;
-        containerImage.style.height = `${Math.round(
-          settingsAutocompleteEmoteSize
-        )}px`;
+        containerImage.style.minWidth = `${Math.round(settingsAutocompleteEmoteSize)}px`;
+        containerImage.style.minHeight = `${Math.round(settingsAutocompleteEmoteSize)}px`;
+        containerImage.style.width = `${Math.round(settingsAutocompleteEmoteSize)}px`;
+        containerImage.style.height = `${Math.round(settingsAutocompleteEmoteSize)}px`;
 
-        this.htmlService.addClasses(
-          containerImage,
-          discordClasses.Autocomplete.emojiImage
-        );
+        this.htmlService.addClasses(containerImage, discordClasses.Autocomplete.emojiImage);
         containerIcon.append(containerImage);
 
         if (typeof data === 'string') {
           Utils.loadImagePromise(data, false, containerImage).catch((error) =>
-            Logger.error(error)
+            this.logger.error(error)
           );
         }
       }
@@ -841,10 +763,7 @@ class CompletionsService extends BaseService {
     }
   }
 
-  renderCompletions = BdApi.Utils.debounce(
-    this.doRenderCompletions.bind(this),
-    250
-  );
+  renderCompletions = BdApi.Utils.debounce(this.doRenderCompletions.bind(this), 250);
 
   scrollCompletions(e, options) {
     const delta = Math.sign(e.deltaY);
@@ -855,14 +774,8 @@ class CompletionsService extends BaseService {
     if (!this.cached) return;
 
     const preScroll = 2;
-    const {
-      completions,
-      selectedIndex: prevSelectedIndex,
-      windowOffset,
-    } = this.cached;
-    const autocompleteItems = Math.round(
-      this.settingsService.settings.autocompleteItems
-    );
+    const { completions, selectedIndex: prevSelectedIndex, windowOffset } = this.cached;
+    const autocompleteItems = Math.round(this.settingsService.settings.autocompleteItems);
 
     if (!completions) {
       return;
@@ -875,8 +788,7 @@ class CompletionsService extends BaseService {
       selectedIndex = Utils.clamp(selectedIndex, 0, completionsCount - 1);
     } else {
       selectedIndex =
-        (selectedIndex % completionsCount) +
-        (selectedIndex < 0 ? completionsCount : 0);
+        (selectedIndex % completionsCount) + (selectedIndex < 0 ? completionsCount : 0);
     }
     this.cached.selectedIndex = selectedIndex;
 
@@ -934,7 +846,7 @@ class EmoteService extends BaseService {
         }
       })
       .catch((error) => {
-        Logger.warn('Failed to get emote names and/or modifiers', error);
+        this.logger.warn('Failed to get emote names and/or modifiers', error);
       });
   }
 
@@ -948,7 +860,7 @@ class EmoteService extends BaseService {
         BdApi.UI.showToast('Emote database reloaded!', { type: 'success' });
       })
       .catch((error) => {
-        Logger.warn('Failed to get emote names', error);
+        this.logger.warn('Failed to get emote names', error);
       });
   }
 
@@ -980,11 +892,9 @@ class EmoteService extends BaseService {
   setEmoteNames(emoteNames) {
     const customEmotes = {};
 
-    Object.entries(this.settingsService.settings.customEmotes).forEach(
-      ([name, url]) => {
-        customEmotes[this.getPrefixedName(name)] = url;
-      }
-    );
+    Object.entries(this.settingsService.settings.customEmotes).forEach(([name, url]) => {
+      customEmotes[this.getPrefixedName(name)] = url;
+    });
 
     const standardNames = {};
     Object.entries(emoteNames).forEach(([name, url]) => {
@@ -1071,8 +981,7 @@ class EmoteService extends BaseService {
       return { completions: [], matchText: undefined, matchStart: -1 };
     }
 
-    const commandPart =
-      match[2]?.substring(match[2].lastIndexOf('.') + 1) ?? '';
+    const commandPart = match[2]?.substring(match[2].lastIndexOf('.') + 1) ?? '';
     const commandArray = [];
 
     this.modifiers.forEach((modifier) => {
@@ -1080,10 +989,7 @@ class EmoteService extends BaseService {
     });
 
     const completions = commandArray.filter((command) => {
-      return (
-        commandPart === '' ||
-        command.name.toLowerCase().search(commandPart) !== -1
-      );
+      return commandPart === '' || command.name.toLowerCase().search(commandPart) !== -1;
     });
 
     const matchText = commandPart;
@@ -1146,10 +1052,7 @@ class AttachService extends BaseService {
         resolve(userId);
       };
 
-      this.modulesService.dispatcher.subscribe(
-        'LOAD_MESSAGES_SUCCESS',
-        this.onMessagesLoaded
-      );
+      this.modulesService.dispatcher.subscribe('LOAD_MESSAGES_SUCCESS', this.onMessagesLoaded);
     });
   }
 
@@ -1192,18 +1095,12 @@ class AttachService extends BaseService {
 
   stop() {
     if (this.onMessagesLoaded) {
-      this.modulesService.dispatcher.unsubscribe(
-        'LOAD_MESSAGES_SUCCESS',
-        this.onMessagesLoaded
-      );
+      this.modulesService.dispatcher.unsubscribe('LOAD_MESSAGES_SUCCESS', this.onMessagesLoaded);
       this.onMessagesLoaded = undefined;
     }
 
     if (this.onChannelSelect) {
-      this.modulesService.dispatcher.unsubscribe(
-        'CHANNEL_SELECT',
-        this.onChannelSelect
-      );
+      this.modulesService.dispatcher.unsubscribe('CHANNEL_SELECT', this.onChannelSelect);
       this.onChannelSelect = undefined;
     }
 
@@ -1213,9 +1110,13 @@ class AttachService extends BaseService {
 }
 
 class SettingsService extends BaseService {
-  static ADD_BUTTON_CLICK_LISTENER = 'addButtonClick';
-  static REFRESH_BUTTON_CLICK_LISTENER = 'refreshButtonClick';
   static DELETE_BUTTON_CLICK_LISTENER = 'deleteButtonClick';
+  static TRASH_ICON =
+    '<svg class="" fill="#FFFFFF" viewBox="0 0 24 24" ' +
+    'style="width: 20px; height: 20px;"><path fill="none" d="M0 0h24v24H0V0z"></path>' +
+    '<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.' +
+    '12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.1' +
+    '2zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"></path><path fill="none" d="M0 0h24v24H0z"></path></svg>';
 
   listenersService;
 
@@ -1224,7 +1125,7 @@ class SettingsService extends BaseService {
   start(listenersService) {
     this.listenersService = listenersService;
 
-    const savedSettings = BdApi.Data.load(this.plugin.meta.name, SETTINGS_KEY);
+    const savedSettings = this.bdApi.Data.load(SETTINGS_KEY);
     this.settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings);
 
     return Promise.resolve();
@@ -1232,166 +1133,174 @@ class SettingsService extends BaseService {
 
   getSettingsElement() {
     const emoteService = this.plugin.emoteService;
-    if (!emoteService) return new HTMLElement();
+    if (!emoteService) return undefined;
 
-    const Settings = this.zeresPluginLibrary.Settings;
+    const { UI, React, ReactDOM, Components } = this.bdApi;
     const settings = [];
 
     this.pushRegularSettings(settings, emoteService);
 
-    const emoteFolderPicker = document.createElement('input');
-    emoteFolderPicker.type = 'file';
-    emoteFolderPicker.multiple = true;
-    emoteFolderPicker.accept = '.png,.gif';
-
-    let emoteName;
-    const emoteNameTextbox = new Settings.Textbox(
-      undefined,
-      'Emote name',
-      undefined,
-      (val) => {
-        emoteName = val;
-      }
-    );
-
-    let imageUrl;
-    const imageUrlTextbox = new Settings.Textbox(
-      undefined,
-      'Image URL (must end with .gif or .png, 128px recommended)',
-      undefined,
-      (val) => {
-        imageUrl = val;
-      }
-    );
-
-    const addButton = document.createElement('button');
-    addButton.type = 'button';
-    addButton.classList.add('bd-button');
-    addButton.textContent = 'Add';
-    const addSettingField = new Settings.SettingField(
-      undefined,
-      undefined,
-      undefined,
-      addButton
-    );
-
-    const customEmotesContainer = document.createElement('div');
-    const addListener = {
-      element: addButton,
-      name: 'click',
-      callback: () => {
-        const files = emoteFolderPicker.files ?? [];
-
-        const addPromises = (
-          files.length > 0
-            ? Array.from(files).map((file) => {
-                const fileName = file.name.substring(
-                  0,
-                  file.name.lastIndexOf('.')
-                );
-                return this.addEmote(fileName, file.path);
-              })
-            : [this.addEmote(emoteName, imageUrl)]
-        ).map(async (promise) => {
-          const emoteName = await promise;
-          customEmotesContainer.append(
-            this.createCustomEmoteContainer(emoteName, emoteService)
-          );
-        });
-
-        Promise.allSettled(addPromises)
-          .then((results) => {
-            const errors = [];
-            results.forEach((result) => {
-              if (result.status === 'fulfilled') return;
-              errors.push(result.reason);
-              Logger.error(result.reason);
-            });
-
-            const firstError = errors[0];
-            if (firstError) {
-              BdApi.UI.showToast(
-                `${firstError.message}${
-                  errors.length > 1 ? '\nSee console for all errors' : ''
-                }`,
-                { type: 'error' }
-              );
-
-              if (addPromises.length === 1) return;
-            }
-
-            emoteFolderPicker.value = '';
-            const emoteNameTextboxInput = emoteNameTextbox
-              .getElement()
-              .querySelector('input');
-            if (emoteNameTextboxInput) emoteNameTextboxInput.value = '';
-
-            const imageUrlTextboxInput = imageUrlTextbox
-              .getElement()
-              .querySelector('input');
-            if (imageUrlTextboxInput) imageUrlTextboxInput.value = '';
-
-            BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
-            BdApi.UI.showToast('Emote(s) have been saved', { type: 'success' });
-          })
-          .catch((error) => {
-            BdApi.UI.showToast(error.message, { type: 'error' });
-          });
+    let selectedFiles = [];
+    const emotePicker = Utils.FileSetting({
+      id: 'emotePicker',
+      inline: false,
+      multiple: true,
+      accept: ['.png', '.gif'],
+      clearable: true,
+      onChange: (val) => {
+        if (!Array.isArray(val)) selectedFiles = [val];
+        else selectedFiles = val;
       },
-    };
-    addButton.addEventListener(addListener.name, addListener.callback);
-    this.listenersService.addListener(
-      SettingsService.ADD_BUTTON_CLICK_LISTENER,
-      addListener
-    );
-
-    Object.keys(this.settings.customEmotes).forEach((key) => {
-      customEmotesContainer.append(
-        this.createCustomEmoteContainer(key, emoteService)
-      );
     });
 
-    const customEmoteGroup = new Settings.SettingGroup('Custom emotes');
-    customEmoteGroup.append(
-      emoteFolderPicker,
-      emoteNameTextbox,
-      imageUrlTextbox,
-      addSettingField,
-      customEmotesContainer
+    const emoteName = document.createElement('input');
+    emoteName.type = 'text';
+    emoteName.className = 'bd-text-input';
+    const EmoteName = BdApi.ReactUtils.wrapElement(emoteName);
+
+    const emoteNameItem = Utils.SettingItem({
+      id: 'emoteName',
+      name: 'Emote name',
+      children: [React.createElement(EmoteName)],
+    });
+
+    const imageUrl = document.createElement('input');
+    imageUrl.type = 'text';
+    imageUrl.className = 'bd-text-input';
+    const ImageUrl = BdApi.ReactUtils.wrapElement(imageUrl);
+
+    const imageUrlItem = Utils.SettingItem({
+      id: 'imageUrl',
+      name: 'Image URL',
+      note: 'must end with .gif or .png, 128px recommended',
+      children: [React.createElement(ImageUrl)],
+    });
+
+    const addButton = React.createElement(
+      Components.Button,
+      {
+        onClick: () => {
+          const files = Array.from(selectedFiles).map((file) => {
+            const split = file.replaceAll('\\', '/').split('/');
+            const fileName = split[split.length - 1];
+            if (fileName === undefined) return undefined;
+
+            return {
+              name: fileName.substring(0, fileName.lastIndexOf('.')),
+              url: file,
+            };
+          });
+
+          if (emoteName.value || imageUrl.value) {
+            files.push({ name: emoteName.value, url: imageUrl.value });
+          }
+
+          const validFiles = files.filter((file) => file !== undefined);
+
+          if (validFiles.length <= 0) {
+            UI.showToast('No emote entered!', { type: 'error' });
+            return;
+          }
+
+          const settingsContainers = document.querySelectorAll('.bd-settings-container');
+          const emoteContainer = settingsContainers[settingsContainers.length - 1];
+
+          const addPromises = validFiles
+            .map((file) => this.addEmote(file.name, file.url))
+            .map(async (promise) => {
+              if (!(emoteContainer instanceof HTMLElement)) return;
+
+              const emoteName = await promise;
+              const setting = this.createCustomEmoteContainer(emoteName, emoteService);
+
+              const newEmote = document.createElement('div');
+              emoteContainer.append(newEmote);
+
+              const root = ReactDOM.createRoot(newEmote);
+              root.render(UI.buildSettingItem(setting));
+            });
+
+          Promise.allSettled(addPromises)
+            .then((results) => {
+              const errors = [];
+              results.forEach((result) => {
+                if (result.status === 'fulfilled') return;
+
+                errors.push(result.reason);
+                this.logger.error(result.reason);
+              });
+
+              const firstError = errors[0];
+              if (firstError) {
+                UI.showToast(
+                  `${firstError.message}${errors.length > 1 ? '\nSee console for all errors' : ''}`,
+                  {
+                    type: 'error',
+                  }
+                );
+
+                if (addPromises.length === 1) return;
+              }
+
+              emotePicker.actions.clear();
+              emoteName.value = '';
+              imageUrl.value = '';
+
+              this.bdApi.Data.save(SETTINGS_KEY, this.settings);
+              UI.showToast('Emote(s) have been saved', { type: 'success' });
+            })
+            .catch((error) => {
+              UI.showToast(error.message, { type: 'error' });
+            });
+        },
+      },
+      'Add'
     );
+
+    const addSettingItem = Utils.SettingItem({
+      id: 'addButton',
+      inline: false,
+      children: [addButton],
+    });
+
+    const customEmoteSettings = [];
+
+    Object.keys(this.settings.customEmotes).forEach((key) => {
+      customEmoteSettings.push(this.createCustomEmoteContainer(key, emoteService));
+    });
+
+    const customEmoteGroup = Utils.SettingCategory({
+      id: 'customEmoteGroup',
+      name: 'Custom emotes',
+      collapsible: true,
+      shown: false,
+      settings: [emotePicker, emoteNameItem, imageUrlItem, addSettingItem, ...customEmoteSettings],
+    });
     settings.push(customEmoteGroup);
 
-    const refreshButton = document.createElement('button');
-    refreshButton.type = 'button';
-    refreshButton.classList.add('bd-button');
-    refreshButton.textContent = 'Refresh emote list';
-    const refreshSettingField = new Settings.SettingField(
-      undefined,
-      undefined,
-      undefined,
-      refreshButton
+    const refreshButton = React.createElement(
+      Components.Button,
+      {
+        onClick: () => {
+          emoteService.refreshEmotes();
+        },
+      },
+      'Refresh emote list'
     );
 
-    const refreshListener = {
-      element: refreshButton,
-      name: 'click',
-      callback: () => {
-        emoteService.refreshEmotes();
-      },
-    };
-    refreshButton.addEventListener(
-      refreshListener.name,
-      refreshListener.callback
-    );
-    this.listenersService.addListener(
-      SettingsService.REFRESH_BUTTON_CLICK_LISTENER,
-      refreshListener
-    );
+    const refreshSettingField = Utils.SettingItem({
+      id: 'refreshSettingField',
+      inline: false,
+      children: [refreshButton],
+    });
     settings.push(refreshSettingField);
 
-    return Settings.SettingPanel.build(() => {
-      BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
-    }, ...settings);
+    return UI.buildSettingsPanel({
+      settings,
+      onChange: () => {
+        this.bdApi.Data.save(SETTINGS_KEY, this.settings);
+      },
+    });
   }
 
   async addEmote(emoteName, imageUrl) {
@@ -1406,8 +1315,7 @@ class SettingsService extends BaseService {
     if (!emoteService) throw new Error('Emote service not found');
 
     const emoteNames = emoteService.emoteNames ?? {};
-    const targetEmoteName =
-      emoteNames[emoteService.getPrefixedName(emoteName)] ?? '';
+    const targetEmoteName = emoteNames[emoteService.getPrefixedName(emoteName)] ?? '';
     if (targetEmoteName) throw new Error('Emote name already exists!');
 
     this.settings.customEmotes[emoteName] = imageUrl;
@@ -1418,128 +1326,124 @@ class SettingsService extends BaseService {
   }
 
   pushRegularSettings(settings, emoteService) {
-    const Settings = this.zeresPluginLibrary.Settings;
+    const emoteSize = Utils.SliderSetting({
+      id: 'emoteSize',
+      name: 'Emote Size',
+      note: 'The size of emotes. (default 48)',
+      min: 32,
+      max: 128,
+      units: 'px',
+      markers: [32, 48, 64, 96, 128],
+      value: this.settings.emoteSize,
+      onChange: (val) => {
+        this.settings.emoteSize = Math.round(val);
+      },
+    });
+    settings.push(emoteSize);
 
-    settings.push(
-      new Settings.Slider(
-        'Emote Size',
-        'The size of emotes. (default 48)',
-        32,
-        128,
-        this.settings.emoteSize,
-        (val) => {
-          this.settings.emoteSize = Math.round(val);
-        },
-        { units: 'px', markers: [32, 48, 64, 96, 128] }
-      )
-    );
+    const autocompleteEmoteSize = Utils.SliderSetting({
+      id: 'autocompleteEmoteSize',
+      name: 'Autocomplete Emote Size',
+      note: 'The size of emotes in the autocomplete window. (default 15)',
+      min: 15,
+      max: 64,
+      units: 'px',
+      markers: [15, 32, 48, 64],
+      value: this.settings.autocompleteEmoteSize,
+      onChange: (val) => {
+        this.settings.autocompleteEmoteSize = Math.round(val);
+      },
+    });
+    settings.push(autocompleteEmoteSize);
 
-    settings.push(
-      new Settings.Slider(
-        'Autocomplete Emote Size',
-        'The size of emotes in the autocomplete window. (default 15)',
-        15,
-        64,
-        this.settings.autocompleteEmoteSize,
-        (val) => {
-          this.settings.autocompleteEmoteSize = Math.round(val);
-        },
-        { units: 'px', markers: [15, 32, 48, 64] }
-      )
-    );
+    const autocompleteItems = Utils.SliderSetting({
+      id: 'autocompleteItems',
+      name: 'Autocomplete Items',
+      note: 'The amount of emotes shown in the autocomplete window. (default 10)',
+      min: 1,
+      max: 25,
+      value: this.settings.autocompleteItems,
+      units: ' items',
+      markers: [1, 5, 10, 15, 20, 25],
+      onChange: (val) => {
+        this.settings.autocompleteItems = Math.round(val);
+      },
+    });
+    settings.push(autocompleteItems);
 
-    settings.push(
-      new Settings.Slider(
-        'Autocomplete Items',
-        'The amount of emotes shown in the autocomplete window. (default 10)',
-        1,
-        25,
-        this.settings.autocompleteItems,
-        (val) => {
-          this.settings.autocompleteItems = Math.round(val);
-        },
-        { units: ' items', markers: [1, 5, 10, 15, 20, 25] }
-      )
-    );
+    const requirePrefix = Utils.SwitchSetting({
+      id: 'requirePrefix',
+      name: 'Require prefix',
+      note: 'If this is enabled, the autocomplete list will not be shown unless the prefix is also typed.',
+      value: this.settings.requirePrefix,
+      onChange: (checked) => {
+        this.settings.requirePrefix = checked;
+      },
+    });
+    settings.push(requirePrefix);
 
-    settings.push(
-      new Settings.Switch(
-        'Require prefix',
-        'If this is enabled, ' +
-          'the autocomplete list will not be shown unless the prefix is also typed.',
-        this.settings.requirePrefix,
-        (checked) => {
-          this.settings.requirePrefix = checked;
-        }
-      )
-    );
+    const showStandardEmotes = Utils.SwitchSetting({
+      id: 'showStandardEmotes',
+      name: 'Show standard custom emotes',
+      note: 'If this is enabled, the standard custom emotes will be visible.',
+      value: this.settings.showStandardEmotes,
+      onChange: (checked) => {
+        this.settings.showStandardEmotes = checked;
+        emoteService.refreshEmotes();
+      },
+    });
+    settings.push(showStandardEmotes);
 
-    settings.push(
-      new Settings.Switch(
-        'Show standard custom emotes',
-        'If this is enabled, the standard custom emotes will be visible.',
-        this.settings.showStandardEmotes,
-        (checked) => {
-          this.settings.showStandardEmotes = checked;
-          emoteService.refreshEmotes();
-        }
-      )
-    );
-
-    settings.push(
-      new Settings.Textbox(
-        'Prefix',
+    const prefix = Utils.TextSetting({
+      id: 'prefix',
+      name: 'Prefix',
+      note:
         'The prefix to check against for the above setting. ' +
-          'It is recommended to use a single character not in use by other chat functionality, ' +
-          'other prefixes may cause issues.',
-        this.settings.prefix,
-        BdApi.Utils.debounce((val) => {
-          if (val === this.settings.prefix) return;
+        'It is recommended to use a single character not in use by other chat functionality, ' +
+        'other prefixes may cause issues.',
+      value: this.settings.prefix,
+      onChange: (val) => {
+        if (val === this.settings.prefix) return;
 
-          const previousPrefix = this.settings.prefix;
-          this.settings.prefix = val;
-          BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
+        const previousPrefix = this.settings.prefix;
+        this.settings.prefix = val;
 
-          const previousEmoteNames = Object.assign({}, emoteService.emoteNames);
-          const emoteNames = {};
+        const previousEmoteNames = Object.assign({}, emoteService.emoteNames);
+        const emoteNames = {};
 
-          Object.entries(previousEmoteNames).forEach(([name, value]) => {
-            const prefixedName = emoteService.getPrefixedName(
-              name.replace(previousPrefix, '')
-            );
-            emoteNames[prefixedName] = value;
-          });
+        Object.entries(previousEmoteNames).forEach(([name, value]) => {
+          const prefixedName = emoteService.getPrefixedName(name.replace(previousPrefix, ''));
+          emoteNames[prefixedName] = value;
+        });
 
-          emoteService.emoteNames = emoteNames;
-        }, 2000)
-      )
-    );
+        emoteService.emoteNames = emoteNames;
+      },
+    });
+    settings.push(prefix);
 
-    settings.push(
-      new Settings.RadioGroup(
-        'Resize Method',
-        'How emotes will be scaled down to fit your selected emote size',
-        this.settings.resizeMethod,
-        [
-          {
-            name: 'Scale down smallest side',
-            value: 'smallest',
-          },
-          {
-            name: 'Scale down largest side',
-            value: 'largest',
-          },
-        ],
-        (val) => {
-          this.settings.resizeMethod = val;
-        }
-      )
-    );
+    const resizeMethod = Utils.RadioSetting({
+      id: 'resizeMethod',
+      name: 'Resize Method',
+      note: 'How emotes will be scaled down to fit your selected emote size',
+      value: this.settings.resizeMethod,
+      options: [
+        {
+          name: 'Scale down smallest side',
+          value: 'smallest',
+        },
+        {
+          name: 'Scale down largest side',
+          value: 'largest',
+        },
+      ],
+      onChange: (val) => {
+        this.settings.resizeMethod = val;
+      },
+    });
+    settings.push(resizeMethod);
   }
 
   createCustomEmoteContainer(emoteName, emoteService) {
-    const Settings = this.zeresPluginLibrary.Settings;
-
     const customEmoteContainer = document.createElement('div');
     customEmoteContainer.style.display = 'flex';
 
@@ -1547,34 +1451,18 @@ class SettingsService extends BaseService {
     const containerImage = document.createElement('img');
     containerImage.alt = emoteName;
     containerImage.title = emoteName;
-    containerImage.style.minWidth = `${Math.round(
-      this.settings.autocompleteEmoteSize
-    )}px`;
-    containerImage.style.minHeight = `${Math.round(
-      this.settings.autocompleteEmoteSize
-    )}px`;
-    containerImage.style.width = `${Math.round(
-      this.settings.autocompleteEmoteSize
-    )}px`;
-    containerImage.style.height = `${Math.round(
-      this.settings.autocompleteEmoteSize
-    )}px`;
+    containerImage.style.minWidth = `${Math.round(this.settings.autocompleteEmoteSize)}px`;
+    containerImage.style.minHeight = `${Math.round(this.settings.autocompleteEmoteSize)}px`;
+    containerImage.style.width = `${Math.round(this.settings.autocompleteEmoteSize)}px`;
+    containerImage.style.height = `${Math.round(this.settings.autocompleteEmoteSize)}px`;
     containerImage.style.marginRight = '0.5rem';
 
     customEmoteContainer.append(containerImage);
-    Utils.loadImagePromise(url, false, containerImage).catch((error) =>
-      Logger.error(error)
-    );
+    Utils.loadImagePromise(url, false, containerImage).catch((error) => this.logger.error(error));
 
     const deleteButton = document.createElement('button');
-    deleteButton.type = 'button';
-    deleteButton.classList.add('bd-button', 'bd-button-danger');
-    deleteButton.innerHTML =
-      '<svg class="" fill="#FFFFFF" viewBox="0 0 24 24" ' +
-      'style="width: 20px; height: 20px;"><path fill="none" d="M0 0h24v24H0V0z"></path>' +
-      '<path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.' +
-      '12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.1' +
-      '2zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"></path><path fill="none" d="M0 0h24v24H0z"></path></svg>';
+    deleteButton.className = 'bd-button bd-button-filled bd-button-color-red';
+    deleteButton.innerHTML = SettingsService.TRASH_ICON;
     customEmoteContainer.append(deleteButton);
 
     const deleteListener = {
@@ -1583,17 +1471,13 @@ class SettingsService extends BaseService {
       callback: () => {
         delete this.settings.customEmotes[emoteName];
         if (emoteService.emoteNames) {
-          delete emoteService.emoteNames[
-            emoteService.getPrefixedName(emoteName)
-          ];
+          delete emoteService.emoteNames[emoteService.getPrefixedName(emoteName)];
         }
 
-        BdApi.Data.save(this.plugin.meta.name, SETTINGS_KEY, this.settings);
-        BdApi.UI.showToast(`Emote ${emoteName} has been deleted!`, {
-          type: 'success',
-        });
+        this.bdApi.Data.save(SETTINGS_KEY, this.settings);
+        this.bdApi.UI.showToast(`Emote ${emoteName} has been deleted!`, { type: 'success' });
 
-        document.getElementById(emoteName)?.remove();
+        customEmoteContainer.closest('.bd-setting-item')?.remove();
       },
     };
     deleteButton.addEventListener(deleteListener.name, deleteListener.callback);
@@ -1603,16 +1487,14 @@ class SettingsService extends BaseService {
     );
 
     const targetEmote = this.settings.customEmotes[emoteName];
-    const existingEmote = new Settings.SettingField(
-      emoteName,
-      targetEmote,
-      undefined,
-      customEmoteContainer,
-      { noteOnTop: true }
-    );
+    const CustomEmoteContainer = BdApi.ReactUtils.wrapElement(customEmoteContainer);
 
-    existingEmote.getElement().id = emoteName;
-    return existingEmote.getElement();
+    return Utils.SettingItem({
+      id: emoteName,
+      name: emoteName,
+      note: targetEmote ?? '',
+      children: [BdApi.React.createElement(CustomEmoteContainer)],
+    });
   }
 
   stop() {
@@ -1635,9 +1517,7 @@ class ListenersService extends BaseService {
   }
 
   removeListeners(idPrefix) {
-    const listeners = Object.keys(this.listeners).filter((id) =>
-      id.startsWith(idPrefix)
-    );
+    const listeners = Object.keys(this.listeners).filter((id) => id.startsWith(idPrefix));
     if (listeners.length === 0) return;
 
     listeners.forEach((id) => {
@@ -1658,12 +1538,10 @@ class ListenersService extends BaseService {
   }
 
   requestAddListeners(targetId) {
-    Object.entries(this.addListenersWatchers).forEach(
-      ([id, addListenersWatcher]) => {
-        if (id !== targetId) return;
-        addListenersWatcher.onAddListeners();
-      }
-    );
+    Object.entries(this.addListenersWatchers).forEach(([id, addListenersWatcher]) => {
+      if (id !== targetId) return;
+      addListenersWatcher.onAddListeners();
+    });
   }
 
   stop() {
@@ -1682,9 +1560,7 @@ function funcToSource(fn, sourcemapArg) {
   var blankPrefixLength = lines[0].search(/\S/);
   var regex = /(['"])__worker_loader_strict__(['"])/g;
   for (var i = 0, n = lines.length; i < n; ++i) {
-    lines[i] =
-      lines[i].substring(blankPrefixLength).replace(regex, '$1use strict$2') +
-      '\n';
+    lines[i] = lines[i].substring(blankPrefixLength).replace(regex, '$1use strict$2') + '\n';
   }
   if (sourcemap) {
     lines.push('//# sourceMappingURL=' + sourcemap + '\n');
@@ -1716,9 +1592,8 @@ var WorkerFactory = createInlineWorkerFactory(
         const INIT = 0;
         WorkerMessageType[(WorkerMessageType['INIT'] = INIT)] = 'INIT';
         const APPLY_COMMANDS = INIT + 1;
-        WorkerMessageType[
-          (WorkerMessageType['APPLY_COMMANDS'] = APPLY_COMMANDS)
-        ] = 'APPLY_COMMANDS';
+        WorkerMessageType[(WorkerMessageType['APPLY_COMMANDS'] = APPLY_COMMANDS)] =
+          'APPLY_COMMANDS';
       })(WorkerMessageType || (WorkerMessageType = {}));
 
       let wasm;
@@ -1745,29 +1620,21 @@ var WorkerFactory = createInlineWorkerFactory(
         return ret;
       }
 
-      const cachedTextDecoder = new TextDecoder('utf-8', {
-        ignoreBOM: true,
-        fatal: true,
-      });
+      const cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
 
       cachedTextDecoder.decode();
 
       let cachedUint8Memory0 = null;
 
       function getUint8Memory0() {
-        if (
-          cachedUint8Memory0 === null ||
-          cachedUint8Memory0.byteLength === 0
-        ) {
+        if (cachedUint8Memory0 === null || cachedUint8Memory0.byteLength === 0) {
           cachedUint8Memory0 = new Uint8Array(wasm.memory.buffer);
         }
         return cachedUint8Memory0;
       }
 
       function getStringFromWasm0(ptr, len) {
-        return cachedTextDecoder.decode(
-          getUint8Memory0().subarray(ptr, ptr + len)
-        );
+        return cachedTextDecoder.decode(getUint8Memory0().subarray(ptr, ptr + len));
       }
 
       function addHeapObject(obj) {
@@ -1843,10 +1710,7 @@ var WorkerFactory = createInlineWorkerFactory(
       let cachedInt32Memory0 = null;
 
       function getInt32Memory0() {
-        if (
-          cachedInt32Memory0 === null ||
-          cachedInt32Memory0.byteLength === 0
-        ) {
+        if (cachedInt32Memory0 === null || cachedInt32Memory0.byteLength === 0) {
           cachedInt32Memory0 = new Int32Array(wasm.memory.buffer);
         }
         return cachedInt32Memory0;
@@ -1855,10 +1719,7 @@ var WorkerFactory = createInlineWorkerFactory(
       let cachedFloat64Memory0 = null;
 
       function getFloat64Memory0() {
-        if (
-          cachedFloat64Memory0 === null ||
-          cachedFloat64Memory0.byteLength === 0
-        ) {
+        if (cachedFloat64Memory0 === null || cachedFloat64Memory0.byteLength === 0) {
           cachedFloat64Memory0 = new Float64Array(wasm.memory.buffer);
         }
         return cachedFloat64Memory0;
@@ -1961,14 +1822,7 @@ var WorkerFactory = createInlineWorkerFactory(
             wasm.__wbindgen_realloc
           );
           const len1 = WASM_VECTOR_LEN;
-          wasm.applyCommands(
-            retptr,
-            ptr0,
-            len0,
-            ptr1,
-            len1,
-            addHeapObject(commands)
-          );
+          wasm.applyCommands(retptr, ptr0, len0, ptr1, len1, addHeapObject(commands));
           var r0 = getInt32Memory0()[retptr / 4 + 0];
           var r1 = getInt32Memory0()[retptr / 4 + 1];
           var r2 = getInt32Memory0()[retptr / 4 + 2];
@@ -2043,11 +1897,7 @@ var WorkerFactory = createInlineWorkerFactory(
           const ret = typeof obj === 'string' ? obj : undefined;
           var ptr0 = isLikeNone(ret)
             ? 0
-            : passStringToWasm0(
-                ret,
-                wasm.__wbindgen_malloc,
-                wasm.__wbindgen_realloc
-              );
+            : passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
           var len0 = WASM_VECTOR_LEN;
           getInt32Memory0()[arg0 / 4 + 1] = len0;
           getInt32Memory0()[arg0 / 4 + 0] = ptr0;
@@ -2074,11 +1924,7 @@ var WorkerFactory = createInlineWorkerFactory(
         };
         imports.wbg.__wbg_String_88810dfeb4021902 = function (arg0, arg1) {
           const ret = String(getObject(arg1));
-          const ptr0 = passStringToWasm0(
-            ret,
-            wasm.__wbindgen_malloc,
-            wasm.__wbindgen_realloc
-          );
+          const ptr0 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
           const len0 = WASM_VECTOR_LEN;
           getInt32Memory0()[arg0 / 4 + 1] = len0;
           getInt32Memory0()[arg0 / 4 + 0] = ptr0;
@@ -2137,9 +1983,7 @@ var WorkerFactory = createInlineWorkerFactory(
           const ret = Array.isArray(getObject(arg0));
           return ret;
         };
-        imports.wbg.__wbg_instanceof_ArrayBuffer_a69f02ee4c4f5065 = function (
-          arg0
-        ) {
+        imports.wbg.__wbg_instanceof_ArrayBuffer_a69f02ee4c4f5065 = function (arg0) {
           let result;
           try {
             result = getObject(arg0) instanceof ArrayBuffer;
@@ -2168,9 +2012,7 @@ var WorkerFactory = createInlineWorkerFactory(
           const ret = getObject(arg0).length;
           return ret;
         };
-        imports.wbg.__wbg_instanceof_Uint8Array_01cebe79ca606cca = function (
-          arg0
-        ) {
+        imports.wbg.__wbg_instanceof_Uint8Array_01cebe79ca606cca = function (arg0) {
           let result;
           try {
             result = getObject(arg0) instanceof Uint8Array;
@@ -2181,20 +2023,14 @@ var WorkerFactory = createInlineWorkerFactory(
           return ret;
         };
         imports.wbg.__wbg_random_afb3265527cf67c8 =
-          typeof Math.random == 'function'
-            ? Math.random
-            : notDefined('Math.random');
+          typeof Math.random == 'function' ? Math.random : notDefined('Math.random');
         imports.wbg.__wbg_new_abda76e883ba8a5f = function () {
           const ret = new Error();
           return addHeapObject(ret);
         };
         imports.wbg.__wbg_stack_658279fe44541cf6 = function (arg0, arg1) {
           const ret = getObject(arg1).stack;
-          const ptr0 = passStringToWasm0(
-            ret,
-            wasm.__wbindgen_malloc,
-            wasm.__wbindgen_realloc
-          );
+          const ptr0 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
           const len0 = WASM_VECTOR_LEN;
           getInt32Memory0()[arg0 / 4 + 1] = len0;
           getInt32Memory0()[arg0 / 4 + 0] = ptr0;
@@ -2208,11 +2044,7 @@ var WorkerFactory = createInlineWorkerFactory(
         };
         imports.wbg.__wbindgen_debug_string = function (arg0, arg1) {
           const ret = debugString(getObject(arg1));
-          const ptr0 = passStringToWasm0(
-            ret,
-            wasm.__wbindgen_malloc,
-            wasm.__wbindgen_realloc
-          );
+          const ptr0 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
           const len0 = WASM_VECTOR_LEN;
           getInt32Memory0()[arg0 / 4 + 1] = len0;
           getInt32Memory0()[arg0 / 4 + 0] = ptr0;
@@ -2263,12 +2095,8 @@ var WorkerFactory = createInlineWorkerFactory(
 
       function _loadWasmModule(sync, filepath, src, imports) {
         function _instantiateOrCompile(source, imports, stream) {
-          var instantiateFunc = stream
-            ? WebAssembly.instantiateStreaming
-            : WebAssembly.instantiate;
-          var compileFunc = stream
-            ? WebAssembly.compileStreaming
-            : WebAssembly.compile;
+          var instantiateFunc = stream ? WebAssembly.instantiateStreaming : WebAssembly.instantiate;
+          var compileFunc = stream ? WebAssembly.compileStreaming : WebAssembly.compile;
 
           if (imports) {
             return instantiateFunc(source, imports);
@@ -2369,8 +2197,7 @@ var WorkerMessageType;
   const INIT = 0;
   WorkerMessageType[(WorkerMessageType['INIT'] = INIT)] = 'INIT';
   const APPLY_COMMANDS = INIT + 1;
-  WorkerMessageType[(WorkerMessageType['APPLY_COMMANDS'] = APPLY_COMMANDS)] =
-    'APPLY_COMMANDS';
+  WorkerMessageType[(WorkerMessageType['APPLY_COMMANDS'] = APPLY_COMMANDS)] = 'APPLY_COMMANDS';
 })(WorkerMessageType || (WorkerMessageType = {}));
 
 class GifWorker {
@@ -2432,9 +2259,7 @@ class GifProcessingService extends BaseService {
 
   modifyGif(url, formatType, options) {
     if (this.isProcessing) {
-      return {
-        result: Promise.reject(new Error('Already processing, please wait.')),
-      };
+      return { result: Promise.reject(new Error('Already processing, please wait.')) };
     }
     this.isProcessing = true;
 
@@ -2449,12 +2274,12 @@ class GifProcessingService extends BaseService {
   }
 
   async modifyGifImpl(url, formatType, options) {
-    Logger.info('Got GIF request', url, options);
+    this.logger.info('Got GIF request', url, options);
     const commands = this.getCommands(options);
-    Logger.info('Processed request commands', commands);
+    this.logger.info('Processed request commands', commands);
 
     const result = await this.processCommands(url, formatType, commands);
-    Logger.info('Processed modified emote', { length: result.length });
+    this.logger.info('Processed modified emote', { length: result.length });
 
     return result;
   }
@@ -2575,13 +2400,9 @@ class ModulesService extends BaseService {
       BdApi.Webpack.Filters.byKeys('getChannel', 'hasChannel')
     );
 
-    this.uploader = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('instantBatchUpload')
-    );
+    this.uploader = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('instantBatchUpload'));
 
-    this.draft = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('changeDraft')
-    );
+    this.draft = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('changeDraft'));
 
     this.draftStore = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('getDraft', 'getRecentlyEditedDrafts')
@@ -2632,7 +2453,7 @@ class ModulesService extends BaseService {
     });
 
     if (this.pendingReplyDispatcher.module === undefined) {
-      Logger.error('pendingReplyDispatcher module not found!');
+      this.logger.error('pendingReplyDispatcher module not found!');
     }
 
     this.emojiStore = BdApi.Webpack.getModule(
@@ -2677,21 +2498,16 @@ class ModulesService extends BaseService {
 
     Object.entries(this.stickerSendabilityStore).forEach(([key, value]) => {
       if (value !== undefined) return;
-      Logger.error(`${key} not found!`);
+      this.logger.error(`${key} not found!`);
     });
 
-    this.stickerType = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('STANDARD', 'GUILD'),
-      { searchExports: true }
-    );
+    this.stickerType = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('STANDARD', 'GUILD'), {
+      searchExports: true,
+    });
 
     this.stickerFormatType = this.getModule(
       (module) => {
-        return (
-          module.LOTTIE !== undefined &&
-          module.GIF !== undefined &&
-          module[1] !== undefined
-        );
+        return module.LOTTIE !== undefined && module.GIF !== undefined && module[1] !== undefined;
       },
       { searchExports: true }
     );
@@ -2700,13 +2516,9 @@ class ModulesService extends BaseService {
       BdApi.Webpack.Filters.byKeys('getStickerById', 'getStickersByGuildId')
     );
 
-    this.userStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('getCurrentUser')
-    );
+    this.userStore = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('getCurrentUser'));
 
-    this.messageStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('sendMessage')
-    );
+    this.messageStore = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('sendMessage'));
 
     this.CloudUploader = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byStrings('uploadFileToCloud'),
@@ -2716,37 +2528,26 @@ class ModulesService extends BaseService {
     const TextArea = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('channelTextArea', 'textArea')
     );
-    if (TextArea === undefined) Logger.error('TextArea not found!');
+    if (TextArea === undefined) this.logger.error('TextArea not found!');
 
-    const Editor = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('editor', 'placeholder')
-    );
-    if (Editor === undefined) Logger.error('Editor not found!');
+    const Editor = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('editor', 'placeholder'));
+    if (Editor === undefined) this.logger.error('Editor not found!');
 
     const Autocomplete = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys(
-        'autocomplete',
-        'autocompleteInner',
-        'autocompleteRowVertical'
-      )
+      BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteInner', 'autocompleteRowVertical')
     );
-    if (Autocomplete === undefined) Logger.error('Autocomplete not found!');
+    if (Autocomplete === undefined) this.logger.error('Autocomplete not found!');
 
     const autocompleteAttached = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteAttached')
     );
-    if (autocompleteAttached === undefined)
-      Logger.error('autocompleteAttached not found!');
+    if (autocompleteAttached === undefined) this.logger.error('autocompleteAttached not found!');
 
-    const Wrapper = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('wrapper', 'base')
-    );
-    if (Wrapper === undefined) Logger.error('Wrapper not found!');
+    const Wrapper = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('wrapper', 'base'));
+    if (Wrapper === undefined) this.logger.error('Wrapper not found!');
 
-    const Size = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('size12')
-    );
-    if (Size === undefined) Logger.error('Size not found!');
+    const Size = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('size12'));
+    if (Size === undefined) this.logger.error('Size not found!');
 
     this.classes = {
       TextArea,
@@ -2767,7 +2568,7 @@ class ModulesService extends BaseService {
 
     Object.entries(this).forEach(([key, value]) => {
       if (value !== undefined) return;
-      Logger.error(`${key} not found!`);
+      this.logger.error(`${key} not found!`);
     });
 
     return Promise.resolve();
@@ -2795,13 +2596,7 @@ class SendMessageService extends BaseService {
   settingsService;
   gifProcessingService;
 
-  start(
-    emoteService,
-    attachService,
-    modulesService,
-    settingsService,
-    gifProcessingService
-  ) {
+  start(emoteService, attachService, modulesService, settingsService, gifProcessingService) {
     this.emoteService = emoteService;
     this.attachService = attachService;
     this.modulesService = modulesService;
@@ -2825,11 +2620,7 @@ class SendMessageService extends BaseService {
 
     const stickerId = attachments?.stickerIds?.[0];
     if (stickerId !== undefined) {
-      const sentSticker = await this.sendSticker(
-        stickerId,
-        channelId,
-        message.content
-      );
+      const sentSticker = await this.sendSticker(stickerId, channelId, message.content);
       if (sentSticker) return;
     }
 
@@ -2877,7 +2668,7 @@ class SendMessageService extends BaseService {
       callDefault(...args);
       return;
     } catch (error) {
-      Logger.warn('Error in onSendMessage', error);
+      this.logger.warn('Error in onSendMessage', error);
     }
   }
 
@@ -2905,12 +2696,11 @@ class SendMessageService extends BaseService {
     if (!channel) return false;
     if (!user) return false;
 
-    const isSendable =
-      this.modulesService.stickerSendabilityStore.isSendableSticker?.method(
-        sticker,
-        user,
-        channel
-      );
+    const isSendable = this.modulesService.stickerSendabilityStore.isSendableSticker?.method(
+      sticker,
+      user,
+      channel
+    );
     if (isSendable === true) return false;
 
     const url = `https://media.discordapp.net/stickers/${stickerId}?size=160`;
@@ -2972,18 +2762,14 @@ class SendMessageService extends BaseService {
 
       // Ignore built-in emotes
       if (emoji?.managed === true) return {};
-      validEmoji =
-        emoji?.available === true &&
-        !this.attachService.externalEmotes.has(emoji.id);
+      validEmoji = emoji?.available === true && !this.attachService.externalEmotes.has(emoji.id);
     } else return {};
 
     if (!emoji) return {};
 
     const emojiName = emoji.originalName ?? emoji.name;
     const allNamesString = emoji.allNamesString.replace(emoji.name, emojiName);
-    const emojiText = `<${emoji.animated ? 'a' : ''}${allNamesString}${
-      emoji.id
-    }>`;
+    const emojiText = `<${emoji.animated ? 'a' : ''}${allNamesString}${emoji.id}>`;
 
     const result = {};
     const url = `https://cdn.discordapp.com/emojis/${emoji.id}`;
@@ -3047,10 +2833,7 @@ class SendMessageService extends BaseService {
           emote.nameAndCommand = spoilerStart + emote.nameAndCommand;
           emote.pos -= spoilerStart.length;
 
-          const spoilerEnd = afterEmote.substring(
-            0,
-            afterEmote.indexOf('||') + 2
-          );
+          const spoilerEnd = afterEmote.substring(0, afterEmote.indexOf('||') + 2);
           emote.nameAndCommand = emote.nameAndCommand + spoilerEnd;
           emote.spoiler = true;
         }
@@ -3072,11 +2855,7 @@ class SendMessageService extends BaseService {
       return firstIndex;
     } else {
       const inputAfterFirstOccurrence = input.substring(startPos);
-      const nextOccurrence = this.getNthIndexOf(
-        inputAfterFirstOccurrence,
-        search,
-        nth - 1
-      );
+      const nextOccurrence = this.getNthIndexOf(inputAfterFirstOccurrence, search, nth - 1);
 
       if (nextOccurrence === -1) {
         return -1;
@@ -3098,8 +2877,7 @@ class SendMessageService extends BaseService {
     }
 
     const resultBlob = (await this.compress(url, commands)) ?? new Blob([]);
-    if (resultBlob.size === 0)
-      throw new Error('Emote URL did not contain data');
+    if (resultBlob.size === 0) throw new Error('Emote URL did not contain data');
 
     this.uploadFile({
       fileData: resultBlob,
@@ -3267,7 +3045,7 @@ class SendMessageService extends BaseService {
     const content = emote.content ?? '';
     const channelId = emote.channel ?? '';
     if (!channelId) {
-      Logger.error('Channel ID not found for emote:', emote);
+      this.logger.error('Channel ID not found for emote:', emote);
       return;
     }
 
@@ -3281,12 +3059,7 @@ class SendMessageService extends BaseService {
       channelId,
       uploads: [upload],
       draftType: 0,
-      parsedMessage: {
-        content,
-        invalidEmojis: [],
-        tts: false,
-        channel_id: channelId,
-      },
+      parsedMessage: { content, invalidEmojis: [], tts: false, channel_id: channelId },
     };
 
     const pendingReply = this.attachService.pendingReply;
@@ -3382,10 +3155,8 @@ class SendMessageService extends BaseService {
         sin = Math.sin(angle),
         cos = Math.cos(angle);
 
-      const newWidth =
-        Math.abs(canvas.width * cos) + Math.abs(canvas.height * sin);
-      const newHeight =
-        Math.abs(canvas.width * sin) + Math.abs(canvas.height * cos);
+      const newWidth = Math.abs(canvas.width * cos) + Math.abs(canvas.height * sin);
+      const newHeight = Math.abs(canvas.width * sin) + Math.abs(canvas.height * cos);
 
       canvas.width = newWidth;
       canvas.height = newHeight;
@@ -3430,9 +3201,7 @@ class HtmlService extends BaseService {
   getClassSelector(classes) {
     return classes
       .split(' ')
-      .map((curClass) =>
-        !curClass.startsWith('.') ? `.${curClass}` : curClass
-      )
+      .map((curClass) => (!curClass.startsWith('.') ? `.${curClass}` : curClass))
       .join(' ');
   }
 
@@ -3442,8 +3211,7 @@ class HtmlService extends BaseService {
   }
 
   getTextAreaContainer(editor) {
-    const channelTextArea =
-      this.modulesService.classes.TextArea.channelTextArea;
+    const channelTextArea = this.modulesService.classes.TextArea.channelTextArea;
     return editor?.closest(this.getClassSelector(channelTextArea)) ?? undefined;
   }
 
@@ -3464,13 +3232,9 @@ class PatchesService extends BaseService {
   emoteService;
   modulesService;
 
-  start(
-    sendMessageService,
-    attachService,
-    completionsService,
-    emoteService,
-    modulesService
-  ) {
+  patcher = this.bdApi.Patcher;
+
+  start(sendMessageService, attachService, completionsService, emoteService, modulesService) {
     this.sendMessageService = sendMessageService;
     this.attachService = attachService;
     this.completionsService = completionsService;
@@ -3488,29 +3252,18 @@ class PatchesService extends BaseService {
   }
 
   messageStorePatch() {
-    BdApi.Patcher.instead(
-      this.plugin.meta.name,
-      this.modulesService.messageStore,
-      'sendMessage',
-      (_, args, original) =>
-        this.sendMessageService.onSendMessage(args, original)
+    this.patcher.instead(this.modulesService.messageStore, 'sendMessage', (_, args, original) =>
+      this.sendMessageService.onSendMessage(args, original)
     );
 
-    BdApi.Patcher.instead(
-      this.plugin.meta.name,
-      this.modulesService.messageStore,
-      'sendStickers',
-      (_, args, original) =>
-        this.sendMessageService.onSendSticker(args, original)
+    this.patcher.instead(this.modulesService.messageStore, 'sendStickers', (_, args, original) =>
+      this.sendMessageService.onSendSticker(args, original)
     );
   }
 
   changeDraftPatch() {
-    BdApi.Patcher.before(
-      this.plugin.meta.name,
-      this.modulesService.draft,
-      'changeDraft',
-      (_, args) => this.onChangeDraft(args)
+    this.patcher.before(this.modulesService.draft, 'changeDraft', (_, args) =>
+      this.onChangeDraft(args)
     );
   }
 
@@ -3538,7 +3291,7 @@ class PatchesService extends BaseService {
         this.completionsService.renderCompletions();
       }
     } catch (err) {
-      Logger.warn('Error in onChangeDraft', err);
+      this.logger.warn('Error in onChangeDraft', err);
     }
   }
 
@@ -3547,55 +3300,41 @@ class PatchesService extends BaseService {
 
     const createPendingReply = pendingReplyDispatcher.createPendingReplyKey;
     if (createPendingReply === undefined) {
-      Logger.warn('Create pending reply function name not found');
+      this.logger.warn('Create pending reply function name not found');
       return;
     }
 
     const deletePendingReply = pendingReplyDispatcher.deletePendingReplyKey;
     if (deletePendingReply === undefined) {
-      Logger.warn('Delete pending reply function name not found');
+      this.logger.warn('Delete pending reply function name not found');
       return;
     }
 
-    const setPendingReplyShouldMention =
-      pendingReplyDispatcher.setPendingReplyShouldMentionKey;
+    const setPendingReplyShouldMention = pendingReplyDispatcher.setPendingReplyShouldMentionKey;
     if (setPendingReplyShouldMention === undefined) {
-      Logger.warn('Set pending reply should mention function name not found');
+      this.logger.warn('Set pending reply should mention function name not found');
       return;
     }
 
-    BdApi.Patcher.before(
-      this.plugin.meta.name,
-      pendingReplyDispatcher.module,
-      createPendingReply,
-      (_, args) => {
-        if (!args[0]) return;
-        const reply = args[0];
+    this.patcher.before(pendingReplyDispatcher.module, createPendingReply, (_, args) => {
+      if (!args[0]) return;
+      const reply = args[0];
 
-        this.attachService.pendingReply = reply;
-      }
+      this.attachService.pendingReply = reply;
+    });
+
+    this.patcher.instead(pendingReplyDispatcher.module, deletePendingReply, (_, args, original) =>
+      this.onDeletePendingReply(args, original)
     );
 
-    BdApi.Patcher.instead(
-      this.plugin.meta.name,
-      pendingReplyDispatcher.module,
-      deletePendingReply,
-      (_, args, original) => this.onDeletePendingReply(args, original)
-    );
+    this.patcher.before(pendingReplyDispatcher.module, setPendingReplyShouldMention, (_, args) => {
+      if (typeof args[0] !== 'string' || typeof args[1] !== 'boolean') return;
+      const channelId = args[0];
+      const shouldMention = args[1];
 
-    BdApi.Patcher.before(
-      this.plugin.meta.name,
-      pendingReplyDispatcher.module,
-      setPendingReplyShouldMention,
-      (_, args) => {
-        if (typeof args[0] !== 'string' || typeof args[1] !== 'boolean') return;
-        const channelId = args[0];
-        const shouldMention = args[1];
-
-        if (this.attachService.pendingReply?.channel.id !== channelId) return;
-        this.attachService.pendingReply.shouldMention = shouldMention;
-      }
-    );
+      if (this.attachService.pendingReply?.channel.id !== channelId) return;
+      this.attachService.pendingReply.shouldMention = shouldMention;
+    });
   }
 
   async onDeletePendingReply(args, original) {
@@ -3603,22 +3342,18 @@ class PatchesService extends BaseService {
 
     try {
       // Prevent Discord from deleting the pending reply until our emote has been uploaded
-      if (this.attachService.pendingUpload)
-        await this.attachService.pendingUpload;
+      if (this.attachService.pendingUpload) await this.attachService.pendingUpload;
       callDefault(...args);
     } catch (err) {
-      Logger.warn('Error in onDeletePendingReply', err);
+      this.logger.warn('Error in onDeletePendingReply', err);
     } finally {
       this.attachService.pendingReply = undefined;
     }
   }
 
   emojiSearchPatch() {
-    BdApi.Patcher.after(
-      this.plugin.meta.name,
-      this.modulesService.emojiSearch,
-      'search',
-      (_, _2, result) => this.onEmojiSearch(result)
+    this.patcher.after(this.modulesService.emojiSearch, 'search', (_, _2, result) =>
+      this.onEmojiSearch(result)
     );
   }
 
@@ -3632,19 +3367,23 @@ class PatchesService extends BaseService {
   lockedEmojisPatch() {
     const emojiStore = this.modulesService.emojiStore;
 
-    BdApi.Patcher.after(
-      this.plugin.meta.name,
-      emojiStore,
-      'getEmojiUnavailableReason',
-      (_, args, result) => this.onGetEmojiUnavailableReason(args, result)
+    this.patcher.after(emojiStore, 'getEmojiUnavailableReason', (_, args, result) =>
+      this.onGetEmojiUnavailableReason(args, result)
     );
 
-    BdApi.Patcher.after(
-      this.plugin.meta.name,
-      emojiStore,
-      'isEmojiDisabled',
-      (_, args) => this.onIsEmojiDisabled(args, emojiStore)
+    this.patcher.after(emojiStore, 'getEmojiUnavailableReasons', (_, args, result) => {
+      result.emojiNitroLocked = false;
+      return result;
+    });
+
+    this.patcher.after(emojiStore, 'isEmojiDisabled', (_, args) =>
+      this.onIsEmojiDisabled(args, emojiStore)
     );
+
+    this.patcher.after(emojiStore, 'isEmojiCategoryNitroLocked', (_, _args, result) => {
+      result = false;
+      return result;
+    });
   }
 
   onGetEmojiUnavailableReason(args, result) {
@@ -3690,8 +3429,7 @@ class PatchesService extends BaseService {
     if (stickerSendabilityStore.getStickerSendabilityKey === undefined) return;
     if (!stickerSendabilityStore.isSendableSticker) return;
 
-    BdApi.Patcher.after(
-      this.plugin.meta.name,
+    this.patcher.after(
       stickerSendabilityStore.module,
       stickerSendabilityStore.getStickerSendabilityKey,
       (_, args) => {
@@ -3702,8 +3440,7 @@ class PatchesService extends BaseService {
       }
     );
 
-    BdApi.Patcher.after(
-      this.plugin.meta.name,
+    this.patcher.after(
       stickerSendabilityStore.module,
       stickerSendabilityStore.isSendableSticker.key,
       (_, args) => {
@@ -3720,7 +3457,7 @@ class PatchesService extends BaseService {
   }
 
   stop() {
-    BdApi.Patcher.unpatchAll(this.plugin.meta.name);
+    this.patcher.unpatchAll();
   }
 }
 
@@ -3737,74 +3474,68 @@ class EmoteReplacerPlugin {
   patchesService;
 
   meta;
+  bdApi;
+  logger;
 
   constructor(meta) {
     this.meta = meta;
-    Logger.setLogger(meta.name);
+    this.bdApi = new BdApi(this.meta.name);
+    this.logger = this.bdApi.Logger;
   }
 
   start() {
     this.doStart().catch((error) => {
-      Logger.error(error);
+      this.logger.error(error);
     });
   }
 
   async doStart() {
-    const zeresPluginLibrary = window.ZeresPluginLibrary;
-
-    this.showChangelogIfNeeded(zeresPluginLibrary);
+    this.showChangelogIfNeeded();
     await this.startServicesAndPatches();
   }
 
-  showChangelogIfNeeded(zeresPluginLibrary) {
-    const currentVersionInfo =
-      BdApi.Data.load(this.meta.name, CURRENT_VERSION_INFO_KEY) ?? {};
+  showChangelogIfNeeded() {
+    const currentVersionInfo = this.bdApi.Data.load(CURRENT_VERSION_INFO_KEY) ?? {};
+    const UI = this.bdApi.UI;
 
     if (
       currentVersionInfo.hasShownChangelog !== true ||
       currentVersionInfo.version !== this.meta.version
     ) {
-      zeresPluginLibrary.Modals.showChangelogModal(
-        `${this.meta.name} Changelog`,
-        this.meta.version,
-        PLUGIN_CHANGELOG
-      );
+      UI.showChangelogModal({
+        title: `${this.meta.name} Changelog`,
+        changes: PLUGIN_CHANGELOG,
+      });
 
       const newVersionInfo = {
         version: this.meta.version,
         hasShownChangelog: true,
       };
 
-      BdApi.Data.save(this.meta.name, CURRENT_VERSION_INFO_KEY, newVersionInfo);
+      this.bdApi.Data.save(CURRENT_VERSION_INFO_KEY, newVersionInfo);
     }
   }
 
   async startServicesAndPatches() {
-    const zeresPluginLibrary = window.ZeresPluginLibrary;
-
-    this.listenersService = new ListenersService(this, zeresPluginLibrary);
+    this.listenersService = new ListenersService(this);
     await this.listenersService.start();
 
-    this.settingsService = new SettingsService(this, zeresPluginLibrary);
+    this.settingsService = new SettingsService(this);
     await this.settingsService.start(this.listenersService);
 
-    this.modulesService = new ModulesService(this, zeresPluginLibrary);
+    this.modulesService = new ModulesService(this);
     await this.modulesService.start();
 
-    this.htmlService = new HtmlService(this, zeresPluginLibrary);
+    this.htmlService = new HtmlService(this);
     await this.htmlService.start(this.modulesService);
 
-    this.emoteService = new EmoteService(this, zeresPluginLibrary);
-    await this.emoteService.start(
-      this.listenersService,
-      this.settingsService,
-      this.htmlService
-    );
+    this.emoteService = new EmoteService(this);
+    await this.emoteService.start(this.listenersService, this.settingsService, this.htmlService);
 
-    this.attachService = new AttachService(this, zeresPluginLibrary);
+    this.attachService = new AttachService(this);
     await this.attachService.start(this.modulesService);
 
-    this.completionsService = new CompletionsService(this, zeresPluginLibrary);
+    this.completionsService = new CompletionsService(this);
     await this.completionsService.start(
       this.emoteService,
       this.settingsService,
@@ -3814,13 +3545,10 @@ class EmoteReplacerPlugin {
       this.attachService
     );
 
-    this.gifProcessingService = new GifProcessingService(
-      this,
-      zeresPluginLibrary
-    );
+    this.gifProcessingService = new GifProcessingService(this);
     await this.gifProcessingService.start();
 
-    this.sendMessageService = new SendMessageService(this, zeresPluginLibrary);
+    this.sendMessageService = new SendMessageService(this);
     await this.sendMessageService.start(
       this.emoteService,
       this.attachService,
@@ -3829,7 +3557,7 @@ class EmoteReplacerPlugin {
       this.gifProcessingService
     );
 
-    this.patchesService = new PatchesService(this, zeresPluginLibrary);
+    this.patchesService = new PatchesService(this);
     await this.patchesService.start(
       this.sendMessageService,
       this.attachService,
@@ -3849,11 +3577,7 @@ class EmoteReplacerPlugin {
     const textAreaSelector = this.htmlService?.getClassSelector(
       modulesService.classes.TextArea.textArea
     );
-
-    if (
-      textAreaSelector !== undefined &&
-      elem.querySelector(textAreaSelector)
-    ) {
+    if (textAreaSelector !== undefined && elem.querySelector(textAreaSelector)) {
       this.listenersService?.requestAddListeners(CompletionsService.TAG);
     }
   }
@@ -3863,7 +3587,7 @@ class EmoteReplacerPlugin {
   }
 
   getSettingsPanel() {
-    return this.settingsService?.getSettingsElement() ?? new HTMLElement();
+    return this.settingsService?.getSettingsElement() ?? BdApi.React.createElement('div');
   }
 
   stop() {
@@ -3899,9 +3623,4 @@ class EmoteReplacerPlugin {
   }
 }
 
-const bdWindow = window;
-
-var index =
-  bdWindow.ZeresPluginLibrary === undefined ? RawPlugin : EmoteReplacerPlugin;
-
-module.exports = index;
+module.exports = EmoteReplacerPlugin;

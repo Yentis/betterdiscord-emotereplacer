@@ -7,12 +7,11 @@ Install BetterDiscord from here
 https://github.com/BetterDiscord/Installer/releases  
 **Reminder: BetterDiscord is against the TOS, use at your own risk!**
 
-Download this library https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js  
-And the plugin: https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js  
+Download the plugin: https://raw.githubusercontent.com/Yentis/betterdiscord-emotereplacer/master/EmoteReplacer.plugin.js  
 (Rightclick -> Save as...)
 
-Open Discord -> Settings -> Plugins -> Open plugin folder and place the 2 plugins there.  
-Enable them in the Plugins menu and hit Ctrl + R.  
+Open Discord -> Settings -> Plugins -> Open plugin folder and place the plugin there.  
+Enable it in the Plugins menu and hit Ctrl + R.  
 
 Using this plugin you can use any Discord emotes (and stickers!) along with whatever modifiers you like.  
 Just type them as usual and they will be sent as an image if you don't currently have nitro.  

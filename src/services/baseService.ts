@@ -1,16 +1,18 @@
-import { EmoteReplacerPlugin } from 'classes/emoteReplacerPlugin'
-import ZeresPluginLibrary from 'interfaces/zeresPluginLibrary'
+import EmoteReplacerPlugin from '../index';
+import { BoundBdApiExtended } from '../interfaces/bdapi';
 
 export abstract class BaseService {
-  plugin: EmoteReplacerPlugin
-  zeresPluginLibrary: ZeresPluginLibrary
+  plugin: EmoteReplacerPlugin;
+  bdApi: BoundBdApiExtended;
+  logger: BoundBdApiExtended['Logger'];
 
-  constructor (plugin: EmoteReplacerPlugin, zeresPluginLibrary: ZeresPluginLibrary) {
-    this.plugin = plugin
-    this.zeresPluginLibrary = zeresPluginLibrary
+  constructor(plugin: EmoteReplacerPlugin) {
+    this.plugin = plugin;
+    this.bdApi = this.plugin.bdApi;
+    this.logger = this.bdApi.Logger;
   }
 
-  public abstract start (...args: unknown[]): Promise<void>
+  public abstract start(...args: unknown[]): Promise<void>;
 
-  public abstract stop (): void
+  public abstract stop(): void;
 }

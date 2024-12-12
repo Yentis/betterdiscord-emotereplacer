@@ -1,28 +1,20 @@
 import * as fs from 'fs'
-import { GifWorker, WorkerMessage } from 'interfaces/workerData'
+import { GifWorker, WorkerMessage } from '../interfaces/workerData'
+import { Setting } from '../interfaces/settings'
 
 export class Utils {
-  public static urlGetBuffer (url: string): Promise<Uint8Array> {
+  public static urlGetBuffer (url: string): Promise<Buffer> {
     if (url.startsWith('http')) return Utils.fetchGetBuffer(url)
     else return Utils.fsGetBuffer(url)
   }
 
-  private static async fsGetBuffer (url: string): Promise<Uint8Array> {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const data = fs.readFileSync(url, '')
+  private static async fsGetBuffer (url: string): Promise<Buffer> {
+    const data = fs.readFileSync(url, null)
     return await Promise.resolve(data)
   }
 
-  private static async fetchGetBuffer (url: string): Promise<Uint8Array> {
-    // TODO: remove custom TS type when BD types are updated
-    type BdApiExtended = typeof BdApi & {
-      Net: {
-        fetch: (url: string) => Promise<Response>
-      }
-    };
-
-    const response = await (BdApi as BdApiExtended).Net.fetch(url)
+  private static async fetchGetBuffer (url: string): Promise<Buffer> {
+    const response = await BdApi.Net.fetch(url)
     const statusCode = response.status
     if (statusCode !== 0 && (statusCode < 200 || statusCode >= 400)) {
       throw new Error(response.statusText)
@@ -30,7 +22,7 @@ export class Utils {
     if (!response.body) throw new Error(`No response body for url: ${url}`)
 
     const arrayBuffer = await response.arrayBuffer()
-    return new Uint8Array(arrayBuffer)
+    return Buffer.from(arrayBuffer)
   }
 
   public static async loadImagePromise (
@@ -94,5 +86,85 @@ export class Utils {
 
   public static clamp (num: number, min: number, max: number): number {
     return Math.min(Math.max(num, min), max)
+  }
+
+  public static SliderSetting (options: Setting<number> & {
+    min: number;
+    max: number;
+    step?: number;
+    units?: string;
+    markers?: number[];
+  }) {
+    return {
+      ...options,
+      type: 'slider'
+    }
+  }
+
+  public static SwitchSetting (
+    options: Setting<boolean>
+  ) {
+    return {
+      ...options,
+      type: 'switch'
+    }
+  }
+
+  public static TextSetting (options: Setting<string> & {
+    maxLength?: number;
+    placeholder?: string;
+    onKeyDown?: (event: InputEvent) => void;
+  }) {
+    return {
+      ...options,
+      type: 'text'
+    }
+  }
+
+  public static RadioSetting<T> (options: Setting<T> & {
+    options: {
+      name: string;
+      desc?: string;
+      value: T
+    }[];
+  }) {
+    return {
+      ...options,
+      type: 'radio'
+    }
+  }
+
+  public static FileSetting (options: Setting<string | string[]> & {
+    multiple: boolean;
+    accept: string[];
+    clearable: boolean;
+  }) {
+    return {
+      ...options,
+      type: 'file',
+      actions: {
+        clear: () => { /* Will be set by BD */ }
+      },
+    }
+  }
+
+  public static SettingItem (options: Setting & {
+    children: unknown[];
+  }) {
+    return {
+      ...options,
+      type: 'custom'
+    }
+  }
+
+  public static SettingCategory (options: Setting & {
+    settings: Setting[];
+    collapsible?: boolean;
+    shown?: boolean;
+  }) {
+    return {
+      ...options,
+      type: 'category'
+    }
   }
 }
