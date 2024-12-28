@@ -75,13 +75,33 @@ export class SendMessageService extends BaseService {
       foundEmote.channel = channelId;
 
       try {
-        if (!this.attachService.canAttach) {
-          throw new Error('This channel does not allow sending images!');
-        }
-
-        this.attachService.pendingUpload = this.fetchBlobAndUpload(foundEmote);
-        await this.attachService.pendingUpload;
-        return;
+		if (!this.attachService.canAttach) {
+		  throw new Error('This channel does not allow sending images!');
+		}
+		if(this.settingsService.settings.sendAsLink) {
+		  let contentBefore = args[1].content.substring(0, foundEmote.pos);
+		  let emojiContent = foundEmote.url + `?size=${this.settingsService.settings.emoteSize}`;
+		  let contentAfter = args[1].content.substring(foundEmote.pos + foundEmote.emoteLength, args[1].content.length);
+		  
+		  if(contentBefore) {
+		    args[1].content = contentBefore;
+		    await callDefault(...args);
+		  }
+		  if(emojiContent) {
+		    args[1].content = emojiContent;
+		    await callDefault(...args);
+		  }
+		  if(contentAfter) {
+		    args[1].content = contentAfter;
+		    await callDefault(...args);
+		  }
+		}
+		else {
+			this.attachService.pendingUpload = this.fetchBlobAndUpload(foundEmote);
+			await this.attachService.pendingUpload;
+		}
+		
+		return;
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : (error as string);
 

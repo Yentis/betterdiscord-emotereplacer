@@ -269,6 +269,17 @@ export class SettingsService extends BaseService {
       },
     });
     settings.push(autocompleteItems);
+	
+	const sendAsLink = Utils.SwitchSetting({
+      id: 'sendAsLink',
+      name: 'Send as link',
+      note: 'If this is enabled, the images will be sent as links instead of images.',
+      value: this.settings.sendAsLink,
+      onChange: (checked) => {
+        this.settings.sendAsLink = checked;
+      },
+    });
+    settings.push(sendAsLink);
 
     const requirePrefix = Utils.SwitchSetting({
       id: 'requirePrefix',
