@@ -3,14 +3,9 @@ import Modifier from './interfaces/modifier';
 
 export const PLUGIN_CHANGELOG: ChangelogChanges[] = [
   {
-    title: 'Changed',
-    type: 'changed',
-    items: ['Removed dependency on ZeresPluginLibrary', 'Updated settings panel'],
-  },
-  {
     title: 'Fixed',
     type: 'fixed',
-    items: ['Fixed servers showing lock icon in emote menu', 'Removed Nitro ad in emote menu'],
+    items: ['Fixed emote upload'],
   },
 ];
 

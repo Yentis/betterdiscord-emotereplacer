@@ -55,7 +55,7 @@ export class ModulesService extends BaseService {
     ) as ChannelStore;
 
     this.uploader = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('instantBatchUpload')
+      BdApi.Webpack.Filters.byKeys('uploadFiles')
     ) as Uploader;
 
     this.draft = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('changeDraft')) as Draft;

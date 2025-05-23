@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.2.0
+ * @version 2.2.1
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -14,14 +14,9 @@ var fs = require('fs');
 
 const PLUGIN_CHANGELOG = [
   {
-    title: 'Changed',
-    type: 'changed',
-    items: ['Removed dependency on ZeresPluginLibrary', 'Updated settings panel'],
-  },
-  {
     title: 'Fixed',
     type: 'fixed',
-    items: ['Fixed servers showing lock icon in emote menu', 'Removed Nitro ad in emote menu'],
+    items: ['Fixed emote upload'],
   },
 ];
 
@@ -2400,7 +2395,7 @@ class ModulesService extends BaseService {
       BdApi.Webpack.Filters.byKeys('getChannel', 'hasChannel')
     );
 
-    this.uploader = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('instantBatchUpload'));
+    this.uploader = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('uploadFiles'));
 
     this.draft = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('changeDraft'));
 
