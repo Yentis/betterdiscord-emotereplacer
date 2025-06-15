@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS = {
   autocompleteEmoteSize: 15,
   autocompleteItems: 10,
   customEmotes: {},
+  sendAsLink,
   requirePrefix: true,
   prefix: ';',
   resizeMethod: 'largest',
