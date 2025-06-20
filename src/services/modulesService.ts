@@ -1,7 +1,6 @@
 import ChannelStore from 'interfaces/modules/channelStore';
 import Classes, { AutocompleteAttached } from 'interfaces/modules/classes';
 import ComponentDispatcher from 'interfaces/modules/componentDispatcher';
-import { PendingReplyDispatcher } from 'interfaces/modules/pendingReplyDispatcher';
 import EmojiDisabledReasons from 'interfaces/modules/emojiDisabledReasons';
 import DiscordPermissions from 'interfaces/modules/discordPermissions';
 import Dispatcher from 'interfaces/modules/dispatcher';
@@ -10,7 +9,6 @@ import { EmojiSearch } from 'interfaces/modules/emojiSearch';
 import EmojiStore from 'interfaces/modules/emojiStore';
 import { MessageStore } from 'interfaces/modules/messageStore';
 import Permissions from 'interfaces/modules/permissions';
-import Uploader from 'interfaces/modules/uploader';
 import UserStore from 'interfaces/modules/userStore';
 import { BaseService } from './baseService';
 import { CloudUpload } from 'interfaces/modules/cloudUploader';
@@ -29,14 +27,12 @@ import {
 
 export class ModulesService extends BaseService {
   channelStore!: ChannelStore;
-  uploader!: Uploader;
   draft!: Draft;
   draftStore!: DraftStore;
   permissions!: Permissions;
   discordPermissions!: DiscordPermissions;
   dispatcher!: Dispatcher;
   componentDispatcher!: ComponentDispatcher;
-  pendingReplyDispatcher: PendingReplyDispatcher = {};
   emojiStore!: EmojiStore;
   emojiSearch!: EmojiSearch;
   emojiDisabledReasons!: EmojiDisabledReasons;
@@ -53,10 +49,6 @@ export class ModulesService extends BaseService {
     this.channelStore = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('getChannel', 'hasChannel')
     ) as ChannelStore;
-
-    this.uploader = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('uploadFiles')
-    ) as Uploader;
 
     this.draft = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('changeDraft')) as Draft;
 
@@ -90,29 +82,6 @@ export class ModulesService extends BaseService {
       },
       { searchExports: true }
     );
-
-    this.pendingReplyDispatcher.module = this.getModule(
-      (module: Record<string, (() => string) | undefined>) => {
-        Object.entries(module).forEach(([key, value]) => {
-          if (!(typeof value === 'function')) return;
-          const valueString = value.toString();
-
-          if (valueString.includes('DELETE_PENDING_REPLY')) {
-            this.pendingReplyDispatcher.deletePendingReplyKey = key;
-          } else if (valueString.includes('CREATE_PENDING_REPLY')) {
-            this.pendingReplyDispatcher.createPendingReplyKey = key;
-          } else if (valueString.includes('SET_PENDING_REPLY_SHOULD_MENTION')) {
-            this.pendingReplyDispatcher.setPendingReplyShouldMentionKey = key;
-          }
-        });
-
-        return this.pendingReplyDispatcher.deletePendingReplyKey !== undefined;
-      }
-    );
-
-    if (this.pendingReplyDispatcher.module === undefined) {
-      this.logger.error('pendingReplyDispatcher module not found!');
-    }
 
     this.emojiStore = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('getEmojiUnavailableReason')

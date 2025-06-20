@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.2.1
+ * @version 2.2.2
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -16,7 +16,7 @@ const PLUGIN_CHANGELOG = [
   {
     title: 'Fixed',
     type: 'fixed',
-    items: ['Fixed emote upload'],
+    items: ['Fixed emote upload (again)'],
   },
 ];
 
@@ -1009,9 +1009,6 @@ class AttachService extends BaseService {
   userId;
   curChannelId;
 
-  pendingUpload;
-  pendingReply;
-
   onMessagesLoaded;
   onChannelSelect;
 
@@ -1100,7 +1097,6 @@ class AttachService extends BaseService {
     }
 
     this.canAttach = false;
-    this.pendingUpload = undefined;
   }
 }
 
@@ -2370,14 +2366,12 @@ class GifProcessingService extends BaseService {
 
 class ModulesService extends BaseService {
   channelStore;
-  uploader;
   draft;
   draftStore;
   permissions;
   discordPermissions;
   dispatcher;
   componentDispatcher;
-  pendingReplyDispatcher = {};
   emojiStore;
   emojiSearch;
   emojiDisabledReasons;
@@ -2394,8 +2388,6 @@ class ModulesService extends BaseService {
     this.channelStore = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('getChannel', 'hasChannel')
     );
-
-    this.uploader = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('uploadFiles'));
 
     this.draft = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('changeDraft'));
 
@@ -2429,27 +2421,6 @@ class ModulesService extends BaseService {
       },
       { searchExports: true }
     );
-
-    this.pendingReplyDispatcher.module = this.getModule((module) => {
-      Object.entries(module).forEach(([key, value]) => {
-        if (!(typeof value === 'function')) return;
-        const valueString = value.toString();
-
-        if (valueString.includes('DELETE_PENDING_REPLY')) {
-          this.pendingReplyDispatcher.deletePendingReplyKey = key;
-        } else if (valueString.includes('CREATE_PENDING_REPLY')) {
-          this.pendingReplyDispatcher.createPendingReplyKey = key;
-        } else if (valueString.includes('SET_PENDING_REPLY_SHOULD_MENTION')) {
-          this.pendingReplyDispatcher.setPendingReplyShouldMentionKey = key;
-        }
-      });
-
-      return this.pendingReplyDispatcher.deletePendingReplyKey !== undefined;
-    });
-
-    if (this.pendingReplyDispatcher.module === undefined) {
-      this.logger.error('pendingReplyDispatcher module not found!');
-    }
 
     this.emojiStore = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('getEmojiUnavailableReason')
@@ -2606,22 +2577,36 @@ class SendMessageService extends BaseService {
 
     const channelId = args[0];
     const message = args[1];
-    const attachments = args[3];
+
+    if (args[3] === undefined) args[3] = {};
+    const attachmentData = args[3];
 
     if (channelId === undefined || !message) {
       callDefault(...args);
       return;
     }
 
-    const stickerId = attachments?.stickerIds?.[0];
-    if (stickerId !== undefined) {
-      const sentSticker = await this.sendSticker(stickerId, channelId, message.content);
-      if (sentSticker) return;
+    const stickerIds = attachmentData?.stickerIds ?? [];
+    const attachments = [];
+
+    for (const stickerId of stickerIds) {
+      const attachment = await this.getStickerAttachment(stickerId, channelId);
+      if (!attachment) continue;
+
+      attachments.push(attachment);
+    }
+
+    if (attachments.length > 0) {
+      attachmentData.stickerIds = undefined;
+      attachmentData.attachmentsToUpload = attachments;
+
+      callDefault(...args);
+      return;
     }
 
     try {
       const discordEmotes = this.getTargetEmoteFromMessage(message);
-      let content = message.content;
+      const content = message.content;
 
       const foundEmote = this.getTextPos(content, {
         ...this.emoteService.emoteNames,
@@ -2633,12 +2618,11 @@ class SendMessageService extends BaseService {
         return;
       }
 
-      content = (
+      message.content = (
         content.substring(0, foundEmote.pos) +
         content.substring(foundEmote.pos + foundEmote.nameAndCommand.length)
       ).trim();
 
-      foundEmote.content = content;
       foundEmote.channel = channelId;
 
       try {
@@ -2646,8 +2630,12 @@ class SendMessageService extends BaseService {
           throw new Error('This channel does not allow sending images!');
         }
 
-        this.attachService.pendingUpload = this.fetchBlobAndUpload(foundEmote);
-        await this.attachService.pendingUpload;
+        const attachment = await this.fetchBlobAndUpload(foundEmote);
+        if (attachment) {
+          attachmentData.attachmentsToUpload = [attachment];
+          callDefault(...args);
+        }
+
         return;
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : error;
@@ -2656,8 +2644,6 @@ class SendMessageService extends BaseService {
         if (content === '') return;
 
         message.content = content;
-      } finally {
-        this.attachService.pendingUpload = undefined;
       }
 
       callDefault(...args);
@@ -2667,36 +2653,20 @@ class SendMessageService extends BaseService {
     }
   }
 
-  async onSendSticker(args, original) {
-    const callDefault = original;
-
-    const channelId = args[0];
-    const stickerIdList = args[1];
-    const stickerId = stickerIdList?.[0];
-
-    if (channelId === undefined || stickerId === undefined) {
-      callDefault(...args);
-      return;
-    }
-
-    const sentSticker = await this.sendSticker(stickerId, channelId);
-    if (!sentSticker) callDefault(...args);
-  }
-
-  async sendSticker(stickerId, channelId, content) {
+  async getStickerAttachment(stickerId, channelId) {
     const sticker = this.modulesService.stickerStore.getStickerById(stickerId);
     const user = this.modulesService.userStore.getCurrentUser();
     const channel = this.modulesService.channelStore.getChannel(channelId);
 
-    if (!channel) return false;
-    if (!user) return false;
+    if (!channel) return undefined;
+    if (!user) return undefined;
 
     const isSendable = this.modulesService.stickerSendabilityStore.isSendableSticker?.method(
       sticker,
       user,
       channel
     );
-    if (isSendable === true) return false;
+    if (isSendable === true) return undefined;
 
     const url = `https://media.discordapp.net/stickers/${stickerId}?size=160`;
     const formatType = this.modulesService.stickerFormatType;
@@ -2724,21 +2694,16 @@ class SendMessageService extends BaseService {
       commands: [['resize', '160']],
       channel: channelId,
       formatType: format,
-      content,
     };
 
     try {
-      this.attachService.pendingUpload = this.fetchBlobAndUpload(emote);
-      await this.attachService.pendingUpload;
+      return await this.fetchBlobAndUpload(emote);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : error;
-
       BdApi.UI.showToast(errorMessage, { type: 'error' });
-    } finally {
-      this.attachService.pendingUpload = undefined;
     }
 
-    return true;
+    return undefined;
   }
 
   getTargetEmoteFromMessage(message) {
@@ -2874,7 +2839,7 @@ class SendMessageService extends BaseService {
     const resultBlob = (await this.compress(url, commands)) ?? new Blob([]);
     if (resultBlob.size === 0) throw new Error('Emote URL did not contain data');
 
-    this.uploadFile({
+    return this.createAttachment({
       fileData: resultBlob,
       fullName: name + '.png',
       emote,
@@ -2949,7 +2914,7 @@ class SendMessageService extends BaseService {
       throw Error('Failed to process gif');
     }
 
-    this.uploadFile({
+    return this.createAttachment({
       fileData: buffer,
       fullName: emote.name + '.gif',
       emote,
@@ -3035,43 +3000,30 @@ class SendMessageService extends BaseService {
     }
   }
 
-  uploadFile(params) {
+  createAttachment(params) {
     const { fileData, fullName, emote } = params;
-    const content = emote.content ?? '';
     const channelId = emote.channel ?? '';
     if (!channelId) {
       this.logger.error('Channel ID not found for emote:', emote);
-      return;
+      return undefined;
     }
 
-    const upload = new this.modulesService.CloudUploader(
-      { file: new File([fileData], fullName), platform: 1 },
-      channelId
-    );
-    upload.spoiler = emote.spoiler;
-
-    const uploadOptions = {
+    const mimeType = fullName.endsWith('.png') ? 'image/png' : 'image/gif';
+    const attachment = new this.modulesService.CloudUploader(
+      {
+        file: new File([fileData], fullName, { type: mimeType }),
+        platform: 1,
+        isThumbnail: false,
+      },
       channelId,
-      uploads: [upload],
-      draftType: 0,
-      parsedMessage: { content, invalidEmojis: [], tts: false, channel_id: channelId },
-    };
+      false,
+      0
+    );
 
-    const pendingReply = this.attachService.pendingReply;
-    if (pendingReply) {
-      uploadOptions.options = {
-        allowedMentions: {
-          replied_user: pendingReply.shouldMention,
-        },
-        messageReference: {
-          channel_id: pendingReply.message.channel_id,
-          guild_id: pendingReply.channel.guild_id,
-          message_id: pendingReply.message.id,
-        },
-      };
-    }
+    attachment.spoiler = emote.spoiler;
+    attachment.upload();
 
-    this.modulesService.uploader.uploadFiles(uploadOptions);
+    return attachment;
   }
 
   async compress(url, commands) {
@@ -3238,7 +3190,6 @@ class PatchesService extends BaseService {
 
     this.messageStorePatch();
     this.changeDraftPatch();
-    this.pendingReplyPatch();
     this.emojiSearchPatch();
     this.lockedEmojisPatch();
     this.stickerSendablePatch();
@@ -3249,10 +3200,6 @@ class PatchesService extends BaseService {
   messageStorePatch() {
     this.patcher.instead(this.modulesService.messageStore, 'sendMessage', (_, args, original) =>
       this.sendMessageService.onSendMessage(args, original)
-    );
-
-    this.patcher.instead(this.modulesService.messageStore, 'sendStickers', (_, args, original) =>
-      this.sendMessageService.onSendSticker(args, original)
     );
   }
 
@@ -3287,62 +3234,6 @@ class PatchesService extends BaseService {
       }
     } catch (err) {
       this.logger.warn('Error in onChangeDraft', err);
-    }
-  }
-
-  pendingReplyPatch() {
-    const pendingReplyDispatcher = this.modulesService.pendingReplyDispatcher;
-
-    const createPendingReply = pendingReplyDispatcher.createPendingReplyKey;
-    if (createPendingReply === undefined) {
-      this.logger.warn('Create pending reply function name not found');
-      return;
-    }
-
-    const deletePendingReply = pendingReplyDispatcher.deletePendingReplyKey;
-    if (deletePendingReply === undefined) {
-      this.logger.warn('Delete pending reply function name not found');
-      return;
-    }
-
-    const setPendingReplyShouldMention = pendingReplyDispatcher.setPendingReplyShouldMentionKey;
-    if (setPendingReplyShouldMention === undefined) {
-      this.logger.warn('Set pending reply should mention function name not found');
-      return;
-    }
-
-    this.patcher.before(pendingReplyDispatcher.module, createPendingReply, (_, args) => {
-      if (!args[0]) return;
-      const reply = args[0];
-
-      this.attachService.pendingReply = reply;
-    });
-
-    this.patcher.instead(pendingReplyDispatcher.module, deletePendingReply, (_, args, original) =>
-      this.onDeletePendingReply(args, original)
-    );
-
-    this.patcher.before(pendingReplyDispatcher.module, setPendingReplyShouldMention, (_, args) => {
-      if (typeof args[0] !== 'string' || typeof args[1] !== 'boolean') return;
-      const channelId = args[0];
-      const shouldMention = args[1];
-
-      if (this.attachService.pendingReply?.channel.id !== channelId) return;
-      this.attachService.pendingReply.shouldMention = shouldMention;
-    });
-  }
-
-  async onDeletePendingReply(args, original) {
-    const callDefault = original;
-
-    try {
-      // Prevent Discord from deleting the pending reply until our emote has been uploaded
-      if (this.attachService.pendingUpload) await this.attachService.pendingUpload;
-      callDefault(...args);
-    } catch (err) {
-      this.logger.warn('Error in onDeletePendingReply', err);
-    } finally {
-      this.attachService.pendingReply = undefined;
     }
   }
 

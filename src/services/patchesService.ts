@@ -3,7 +3,6 @@ import { BaseService } from './baseService';
 import { CompletionsService } from './completionsService';
 import { EmoteService } from './emoteService';
 import { ModulesService } from './modulesService';
-import { PendingReply } from '../interfaces/pendingReply';
 import Emoji from '../interfaces/emoji';
 import EmojiStore from '../interfaces/modules/emojiStore';
 import { Sticker } from 'interfaces/sticker';
@@ -33,7 +32,6 @@ export class PatchesService extends BaseService {
 
     this.messageStorePatch();
     this.changeDraftPatch();
-    this.pendingReplyPatch();
     this.emojiSearchPatch();
     this.lockedEmojisPatch();
     this.stickerSendablePatch();
@@ -46,12 +44,6 @@ export class PatchesService extends BaseService {
       this.modulesService.messageStore,
       'sendMessage',
       (_, args, original: unknown) => this.sendMessageService.onSendMessage(args, original)
-    );
-
-    this.patcher.instead(
-      this.modulesService.messageStore,
-      'sendStickers',
-      (_, args, original: unknown) => this.sendMessageService.onSendSticker(args, original)
     );
   }
 
@@ -86,68 +78,6 @@ export class PatchesService extends BaseService {
       }
     } catch (err) {
       this.logger.warn('Error in onChangeDraft', err);
-    }
-  }
-
-  private pendingReplyPatch(): void {
-    const pendingReplyDispatcher = this.modulesService.pendingReplyDispatcher;
-
-    const createPendingReply = pendingReplyDispatcher.createPendingReplyKey;
-    if (createPendingReply === undefined) {
-      this.logger.warn('Create pending reply function name not found');
-      return;
-    }
-
-    const deletePendingReply = pendingReplyDispatcher.deletePendingReplyKey;
-    if (deletePendingReply === undefined) {
-      this.logger.warn('Delete pending reply function name not found');
-      return;
-    }
-
-    const setPendingReplyShouldMention = pendingReplyDispatcher.setPendingReplyShouldMentionKey;
-    if (setPendingReplyShouldMention === undefined) {
-      this.logger.warn('Set pending reply should mention function name not found');
-      return;
-    }
-
-    this.patcher.before(pendingReplyDispatcher.module, createPendingReply as never, (_, args) => {
-      if (!args[0]) return;
-      const reply = args[0] as PendingReply;
-
-      this.attachService.pendingReply = reply;
-    });
-
-    this.patcher.instead(
-      pendingReplyDispatcher.module,
-      deletePendingReply as never,
-      (_, args, original) => this.onDeletePendingReply(args, original)
-    );
-
-    this.patcher.before(
-      pendingReplyDispatcher.module,
-      setPendingReplyShouldMention as never,
-      (_, args) => {
-        if (typeof args[0] !== 'string' || typeof args[1] !== 'boolean') return;
-        const channelId = args[0] as string;
-        const shouldMention = args[1] as boolean;
-
-        if (this.attachService.pendingReply?.channel.id !== channelId) return;
-        this.attachService.pendingReply.shouldMention = shouldMention;
-      }
-    );
-  }
-
-  private async onDeletePendingReply(args: unknown[], original: unknown): Promise<void> {
-    const callDefault = original as (...args: unknown[]) => unknown;
-
-    try {
-      // Prevent Discord from deleting the pending reply until our emote has been uploaded
-      if (this.attachService.pendingUpload) await this.attachService.pendingUpload;
-      callDefault(...args);
-    } catch (err) {
-      this.logger.warn('Error in onDeletePendingReply', err);
-    } finally {
-      this.attachService.pendingReply = undefined;
     }
   }
 

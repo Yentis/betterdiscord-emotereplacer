@@ -5,7 +5,7 @@ export const PLUGIN_CHANGELOG: ChangelogChanges[] = [
   {
     title: 'Fixed',
     type: 'fixed',
-    items: ['Fixed emote upload'],
+    items: ['Fixed emote upload (again)'],
   },
 ];
 

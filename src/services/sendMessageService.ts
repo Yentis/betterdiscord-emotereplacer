@@ -7,9 +7,9 @@ import { AttachService } from './attachService';
 import { ModulesService } from './modulesService';
 import { SettingsService } from './settingsService';
 import { GifProcessingService } from './gifProcessingService';
-import { UploadOptions } from '../interfaces/modules/uploader';
 import { Utils } from '../utils/utils';
 import { CloseNotice } from 'betterdiscord';
+import { Attachment } from '../interfaces/attachment';
 
 export class SendMessageService extends BaseService {
   emoteService!: EmoteService;
@@ -39,22 +39,39 @@ export class SendMessageService extends BaseService {
 
     const channelId = args[0] as string | undefined;
     const message = args[1] as Message | undefined;
-    const attachments = args[3] as { stickerIds?: string[] } | undefined;
+
+    if (args[3] === undefined) args[3] = {};
+    const attachmentData = args[3] as {
+      stickerIds?: string[];
+      attachmentsToUpload?: Attachment[];
+    };
 
     if (channelId === undefined || !message) {
       callDefault(...args);
       return;
     }
 
-    const stickerId = attachments?.stickerIds?.[0];
-    if (stickerId !== undefined) {
-      const sentSticker = await this.sendSticker(stickerId, channelId, message.content);
-      if (sentSticker) return;
+    const stickerIds = attachmentData?.stickerIds ?? [];
+    const attachments: Attachment[] = [];
+
+    for (const stickerId of stickerIds) {
+      const attachment = await this.getStickerAttachment(stickerId, channelId);
+      if (!attachment) continue;
+
+      attachments.push(attachment);
+    }
+
+    if (attachments.length > 0) {
+      attachmentData.stickerIds = undefined;
+      attachmentData.attachmentsToUpload = attachments;
+
+      callDefault(...args);
+      return;
     }
 
     try {
       const discordEmotes = this.getTargetEmoteFromMessage(message);
-      let content = message.content;
+      const content = message.content;
 
       const foundEmote = this.getTextPos(content, {
         ...this.emoteService.emoteNames,
@@ -66,12 +83,11 @@ export class SendMessageService extends BaseService {
         return;
       }
 
-      content = (
+      message.content = (
         content.substring(0, foundEmote.pos) +
         content.substring(foundEmote.pos + foundEmote.nameAndCommand.length)
       ).trim();
 
-      foundEmote.content = content;
       foundEmote.channel = channelId;
 
       try {
@@ -79,8 +95,12 @@ export class SendMessageService extends BaseService {
           throw new Error('This channel does not allow sending images!');
         }
 
-        this.attachService.pendingUpload = this.fetchBlobAndUpload(foundEmote);
-        await this.attachService.pendingUpload;
+        const attachment = await this.fetchBlobAndUpload(foundEmote);
+        if (attachment) {
+          attachmentData.attachmentsToUpload = [attachment];
+          callDefault(...args);
+        }
+
         return;
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : (error as string);
@@ -89,8 +109,6 @@ export class SendMessageService extends BaseService {
         if (content === '') return;
 
         message.content = content;
-      } finally {
-        this.attachService.pendingUpload = undefined;
       }
 
       callDefault(...args);
@@ -100,40 +118,23 @@ export class SendMessageService extends BaseService {
     }
   }
 
-  public async onSendSticker(args: unknown[], original: unknown): Promise<void> {
-    const callDefault = original as (...args: unknown[]) => unknown;
-
-    const channelId = args[0] as string | undefined;
-    const stickerIdList = args[1] as string[] | undefined;
-    const stickerId = stickerIdList?.[0];
-
-    if (channelId === undefined || stickerId === undefined) {
-      callDefault(...args);
-      return;
-    }
-
-    const sentSticker = await this.sendSticker(stickerId, channelId);
-    if (!sentSticker) callDefault(...args);
-  }
-
-  private async sendSticker(
+  private async getStickerAttachment(
     stickerId: string,
-    channelId: string,
-    content?: string
-  ): Promise<boolean> {
+    channelId: string
+  ): Promise<Attachment | undefined> {
     const sticker = this.modulesService.stickerStore.getStickerById(stickerId);
     const user = this.modulesService.userStore.getCurrentUser();
     const channel = this.modulesService.channelStore.getChannel(channelId);
 
-    if (!channel) return false;
-    if (!user) return false;
+    if (!channel) return undefined;
+    if (!user) return undefined;
 
     const isSendable = this.modulesService.stickerSendabilityStore.isSendableSticker?.method(
       sticker,
       user,
       channel
     );
-    if (isSendable === true) return false;
+    if (isSendable === true) return undefined;
 
     const url = `https://media.discordapp.net/stickers/${stickerId}?size=160`;
     const formatType = this.modulesService.stickerFormatType;
@@ -161,21 +162,16 @@ export class SendMessageService extends BaseService {
       commands: [['resize', '160']],
       channel: channelId,
       formatType: format,
-      content,
     };
 
     try {
-      this.attachService.pendingUpload = this.fetchBlobAndUpload(emote);
-      await this.attachService.pendingUpload;
+      return await this.fetchBlobAndUpload(emote);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : (error as string);
-
       BdApi.UI.showToast(errorMessage, { type: 'error' });
-    } finally {
-      this.attachService.pendingUpload = undefined;
     }
 
-    return true;
+    return undefined;
   }
 
   private getTargetEmoteFromMessage(message: Message): Record<string, InternalEmoteSimple> {
@@ -300,7 +296,7 @@ export class SendMessageService extends BaseService {
     }
   }
 
-  private async fetchBlobAndUpload(emote: InternalEmote): Promise<void> {
+  private async fetchBlobAndUpload(emote: InternalEmote): Promise<Attachment | undefined> {
     const { url, name, commands, formatType } = emote;
 
     if (
@@ -314,7 +310,7 @@ export class SendMessageService extends BaseService {
     const resultBlob = (await this.compress(url, commands)) ?? new Blob([]);
     if (resultBlob.size === 0) throw new Error('Emote URL did not contain data');
 
-    this.uploadFile({
+    return this.createAttachment({
       fileData: resultBlob,
       fullName: name + '.png',
       emote,
@@ -348,7 +344,7 @@ export class SendMessageService extends BaseService {
     return gifModifiers;
   }
 
-  private async getMetaAndModifyGif(emote: InternalEmote): Promise<void> {
+  private async getMetaAndModifyGif(emote: InternalEmote): Promise<Attachment | undefined> {
     const image = await Utils.loadImagePromise(emote.url);
 
     const commands = emote.commands;
@@ -392,7 +388,7 @@ export class SendMessageService extends BaseService {
       throw Error('Failed to process gif');
     }
 
-    this.uploadFile({
+    return this.createAttachment({
       fileData: buffer,
       fullName: emote.name + '.gif',
       emote,
@@ -478,47 +474,34 @@ export class SendMessageService extends BaseService {
     }
   }
 
-  private uploadFile(params: {
+  private createAttachment(params: {
     fileData: Uint8Array | Blob;
     fullName: string;
     emote: InternalEmote;
-  }): void {
+  }): Attachment | undefined {
     const { fileData, fullName, emote } = params;
-    const content = emote.content ?? '';
     const channelId = emote.channel ?? '';
     if (!channelId) {
       this.logger.error('Channel ID not found for emote:', emote);
-      return;
+      return undefined;
     }
 
-    const upload = new this.modulesService.CloudUploader(
-      { file: new File([fileData], fullName), platform: 1 },
-      channelId
-    );
-    upload.spoiler = emote.spoiler;
-
-    const uploadOptions: UploadOptions = {
+    const mimeType = fullName.endsWith('.png') ? 'image/png' : 'image/gif';
+    const attachment = new this.modulesService.CloudUploader(
+      {
+        file: new File([fileData], fullName, { type: mimeType }),
+        platform: 1,
+        isThumbnail: false,
+      },
       channelId,
-      uploads: [upload],
-      draftType: 0,
-      parsedMessage: { content, invalidEmojis: [], tts: false, channel_id: channelId },
-    };
+      false,
+      0
+    );
 
-    const pendingReply = this.attachService.pendingReply;
-    if (pendingReply) {
-      uploadOptions.options = {
-        allowedMentions: {
-          replied_user: pendingReply.shouldMention,
-        },
-        messageReference: {
-          channel_id: pendingReply.message.channel_id,
-          guild_id: pendingReply.channel.guild_id,
-          message_id: pendingReply.message.id,
-        },
-      };
-    }
+    attachment.spoiler = emote.spoiler;
+    attachment.upload();
 
-    this.modulesService.uploader.uploadFiles(uploadOptions);
+    return attachment;
   }
 
   private async compress(
