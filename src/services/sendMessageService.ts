@@ -98,6 +98,8 @@ export class SendMessageService extends BaseService {
         const attachment = await this.fetchBlobAndUpload(foundEmote);
         if (attachment) {
           attachmentData.attachmentsToUpload = [attachment];
+          message.invalidEmojis = undefined;
+
           callDefault(...args);
         }
 

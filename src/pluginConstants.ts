@@ -3,7 +3,12 @@ import Modifier from './interfaces/modifier';
 
 export const PLUGIN_CHANGELOG: ChangelogChanges[] = [
   {
-    title: 'Fixed',
+    title: '2.2.3',
+    type: 'fixed',
+    items: ['Fix Clyde message when sending emote'],
+  },
+  {
+    title: '2.2.2',
     type: 'fixed',
     items: ['Fixed emote upload (again)'],
   },

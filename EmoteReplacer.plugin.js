@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.2.2
+ * @version 2.2.3
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -14,7 +14,12 @@ var fs = require('fs');
 
 const PLUGIN_CHANGELOG = [
   {
-    title: 'Fixed',
+    title: '2.2.3',
+    type: 'fixed',
+    items: ['Fix Clyde message when sending emote'],
+  },
+  {
+    title: '2.2.2',
     type: 'fixed',
     items: ['Fixed emote upload (again)'],
   },
@@ -2633,6 +2638,8 @@ class SendMessageService extends BaseService {
         const attachment = await this.fetchBlobAndUpload(foundEmote);
         if (attachment) {
           attachmentData.attachmentsToUpload = [attachment];
+          message.invalidEmojis = undefined;
+
           callDefault(...args);
         }
 
