@@ -343,28 +343,15 @@ export class CompletionsService extends BaseService {
     );
     autocompleteDiv.append(autocompleteInnerDiv);
 
-    const titleRow = document.createElement('div');
-    this.htmlService.addClasses(titleRow, discordClasses.Autocomplete.autocompleteRowVertical);
-    autocompleteInnerDiv.append(titleRow);
-
-    const selector = document.createElement('div');
-    this.htmlService.addClasses(selector, discordClasses.Autocomplete.base);
-    titleRow.append(selector);
+    const header = document.createElement('div');
+    this.htmlService.addClasses(header, discordClasses.Autocomplete.base);
+    autocompleteInnerDiv.append(header);
 
     const contentTitle = document.createElement('h3');
-    this.htmlService.addClasses(
-      contentTitle,
-      discordClasses.Autocomplete.contentTitle,
-      discordClasses.Wrapper.base,
-      discordClasses.Size.size12
-    );
+    this.htmlService.addClasses(contentTitle, discordClasses.Autocomplete.contentTitle);
 
-    contentTitle.innerText = isEmote ? 'Emoji matching ' : 'Commands ';
-    selector.append(contentTitle);
-
-    const matchTextElement = document.createElement('strong');
-    matchTextElement.textContent = matchText ?? '';
-    contentTitle.append(matchTextElement);
+    contentTitle.innerText = (isEmote ? 'Emoji matching ' : 'Commands ') + (matchText ?? '');
+    header.append(contentTitle);
 
     for (const [index, { name, data }] of matchList?.entries() ?? []) {
       const emoteRow = document.createElement('div');
@@ -384,12 +371,8 @@ export class CompletionsService extends BaseService {
           if (!this.cached) this.cached = {};
           this.cached.selectedIndex = index + firstIndex;
 
-          for (const child of titleRow.parentElement?.children ?? []) {
+          for (const child of autocompleteInnerDiv.children ?? []) {
             child.setAttribute('aria-selected', 'false');
-
-            for (const nestedChild of child.children) {
-              this.htmlService.addClasses(nestedChild, discordClasses.Autocomplete.base);
-            }
           }
         },
       };

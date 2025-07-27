@@ -171,18 +171,15 @@ export class ModulesService extends BaseService {
     ) as Classes['Autocomplete'];
     if (Autocomplete === undefined) this.logger.error('Autocomplete not found!');
 
+    const Autocomplete2 = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteInner', 'scroller')
+    ) as Classes['Autocomplete'];
+    if (Autocomplete2 === undefined) this.logger.error('Autocomplete2 not found!');
+
     const autocompleteAttached = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteAttached')
     ) as AutocompleteAttached;
     if (autocompleteAttached === undefined) this.logger.error('autocompleteAttached not found!');
-
-    const Wrapper = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('wrapper', 'base')
-    ) as Classes['Wrapper'];
-    if (Wrapper === undefined) this.logger.error('Wrapper not found!');
-
-    const Size = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('size12')) as Classes['Size'];
-    if (Size === undefined) this.logger.error('Size not found!');
 
     this.classes = {
       TextArea,
@@ -195,10 +192,10 @@ export class ModulesService extends BaseService {
           autocompleteAttached?.autocompleteAttached,
           Autocomplete?.autocomplete,
         ].join(' '),
+        autocompleteInner: [Autocomplete?.autocompleteInner, Autocomplete2.autocompleteInner].join(
+          ' '
+        ),
       },
-
-      Wrapper,
-      Size,
     };
 
     Object.entries(this).forEach(([key, value]) => {

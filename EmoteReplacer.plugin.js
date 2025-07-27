@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.2.3
+ * @version 2.2.4
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -13,6 +13,11 @@
 var fs = require('fs');
 
 const PLUGIN_CHANGELOG = [
+  {
+    title: '2.2.4',
+    type: 'fixed',
+    items: ['Fix custom emote autocomplete window'],
+  },
   {
     title: '2.2.3',
     type: 'fixed',
@@ -622,28 +627,15 @@ class CompletionsService extends BaseService {
     );
     autocompleteDiv.append(autocompleteInnerDiv);
 
-    const titleRow = document.createElement('div');
-    this.htmlService.addClasses(titleRow, discordClasses.Autocomplete.autocompleteRowVertical);
-    autocompleteInnerDiv.append(titleRow);
-
-    const selector = document.createElement('div');
-    this.htmlService.addClasses(selector, discordClasses.Autocomplete.base);
-    titleRow.append(selector);
+    const header = document.createElement('div');
+    this.htmlService.addClasses(header, discordClasses.Autocomplete.base);
+    autocompleteInnerDiv.append(header);
 
     const contentTitle = document.createElement('h3');
-    this.htmlService.addClasses(
-      contentTitle,
-      discordClasses.Autocomplete.contentTitle,
-      discordClasses.Wrapper.base,
-      discordClasses.Size.size12
-    );
+    this.htmlService.addClasses(contentTitle, discordClasses.Autocomplete.contentTitle);
 
-    contentTitle.innerText = isEmote ? 'Emoji matching ' : 'Commands ';
-    selector.append(contentTitle);
-
-    const matchTextElement = document.createElement('strong');
-    matchTextElement.textContent = matchText ?? '';
-    contentTitle.append(matchTextElement);
+    contentTitle.innerText = (isEmote ? 'Emoji matching ' : 'Commands ') + (matchText ?? '');
+    header.append(contentTitle);
 
     for (const [index, { name, data }] of matchList?.entries() ?? []) {
       const emoteRow = document.createElement('div');
@@ -663,12 +655,8 @@ class CompletionsService extends BaseService {
           if (!this.cached) this.cached = {};
           this.cached.selectedIndex = index + firstIndex;
 
-          for (const child of titleRow.parentElement?.children ?? []) {
+          for (const child of autocompleteInnerDiv.children ?? []) {
             child.setAttribute('aria-selected', 'false');
-
-            for (const nestedChild of child.children) {
-              this.htmlService.addClasses(nestedChild, discordClasses.Autocomplete.base);
-            }
           }
         },
       };
@@ -2509,16 +2497,15 @@ class ModulesService extends BaseService {
     );
     if (Autocomplete === undefined) this.logger.error('Autocomplete not found!');
 
+    const Autocomplete2 = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteInner', 'scroller')
+    );
+    if (Autocomplete2 === undefined) this.logger.error('Autocomplete2 not found!');
+
     const autocompleteAttached = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteAttached')
     );
     if (autocompleteAttached === undefined) this.logger.error('autocompleteAttached not found!');
-
-    const Wrapper = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('wrapper', 'base'));
-    if (Wrapper === undefined) this.logger.error('Wrapper not found!');
-
-    const Size = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('size12'));
-    if (Size === undefined) this.logger.error('Size not found!');
 
     this.classes = {
       TextArea,
@@ -2531,10 +2518,10 @@ class ModulesService extends BaseService {
           autocompleteAttached?.autocompleteAttached,
           Autocomplete?.autocomplete,
         ].join(' '),
+        autocompleteInner: [Autocomplete?.autocompleteInner, Autocomplete2.autocompleteInner].join(
+          ' '
+        ),
       },
-
-      Wrapper,
-      Size,
     };
 
     Object.entries(this).forEach(([key, value]) => {
