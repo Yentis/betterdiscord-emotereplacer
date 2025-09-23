@@ -1,10 +1,8 @@
 export default interface Emoji {
-  id: string
-  name: string
-  originalName?: string
-  allNamesString: string
-
-  animated: boolean
-  available: boolean
-  managed: boolean
+  id: string;
+  name: string;
+  originalName?: string;
+  animated: boolean;
+  available: boolean;
+  managed: boolean;
 }

@@ -3,6 +3,11 @@ import Modifier from './interfaces/modifier';
 
 export const PLUGIN_CHANGELOG: ChangelogChanges[] = [
   {
+    title: '2.2.5',
+    type: 'fixed',
+    items: ['Fixed emote upload'],
+  },
+  {
     title: '2.2.4',
     type: 'fixed',
     items: ['Fix custom emote autocomplete window'],

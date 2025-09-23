@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.2.4
+ * @version 2.2.5
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -13,6 +13,11 @@
 var fs = require('fs');
 
 const PLUGIN_CHANGELOG = [
+  {
+    title: '2.2.5',
+    type: 'fixed',
+    items: ['Fixed emote upload'],
+  },
   {
     title: '2.2.4',
     type: 'fixed',
@@ -2722,8 +2727,7 @@ class SendMessageService extends BaseService {
     if (!emoji) return {};
 
     const emojiName = emoji.originalName ?? emoji.name;
-    const allNamesString = emoji.allNamesString.replace(emoji.name, emojiName);
-    const emojiText = `<${emoji.animated ? 'a' : ''}${allNamesString}${emoji.id}>`;
+    const emojiText = `<${emoji.animated ? 'a' : ''}:${emojiName}:${emoji.id}>`;
 
     const result = {};
     const url = `https://cdn.discordapp.com/emojis/${emoji.id}`;

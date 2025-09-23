@@ -198,8 +198,7 @@ export class SendMessageService extends BaseService {
     if (!emoji) return {};
 
     const emojiName = emoji.originalName ?? emoji.name;
-    const allNamesString = emoji.allNamesString.replace(emoji.name, emojiName);
-    const emojiText = `<${emoji.animated ? 'a' : ''}${allNamesString}${emoji.id}>`;
+    const emojiText = `<${emoji.animated ? 'a' : ''}:${emojiName}:${emoji.id}>`;
 
     const result: Record<string, InternalEmoteSimple> = {};
     const url = `https://cdn.discordapp.com/emojis/${emoji.id}`;
