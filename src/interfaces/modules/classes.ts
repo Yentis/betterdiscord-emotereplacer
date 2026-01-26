@@ -19,6 +19,10 @@ export default interface Classes {
     clickable: string;
     emojiImage: string;
   };
+  Util: {
+    autocomplete: string;
+    autocompleteInner: string;
+  };
 }
 
 export interface AutocompleteAttached {

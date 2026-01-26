@@ -68,7 +68,8 @@ export class ModulesService extends BaseService {
     );
 
     this.dispatcher = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('dispatch', 'subscribe')
+      BdApi.Webpack.Filters.byKeys('dispatch', 'subscribe'),
+      { searchExports: true }
     ) as Dispatcher;
 
     this.componentDispatcher = this.getModule(
@@ -184,9 +185,8 @@ export class ModulesService extends BaseService {
     this.classes = {
       TextArea,
       Editor,
-
-      Autocomplete: {
-        ...Autocomplete,
+      Autocomplete,
+      Util: {
         autocomplete: [
           autocompleteAttached?.autocomplete,
           autocompleteAttached?.autocompleteAttached,

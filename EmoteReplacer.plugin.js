@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.2.5
+ * @version 2.2.6
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -14,24 +14,9 @@ var fs = require('fs');
 
 const PLUGIN_CHANGELOG = [
   {
-    title: '2.2.5',
+    title: '2.2.6',
     type: 'fixed',
-    items: ['Fixed emote upload'],
-  },
-  {
-    title: '2.2.4',
-    type: 'fixed',
-    items: ['Fix custom emote autocomplete window'],
-  },
-  {
-    title: '2.2.3',
-    type: 'fixed',
-    items: ['Fix Clyde message when sending emote'],
-  },
-  {
-    title: '2.2.2',
-    type: 'fixed',
-    items: ['Fixed emote upload (again)'],
+    items: ['Fixed custom emote autocomplete window', 'Fixed upload permissions check'],
   },
 ];
 
@@ -604,7 +589,7 @@ class CompletionsService extends BaseService {
     const autocompleteDiv = document.createElement('div');
     this.htmlService.addClasses(
       autocompleteDiv,
-      discordClasses.Autocomplete.autocomplete,
+      discordClasses.Util.autocomplete,
       this.plugin.meta.name
     );
     const autocompleteListener = {
@@ -626,10 +611,7 @@ class CompletionsService extends BaseService {
     channelTextArea.append(autocompleteDiv);
 
     const autocompleteInnerDiv = document.createElement('div');
-    this.htmlService.addClasses(
-      autocompleteInnerDiv,
-      discordClasses.Autocomplete.autocompleteInner
-    );
+    this.htmlService.addClasses(autocompleteInnerDiv, discordClasses.Util.autocompleteInner);
     autocompleteDiv.append(autocompleteInnerDiv);
 
     const header = document.createElement('div');
@@ -2405,7 +2387,8 @@ class ModulesService extends BaseService {
     );
 
     this.dispatcher = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('dispatch', 'subscribe')
+      BdApi.Webpack.Filters.byKeys('dispatch', 'subscribe'),
+      { searchExports: true }
     );
 
     this.componentDispatcher = this.getModule(
@@ -2515,9 +2498,8 @@ class ModulesService extends BaseService {
     this.classes = {
       TextArea,
       Editor,
-
-      Autocomplete: {
-        ...Autocomplete,
+      Autocomplete,
+      Util: {
         autocomplete: [
           autocompleteAttached?.autocomplete,
           autocompleteAttached?.autocompleteAttached,

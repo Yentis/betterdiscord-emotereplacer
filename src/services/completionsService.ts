@@ -315,7 +315,7 @@ export class CompletionsService extends BaseService {
     const autocompleteDiv = document.createElement('div');
     this.htmlService.addClasses(
       autocompleteDiv,
-      discordClasses.Autocomplete.autocomplete,
+      discordClasses.Util.autocomplete,
       this.plugin.meta.name
     );
     const autocompleteListener: Listener = {
@@ -337,10 +337,7 @@ export class CompletionsService extends BaseService {
     channelTextArea.append(autocompleteDiv);
 
     const autocompleteInnerDiv = document.createElement('div');
-    this.htmlService.addClasses(
-      autocompleteInnerDiv,
-      discordClasses.Autocomplete.autocompleteInner
-    );
+    this.htmlService.addClasses(autocompleteInnerDiv, discordClasses.Util.autocompleteInner);
     autocompleteDiv.append(autocompleteInnerDiv);
 
     const header = document.createElement('div');
