@@ -1,5 +1,5 @@
 import ChannelStore from 'interfaces/modules/channelStore';
-import Classes, { AutocompleteAttached } from 'interfaces/modules/classes';
+import Classes from 'interfaces/modules/classes';
 import ComponentDispatcher from 'interfaces/modules/componentDispatcher';
 import EmojiDisabledReasons from 'interfaces/modules/emojiDisabledReasons';
 import DiscordPermissions from 'interfaces/modules/discordPermissions';
@@ -45,20 +45,50 @@ export class ModulesService extends BaseService {
   classes!: Classes;
   CloudUploader!: CloudUpload;
 
+  private classMapping = {
+    TextArea: {
+      channelTextArea: 'channelTextArea_',
+      textArea: 'textArea_',
+    },
+    Editor: {
+      editor: 'editor_',
+      placeholder: 'placeholder_',
+    },
+    Autocomplete: {
+      autocomplete: 'autocomplete_',
+      autocompleteInner: 'autocompleteInner_',
+      autocompleteRowContent: 'autocompleteRowContent_',
+      autocompleteRowContentPrimary: 'autocompleteRowContentPrimary_',
+      autocompleteRowIcon: 'autocompleteRowIcon_',
+      autocompleteRowVertical: 'autocompleteRowVertical_',
+      autocompleteRowVerticalSmall: 'autocompleteRowVerticalSmall_',
+      base: 'base_',
+      contentTitle: 'contentTitle_',
+      clickable: 'clickable_',
+      emojiImage: 'emojiImage_',
+    },
+    Autocomplete2: {
+      autocomplete: 'autocomplete_',
+      autocompleteInner: 'autocompleteInner_',
+      autocompleteAttached: 'autocompleteAttached_',
+      scroller: 'scroller_',
+    },
+  };
+
   public start(): Promise<void> {
     this.channelStore = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('getChannel', 'hasChannel')
-    ) as ChannelStore;
+    );
 
-    this.draft = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('changeDraft')) as Draft;
+    this.draft = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('changeDraft'));
 
     this.draftStore = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('getDraft', 'getRecentlyEditedDrafts')
-    ) as DraftStore;
+    );
 
     this.permissions = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('getChannelPermissions')
-    ) as Permissions;
+    );
 
     this.discordPermissions = this.getModule(
       (module: Record<string, unknown>) => {
@@ -70,7 +100,7 @@ export class ModulesService extends BaseService {
     this.dispatcher = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('dispatch', 'subscribe'),
       { searchExports: true }
-    ) as Dispatcher;
+    );
 
     this.componentDispatcher = this.getModule(
       (module: Record<string, unknown>) => {
@@ -86,16 +116,16 @@ export class ModulesService extends BaseService {
 
     this.emojiStore = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('getEmojiUnavailableReason')
-    ) as EmojiStore;
+    );
 
     this.emojiSearch = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('getDisambiguatedEmojiContext')
-    ) as EmojiSearch;
+    );
 
     this.emojiDisabledReasons = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('PREMIUM_LOCKED'),
       { searchExports: true }
-    ) as EmojiDisabledReasons;
+    );
 
     const [module] = BdApi.Webpack.getWithKey(
       BdApi.Webpack.Filters.byStrings('canUseCustomStickersEverywhere')
@@ -131,7 +161,7 @@ export class ModulesService extends BaseService {
 
     this.stickerType = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('STANDARD', 'GUILD'), {
       searchExports: true,
-    }) as StickerType;
+    });
 
     this.stickerFormatType = this.getModule(
       (module: Record<string | number, unknown>) => {
@@ -142,45 +172,20 @@ export class ModulesService extends BaseService {
 
     this.stickerStore = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('getStickerById', 'getStickersByGuildId')
-    ) as StickerStore;
+    );
 
-    this.userStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('getCurrentUser')
-    ) as UserStore;
-
-    this.messageStore = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('sendMessage')
-    ) as MessageStore;
+    this.userStore = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('getCurrentUser'));
+    this.messageStore = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('sendMessage'));
 
     this.CloudUploader = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byStrings('uploadFileToCloud'),
       { searchExports: true }
-    ) as CloudUpload;
+    );
 
-    const TextArea = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('channelTextArea', 'textArea')
-    ) as Classes['TextArea'];
-    if (TextArea === undefined) this.logger.error('TextArea not found!');
-
-    const Editor = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('editor', 'placeholder')
-    ) as Classes['Editor'];
-    if (Editor === undefined) this.logger.error('Editor not found!');
-
-    const Autocomplete = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteInner', 'autocompleteRowVertical')
-    ) as Classes['Autocomplete'];
-    if (Autocomplete === undefined) this.logger.error('Autocomplete not found!');
-
-    const Autocomplete2 = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteInner', 'scroller')
-    ) as Classes['Autocomplete'];
-    if (Autocomplete2 === undefined) this.logger.error('Autocomplete2 not found!');
-
-    const autocompleteAttached = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteAttached')
-    ) as AutocompleteAttached;
-    if (autocompleteAttached === undefined) this.logger.error('autocompleteAttached not found!');
+    const TextArea = this.getClassNames('TextArea', this.classMapping.TextArea);
+    const Editor = this.getClassNames('Editor', this.classMapping.Editor);
+    const Autocomplete = this.getClassNames('Autocomplete', this.classMapping.Autocomplete);
+    const Autocomplete2 = this.getClassNames('Autocomplete2', this.classMapping.Autocomplete2);
 
     this.classes = {
       TextArea,
@@ -188,8 +193,8 @@ export class ModulesService extends BaseService {
       Autocomplete,
       Util: {
         autocomplete: [
-          autocompleteAttached?.autocomplete,
-          autocompleteAttached?.autocompleteAttached,
+          Autocomplete2?.autocomplete,
+          Autocomplete2?.autocompleteAttached,
           Autocomplete?.autocomplete,
         ].join(' '),
         autocompleteInner: [Autocomplete?.autocompleteInner, Autocomplete2.autocompleteInner].join(
@@ -213,7 +218,24 @@ export class ModulesService extends BaseService {
       } catch (ignored) {
         return false;
       }
-    }, searchOptions) as T;
+    }, searchOptions);
+  }
+
+  private getClassNames<T extends Record<string, string>>(name: string, classMapping: T): T {
+    const module: Record<string, string> = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.bySource(...Object.values(classMapping))
+    );
+    if (module === undefined) this.logger.error(`${name} not found!`);
+
+    const classNames: Record<string, string> = {};
+    Object.values(module).forEach((value) => {
+      Object.entries(classMapping).forEach(([key, mapping]) => {
+        if (!value.startsWith(mapping)) return;
+        classNames[key] = value;
+      });
+    });
+
+    return classNames as T;
   }
 
   public stop(): void {

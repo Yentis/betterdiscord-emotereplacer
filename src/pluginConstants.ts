@@ -3,9 +3,9 @@ import Modifier from './interfaces/modifier';
 
 export const PLUGIN_CHANGELOG: ChangelogChanges[] = [
   {
-    title: '2.2.6',
+    title: '2.2.7',
     type: 'fixed',
-    items: ['Fixed custom emote autocomplete window', 'Fixed upload permissions check'],
+    items: ['Fixed plugin'],
   },
 ];
 

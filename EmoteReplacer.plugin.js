@@ -1,6 +1,6 @@
 /**
  * @name EmoteReplacer
- * @version 2.2.6
+ * @version 2.2.7
  * @description Check for known emote names and replace them with an embedded image of the emote. Also supports modifiers similar to BetterDiscord's emotes. Standard emotes: https://yentis.github.io/emotes/
  * @license MIT
  * @author Yentis
@@ -14,9 +14,9 @@ var fs = require('fs');
 
 const PLUGIN_CHANGELOG = [
   {
-    title: '2.2.6',
+    title: '2.2.7',
     type: 'fixed',
-    items: ['Fixed custom emote autocomplete window', 'Fixed upload permissions check'],
+    items: ['Fixed plugin'],
   },
 ];
 
@@ -2364,6 +2364,36 @@ class ModulesService extends BaseService {
   classes;
   CloudUploader;
 
+  classMapping = {
+    TextArea: {
+      channelTextArea: 'channelTextArea_',
+      textArea: 'textArea_',
+    },
+    Editor: {
+      editor: 'editor_',
+      placeholder: 'placeholder_',
+    },
+    Autocomplete: {
+      autocomplete: 'autocomplete_',
+      autocompleteInner: 'autocompleteInner_',
+      autocompleteRowContent: 'autocompleteRowContent_',
+      autocompleteRowContentPrimary: 'autocompleteRowContentPrimary_',
+      autocompleteRowIcon: 'autocompleteRowIcon_',
+      autocompleteRowVertical: 'autocompleteRowVertical_',
+      autocompleteRowVerticalSmall: 'autocompleteRowVerticalSmall_',
+      base: 'base_',
+      contentTitle: 'contentTitle_',
+      clickable: 'clickable_',
+      emojiImage: 'emojiImage_',
+    },
+    Autocomplete2: {
+      autocomplete: 'autocomplete_',
+      autocompleteInner: 'autocompleteInner_',
+      autocompleteAttached: 'autocompleteAttached_',
+      scroller: 'scroller_',
+    },
+  };
+
   start() {
     this.channelStore = BdApi.Webpack.getModule(
       BdApi.Webpack.Filters.byKeys('getChannel', 'hasChannel')
@@ -2464,7 +2494,6 @@ class ModulesService extends BaseService {
     );
 
     this.userStore = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('getCurrentUser'));
-
     this.messageStore = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('sendMessage'));
 
     this.CloudUploader = BdApi.Webpack.getModule(
@@ -2472,28 +2501,10 @@ class ModulesService extends BaseService {
       { searchExports: true }
     );
 
-    const TextArea = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('channelTextArea', 'textArea')
-    );
-    if (TextArea === undefined) this.logger.error('TextArea not found!');
-
-    const Editor = BdApi.Webpack.getModule(BdApi.Webpack.Filters.byKeys('editor', 'placeholder'));
-    if (Editor === undefined) this.logger.error('Editor not found!');
-
-    const Autocomplete = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteInner', 'autocompleteRowVertical')
-    );
-    if (Autocomplete === undefined) this.logger.error('Autocomplete not found!');
-
-    const Autocomplete2 = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteInner', 'scroller')
-    );
-    if (Autocomplete2 === undefined) this.logger.error('Autocomplete2 not found!');
-
-    const autocompleteAttached = BdApi.Webpack.getModule(
-      BdApi.Webpack.Filters.byKeys('autocomplete', 'autocompleteAttached')
-    );
-    if (autocompleteAttached === undefined) this.logger.error('autocompleteAttached not found!');
+    const TextArea = this.getClassNames('TextArea', this.classMapping.TextArea);
+    const Editor = this.getClassNames('Editor', this.classMapping.Editor);
+    const Autocomplete = this.getClassNames('Autocomplete', this.classMapping.Autocomplete);
+    const Autocomplete2 = this.getClassNames('Autocomplete2', this.classMapping.Autocomplete2);
 
     this.classes = {
       TextArea,
@@ -2501,8 +2512,8 @@ class ModulesService extends BaseService {
       Autocomplete,
       Util: {
         autocomplete: [
-          autocompleteAttached?.autocomplete,
-          autocompleteAttached?.autocompleteAttached,
+          Autocomplete2?.autocomplete,
+          Autocomplete2?.autocompleteAttached,
           Autocomplete?.autocomplete,
         ].join(' '),
         autocompleteInner: [Autocomplete?.autocompleteInner, Autocomplete2.autocompleteInner].join(
@@ -2527,6 +2538,23 @@ class ModulesService extends BaseService {
         return false;
       }
     }, searchOptions);
+  }
+
+  getClassNames(name, classMapping) {
+    const module = BdApi.Webpack.getModule(
+      BdApi.Webpack.Filters.bySource(...Object.values(classMapping))
+    );
+    if (module === undefined) this.logger.error(`${name} not found!`);
+
+    const classNames = {};
+    Object.values(module).forEach((value) => {
+      Object.entries(classMapping).forEach(([key, mapping]) => {
+        if (!value.startsWith(mapping)) return;
+        classNames[key] = value;
+      });
+    });
+
+    return classNames;
   }
 
   stop() {
